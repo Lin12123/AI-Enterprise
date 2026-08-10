@@ -1,0 +1,217 @@
+﻿"""Cut feature implementation for fixed API executor."""
+
+import math
+import os
+
+OPERATION_TYPE = "extrude_cut"
+STATUS = "implemented"
+
+
+def extrude_cut(sw_model: object, params: dict, state: dict) -> None:
+    from solidworks_api.features.extrude import _close_active_sketch
+    from solidworks_api.features.hole import _through_all_cut
+    from solidworks_api.units import mm_to_m
+
+    _close_active_sketch(sw_model, state)
+    if params.get("through_all", False):
+        feature = _through_all_cut(sw_model)
+        if feature is None:
+            raise RuntimeError("extrude_cut through_all failed: FeatureCut3 returned None")
+        return
+
+    depth = float(params["depth"])
+    reverse = params.get("direction", "normal") == "reverse"
+    sw_model.FeatureManager.FeatureCut3(
+        True, False, reverse, 0, 0, mm_to_m(depth), 0,
+        False, False, False, False, 0, 0, False, False, False, False,
+        False, True, True, True, True, False, 0, 0, False,
+    )
+
+
+def cut_rectangle_pocket(sw_model: object, params: dict, state: dict) -> None:
+    from solidworks_api.features.extrude import _close_active_sketch
+    from solidworks_api.features.hole import _blind_cut
+    from solidworks_api.sketch_builder import _select_sketch_plane
+    from solidworks_api.units import mm_to_m
+
+    center = params.get("center", [0, 0])
+    length = float(params["length"])
+    width = float(params["width"])
+    depth = float(params["depth"])
+    plane = str(params.get("plane", "top_face"))
+    host = str(params.get("host", "base"))
+    _close_active_sketch(sw_model, state)
+    _select_sketch_plane(sw_model, plane, state, host=host)
+    sw_model.SketchManager.InsertSketch(True)
+    sw_model.SketchManager.CreateCenterRectangle(
+        mm_to_m(float(center[0])),
+        mm_to_m(float(center[1])),
+        0,
+        mm_to_m(float(center[0]) + length / 2),
+        mm_to_m(float(center[1]) + width / 2),
+        0,
+    )
+    sw_model.SketchManager.InsertSketch(True)
+    feature = _blind_cut(sw_model, depth)
+    if feature is None:
+        raise RuntimeError("cut_rectangle_pocket failed: FeatureCut3 returned None")
+    _record_pattern_seed_feature(
+        state,
+        feature,
+        feature_type="rectangle_pocket",
+        params={"plane": plane, "host": host, "center": [float(center[0]), float(center[1])], "length": length, "width": width, "depth": depth},
+    )
+
+
+def cut_slot(sw_model: object, params: dict, state: dict) -> None:
+    from solidworks_api.features.extrude import _close_active_sketch
+    from solidworks_api.features.hole import _blind_cut
+    from solidworks_api.sketch_builder import _select_sketch_plane
+    from solidworks_api.units import mm_to_m
+
+    center = params.get("center", [0, 0])
+    length = float(params["length"])
+    width = float(params["width"])
+    plane = str(params.get("plane", "top_face"))
+    host = str(params.get("host", "base"))
+    through_all = bool(params.get("through_all", False))
+    depth = float(params.get("depth", state.get("base", {}).get("thickness", 1)))
+    direction = str(params.get("direction", "x")).strip().lower()
+    angle_deg = float(params.get("angle", 90 if direction == "y" else 0))
+    x = float(center[0])
+    y = float(center[1])
+    sketch_length = length
+    sketch_width = width
+    base = state.get("base", {})
+    base_length = float(base.get("length", 0) or 0)
+    base_width = float(base.get("width", 0) or 0)
+    overshoot_mm = 0.2
+    if direction == "y" and base_width > 0 and abs(length - base_width) <= 1e-6:
+        # Open-edge width-direction slots need a slight overshoot past the side edges;
+        # otherwise SOLIDWORKS can treat the contour as an invalid closed cut and
+        # FeatureCut3 returns None on SW2019.
+        sketch_length = length + overshoot_mm
+    elif direction == "x" and base_length > 0 and abs(length - base_length) <= 1e-6:
+        sketch_length = length + overshoot_mm
+
+    _close_active_sketch(sw_model, state)
+    _select_sketch_plane(sw_model, plane, state, host=host)
+    sw_model.SketchManager.InsertSketch(True)
+    if _native_slot_api_enabled() and hasattr(sw_model.SketchManager, "CreateSketchSlot"):
+        try:
+            _create_native_slot(sw_model, x, y, sketch_length, sketch_width, angle_deg)
+        except Exception:
+            _create_rectangular_slot_fallback(sw_model, x, y, sketch_length, sketch_width, angle_deg)
+    else:
+        _create_rectangular_slot_fallback(sw_model, x, y, sketch_length, sketch_width, angle_deg)
+    sw_model.SketchManager.InsertSketch(True)
+    if through_all:
+        from solidworks_api.features.hole import _through_all_cut
+
+        feature = _through_all_cut(sw_model)
+        if feature is None:
+            raise RuntimeError("cut_slot through_all failed: FeatureCut3 returned None")
+    else:
+        feature = _blind_cut(sw_model, depth)
+        if feature is None:
+            raise RuntimeError("cut_slot failed: FeatureCut3 returned None")
+    _record_pattern_seed_feature(
+        state,
+        feature,
+        feature_type="slot",
+        params={
+            "plane": plane,
+            "host": host,
+            "center": [x, y],
+            "length": length,
+            "width": width,
+            "depth": depth,
+            "through_all": through_all,
+            "direction": direction,
+        },
+    )
+
+
+def _record_pattern_seed_feature(state: dict, feature: object, feature_type: str, params: dict) -> None:
+    features = state.setdefault("feature_params", {})
+    aliases: list[str] = []
+
+    operation_id = str(state.get("current_operation_id", "")).strip()
+    if operation_id:
+        aliases.append(operation_id)
+    feature_name = str(getattr(feature, "Name", "") or "").strip()
+    if feature_name:
+        aliases.append(feature_name)
+
+    feature_data = {"type": feature_type, **dict(params)}
+    for alias in dict.fromkeys(alias for alias in aliases if alias):
+        features[alias] = feature_data
+    state["last_pattern_seed_feature"] = feature_data
+
+
+def _native_slot_api_enabled() -> bool:
+    return os.environ.get("AI_SW_ENABLE_EXPERIMENTAL_SLOT_API", "0").strip() == "1"
+
+
+def _create_native_slot(
+    sw_model: object,
+    x_mm: float,
+    y_mm: float,
+    length_mm: float,
+    width_mm: float,
+    angle_deg: float = 0,
+) -> None:
+    from solidworks_api.units import mm_to_m
+
+    half_straight = (length_mm - width_mm) / 2
+    angle_rad = math.radians(angle_deg)
+    axis_dx = math.cos(angle_rad)
+    axis_dy = math.sin(angle_rad)
+    normal_dx = -math.sin(angle_rad)
+    normal_dy = math.cos(angle_rad)
+
+    # SOLIDWORKS native slot COM path is intentionally opt-in because SW2019 can
+    # reject the signature with opaque COM errors such as "unable to read only-write property".
+    sw_model.SketchManager.CreateSketchSlot(
+        0,
+        0,
+        mm_to_m(width_mm),
+        mm_to_m(x_mm - axis_dx * half_straight),
+        mm_to_m(y_mm - axis_dy * half_straight),
+        0,
+        mm_to_m(x_mm + axis_dx * half_straight),
+        mm_to_m(y_mm + axis_dy * half_straight),
+        0,
+        mm_to_m(x_mm + normal_dx * width_mm / 2),
+        mm_to_m(y_mm + normal_dy * width_mm / 2),
+        0,
+    )
+
+
+def _create_rectangular_slot_fallback(
+    sw_model: object,
+    x_mm: float,
+    y_mm: float,
+    length_mm: float,
+    width_mm: float,
+    angle_deg: float = 0,
+) -> None:
+    from solidworks_api.units import mm_to_m
+
+    if round(angle_deg) % 180 == 90:
+        length_mm, width_mm = width_mm, length_mm
+    sw_model.SketchManager.CreateCenterRectangle(
+        mm_to_m(x_mm),
+        mm_to_m(y_mm),
+        0,
+        mm_to_m(x_mm + length_mm / 2),
+        mm_to_m(y_mm + width_mm / 2),
+        0,
+    )
+
+
+def build(*args, **kwargs) -> None:
+    extrude_cut(*args, **kwargs)
+
+
+

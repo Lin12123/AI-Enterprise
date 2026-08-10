@@ -1,0 +1,143 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CADPlan Lite",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "template": {
+      "enum": ["mounting_plate", "blank_part"],
+      "description": "Supported Enterprise CADPlan Lite templates. Use blank_part only for an empty/new part with no geometry features."
+    },
+    "unit": {
+      "const": "mm",
+      "description": "All dimensions are millimeters."
+    },
+    "part_name": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "description": "Safe part name only; no paths or file extensions."
+    },
+    "base": {
+      "type": "object",
+      "description": "Main plate body. Rectangular plates use length, width, and thickness. Circular bases use diameter plus thickness; validator mirrors diameter into length and width.",
+      "additionalProperties": false,
+      "properties": {
+        "shape": { "enum": ["rectangle", "circle"], "description": "Base shape. Use rectangle unless the user explicitly requests a circular base." },
+        "diameter": { "type": "number", "exclusiveMinimum": 0, "maximum": 1000, "description": "Circular base diameter in mm." },
+        "length": { "type": "number", "exclusiveMinimum": 0, "maximum": 1000, "description": "Rectangular base length in mm. Use explicit user-provided dimensions before fallback defaults. Use fallback 120 only when length is omitted." },
+        "width": { "type": "number", "exclusiveMinimum": 0, "maximum": 1000, "description": "Rectangular base width in mm. Use explicit user-provided dimensions before fallback defaults. Use fallback 80 only when width is omitted." },
+        "thickness": { "type": "number", "exclusiveMinimum": 0, "maximum": 100, "description": "Base thickness in mm. Use explicit user-provided dimensions before fallback defaults. Use fallback 12 only when thickness is omitted." }
+      },
+      "required": ["length", "width", "thickness"]
+    },
+    "corner_holes": {
+      "type": "object",
+      "description": "Standard four-corner through-hole pattern for screws, bolts, mounting holes, or clearance holes on a rectangular plate.",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean", "description": "True when the user requests four corner holes." },
+        "diameter": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Hole diameter in mm as a JSON number. M6 clearance holes must be 6.6, not the string M6. If four-corner holes are requested but the user omits diameter, recommend a value from context; otherwise use fallback 6.6 and note it."
+        },
+        "offset_x": { "type": "number", "exclusiveMinimum": 0, "description": "Hole center X offset from the plate center in mm. Omit when the user does not specify edge margin or offset." },
+        "offset_y": { "type": "number", "exclusiveMinimum": 0, "description": "Hole center Y offset from the plate center in mm. Omit when the user does not specify edge margin or offset." },
+        "through_all": { "type": "boolean", "description": "True for through holes." }
+      },
+      "required": ["enabled", "through_all"],
+      "allOf": [
+        {
+          "if": {
+            "properties": { "enabled": { "const": true } },
+            "required": ["enabled"]
+          },
+          "then": { "required": ["diameter"] }
+        }
+      ]
+    },
+    "center_boss": {
+      "type": "object",
+      "description": "One centered circular raised boss/platform/cylindrical pad on top of the base. Map centered round raised platforms here.",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean", "description": "True when the user requests a center boss, raised round platform, or cylindrical pad." },
+        "diameter": { "type": "number", "exclusiveMinimum": 0, "description": "Boss/platform diameter in mm. If a boss is requested but diameter is omitted, recommend a value from context; otherwise use fallback 30 and note it." },
+        "height": { "type": "number", "exclusiveMinimum": 0, "maximum": 300, "description": "Boss/platform height in mm. If a boss is requested but height is omitted, recommend a value from context; otherwise use fallback 25 and note it." }
+      },
+      "required": ["enabled"],
+      "allOf": [
+        {
+          "if": {
+            "properties": { "enabled": { "const": true } },
+            "required": ["enabled"]
+          },
+          "then": { "required": ["diameter", "height"] }
+        }
+      ]
+    },
+    "center_hole": {
+      "type": "object",
+      "description": "One through hole at the center of the center boss/platform or, when no boss is requested, at the center of the base top face.",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean", "description": "True when the user requests a center hole through the boss/platform." },
+        "diameter": { "type": "number", "exclusiveMinimum": 0, "description": "Center hole diameter in mm. If a center hole is requested but diameter is omitted, recommend a value from context. Keep it smaller than center_boss.diameter when a boss exists, otherwise smaller than the base width/diameter." },
+        "through_all": { "type": "boolean", "description": "True for through holes." },
+        "target": { "enum": ["base", "boss"], "description": "Validator-filled target. LLM may omit it." }
+      },
+      "required": ["enabled", "through_all"],
+      "allOf": [
+        {
+          "if": {
+            "properties": { "enabled": { "const": true } },
+            "required": ["enabled"]
+          },
+          "then": { "required": ["diameter"] }
+        }
+      ]
+    },
+    "fillet": {
+      "type": "object",
+      "description": "Rounded base outer edges. Map edge rounding, outside contour rounding, smoothing, deburring, and edge-break intent here.",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean", "description": "True when the user requests rounded/smoothed outside edges or an explicit R radius." },
+        "radius": { "type": "number", "exclusiveMinimum": 0, "description": "Fillet radius in mm. If rounding is requested without a radius, recommend a value from context; otherwise use fallback 2 and note it." }
+      },
+      "required": ["enabled"],
+      "allOf": [
+        {
+          "if": {
+            "properties": { "enabled": { "const": true } },
+            "required": ["enabled"]
+          },
+          "then": { "required": ["radius"] }
+        }
+      ]
+    },
+    "outputs": {
+      "type": "object",
+      "description": "Optional output switches. Never include paths or output directories.",
+      "additionalProperties": false,
+      "properties": {
+        "save_sldprt": { "type": "boolean" },
+        "export_step": { "type": "boolean" },
+        "capture_png": { "type": "boolean" }
+      }
+    },
+    "notes": { "type": "array", "items": { "type": "string" }, "description": "Short notes for defaulted or inferred values that need user confirmation." },
+    "unsupported": { "type": "boolean", "description": "True only when the request cannot be represented by CADPlan Lite." },
+    "errors": { "type": "array", "items": { "type": "string" }, "description": "Short unsupported-reason messages when unsupported is true." }
+  },
+  "required": ["template", "unit"],
+  "allOf": [
+    {
+      "if": {
+        "properties": { "template": { "const": "mounting_plate" } },
+        "required": ["template"]
+      },
+      "then": { "required": ["base"] }
+    }
+  ]
+}

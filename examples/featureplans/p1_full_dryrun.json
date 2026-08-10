@@ -1,0 +1,25 @@
+{
+  "version": "2.0",
+  "unit": "mm",
+  "document_type": "part",
+  "part_name": "p1_full_dryrun",
+  "operations": [
+    {"id": "new_001", "op": "create_new_part", "params": {}},
+    {"id": "sketch_001", "op": "create_sketch", "params": {"name": "sketch_base", "plane": "Top"}},
+    {"id": "rect_001", "op": "sketch_center_rectangle", "params": {"sketch": "sketch_base", "center": [0, 0], "length": 100, "width": 60}},
+    {"id": "extrude_001", "op": "extrude_boss", "params": {"sketch": "sketch_base", "depth": 10}},
+    {"id": "blind_001", "op": "create_blind_hole", "params": {"plane": "top_face", "center": [0, 0], "diameter": 8, "depth": 5}},
+    {"id": "slot_001", "op": "cut_slot", "params": {"plane": "top_face", "center": [-20, 0], "length": 30, "width": 8, "through_all": false, "depth": 5}},
+    {"id": "pocket_001", "op": "cut_rectangle_pocket", "params": {"plane": "top_face", "center": [20, 0], "length": 35, "width": 18, "depth": 4}},
+    {"id": "chamfer_001", "op": "add_chamfer", "params": {"distance": 2, "angle": 45, "target": "outer_edges"}},
+    {"id": "linear_001", "op": "create_linear_pattern", "params": {"seed_feature": "blind_001", "direction": "x", "count": 3, "spacing": 20}},
+    {"id": "mat_001", "op": "set_material", "params": {"material": "Aluminum_6061"}},
+    {"id": "prop_001", "op": "set_custom_property", "params": {"key": "PartNumber", "value": "P1-FULL"}},
+    {"id": "rebuild_001", "op": "rebuild_model", "params": {}},
+    {"id": "validate_001", "op": "validate_rebuild", "params": {}},
+    {"id": "save_001", "op": "save_sldprt", "params": {}},
+    {"id": "step_001", "op": "export_step", "params": {}},
+    {"id": "png_001", "op": "capture_png", "params": {}}
+  ],
+  "outputs": {"save_sldprt": false, "export_step": false, "capture_png": false}
+}

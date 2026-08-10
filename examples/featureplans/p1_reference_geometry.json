@@ -1,0 +1,12 @@
+{
+  "version": "2.0",
+  "unit": "mm",
+  "document_type": "part",
+  "part_name": "p1_reference_geometry",
+  "operations": [
+    {"id": "new_001", "op": "create_new_part", "params": {}},
+    {"id": "plane_001", "op": "create_offset_plane", "params": {"name": "Plane_Offset_25", "base_plane": "Top", "offset": 25}},
+    {"id": "axis_001", "op": "create_axis", "params": {"name": "Axis_Center", "reference_type": "two_planes", "references": ["Front", "Right"]}}
+  ],
+  "outputs": {"save_sldprt": true, "export_step": false, "capture_png": false}
+}

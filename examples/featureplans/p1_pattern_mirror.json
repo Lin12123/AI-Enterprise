@@ -1,0 +1,14 @@
+{
+  "version": "2.0",
+  "unit": "mm",
+  "document_type": "part",
+  "part_name": "p1_pattern_mirror",
+  "operations": [
+    {"id": "new_001", "op": "create_new_part", "params": {}},
+    {"id": "base_001", "op": "create_base_plate", "params": {"length": 120, "width": 80, "thickness": 12}},
+    {"id": "hole_001", "op": "create_blind_hole", "params": {"plane": "top_face", "center": [-30, 0], "diameter": 6, "depth": 5}},
+    {"id": "linear_001", "op": "create_linear_pattern", "params": {"seed_feature": "hole_001", "direction": "x", "count": 3, "spacing": 30}},
+    {"id": "mirror_001", "op": "mirror_feature", "params": {"seed_feature": "linear_001", "mirror_plane": "Front"}}
+  ],
+  "outputs": {"save_sldprt": true, "export_step": false, "capture_png": false}
+}

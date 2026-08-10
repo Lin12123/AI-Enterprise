@@ -1,0 +1,12 @@
+{
+  "version": "2.0",
+  "unit": "mm",
+  "document_type": "part",
+  "part_name": "p1_counterbore_hole",
+  "operations": [
+    {"id": "new_001", "op": "create_new_part", "params": {}},
+    {"id": "base_001", "op": "create_base_plate", "params": {"length": 120, "width": 80, "thickness": 12}},
+    {"id": "cbore_001", "op": "create_counterbore_hole", "params": {"plane": "top_face", "center": [0, 0], "hole_diameter": 6.6, "counterbore_diameter": 12, "counterbore_depth": 4, "through_all": true}}
+  ],
+  "outputs": {"save_sldprt": true, "export_step": false, "capture_png": false}
+}

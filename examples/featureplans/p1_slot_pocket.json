@@ -1,0 +1,13 @@
+{
+  "version": "2.0",
+  "unit": "mm",
+  "document_type": "part",
+  "part_name": "p1_slot_pocket",
+  "operations": [
+    {"id": "new_001", "op": "create_new_part", "params": {}},
+    {"id": "base_001", "op": "create_base_plate", "params": {"length": 120, "width": 80, "thickness": 12}},
+    {"id": "pocket_001", "op": "cut_rectangle_pocket", "params": {"plane": "top_face", "center": [20, 0], "length": 35, "width": 18, "depth": 4}},
+    {"id": "slot_001", "op": "cut_slot", "params": {"plane": "top_face", "center": [-20, 0], "length": 30, "width": 8, "through_all": true}}
+  ],
+  "outputs": {"save_sldprt": true, "export_step": false, "capture_png": false}
+}

@@ -1,0 +1,64 @@
+{
+  "version": "1.0",
+  "description": "Project-local index of official SOLIDWORKS material entries. Search terms help LLM mapping only; FeaturePlan should prefer official SOLIDWORKS material names.",
+  "materials": [
+    {
+      "material_id": "Aluminum_6061",
+      "display_name": "6061 Alloy",
+      "solidworks_database": "SOLIDWORKS Materials",
+      "solidworks_material_name": "6061 Alloy",
+      "solidworks_candidates": [
+        {"database": "SOLIDWORKS Materials", "name": "6061 Alloy"},
+        {"database": "SOLIDWORKS Materials", "name": "6061-T6 (SS)"},
+        {"database": "SOLIDWORKS Materials", "name": "6061 Aluminum Alloy"},
+        {"database": "SOLIDWORKS Materials", "name": "Aluminum 6061"},
+        {"database": "SOLIDWORKS Materials", "name": "Aluminum Alloy 6061"},
+        {"database": "solidworks materials.sldmat", "name": "6061 Alloy"},
+        {"database": "solidworks materials.sldmat", "name": "6061-T6 (SS)"},
+        {"database": "solidworks materials.sldmat", "name": "6061 Aluminum Alloy"},
+        {"database": "solidworks materials.sldmat", "name": "Aluminum 6061"},
+        {"database": "solidworks materials.sldmat", "name": "Aluminum Alloy 6061"},
+        {"database": "", "name": "6061 Alloy"},
+        {"database": "", "name": "6061-T6 (SS)"},
+        {"database": "", "name": "6061 Aluminum Alloy"},
+        {"database": "", "name": "Aluminum 6061"},
+        {"database": "", "name": "Aluminum Alloy 6061"}
+      ],
+      "search_terms": [
+        "Aluminum_6061",
+        "6061",
+        "Al 6061",
+        "6061-T6",
+        "aluminum 6061",
+        "aluminum alloy 6061"
+      ],
+      "status": "implemented",
+      "notes": "Official SOLIDWORKS material entry. Search terms are natural-language hints only."
+    },
+    {
+      "material_id": "Steel_304",
+      "display_name": "AISI 304",
+      "solidworks_database": "SOLIDWORKS Materials",
+      "solidworks_material_name": "AISI 304",
+      "solidworks_candidates": [
+        {"database": "SOLIDWORKS Materials", "name": "AISI 304"},
+        {"database": "SOLIDWORKS Materials", "name": "304 Stainless Steel"},
+        {"database": "SOLIDWORKS Materials", "name": "Stainless Steel 304"},
+        {"database": "solidworks materials.sldmat", "name": "AISI 304"},
+        {"database": "solidworks materials.sldmat", "name": "304 Stainless Steel"},
+        {"database": "solidworks materials.sldmat", "name": "Stainless Steel 304"},
+        {"database": "", "name": "AISI 304"},
+        {"database": "", "name": "304 Stainless Steel"},
+        {"database": "", "name": "Stainless Steel 304"}
+      ],
+      "search_terms": [
+        "Steel_304",
+        "304",
+        "304 stainless steel",
+        "stainless steel 304"
+      ],
+      "status": "implemented",
+      "notes": "Official SOLIDWORKS material entry. Search terms are natural-language hints only."
+    }
+  ]
+}

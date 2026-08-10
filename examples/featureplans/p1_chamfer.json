@@ -1,0 +1,12 @@
+{
+  "version": "2.0",
+  "unit": "mm",
+  "document_type": "part",
+  "part_name": "p1_chamfer",
+  "operations": [
+    {"id": "new_001", "op": "create_new_part", "params": {}},
+    {"id": "base_001", "op": "create_base_plate", "params": {"length": 120, "width": 80, "thickness": 12}},
+    {"id": "chamfer_001", "op": "add_chamfer", "params": {"target": "outer_edges", "distance": 2, "angle": 45}}
+  ],
+  "outputs": {"save_sldprt": true, "export_step": false, "capture_png": false}
+}

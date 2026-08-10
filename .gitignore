@@ -1,0 +1,66 @@
+# Python caches and test artifacts
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Local Python runtime bundle
+Python314/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Local Codex/session settings
+.codex/
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+
+# Generated Enterprise runtime files
+workspace/jobs/
+workspace/logs/
+workspace/outputs/
+
+# Keep the runtime workspace directory structure available for fresh clones
+!workspace/
+!workspace/.gitkeep
+
+# SOLIDWORKS/CAD generated files and temporary locks
+*.SLDPRT
+*.SLDASM
+*.SLDDRW
+*.sldprt
+*.sldasm
+*.slddrw
+*.STEP
+*.STP
+*.step
+*.stp
+*.IGES
+*.IGS
+*.iges
+*.igs
+*.x_t
+*.x_b
+*.sat
+*.swp
+~$*
+
+# Logs, temp files, and OS/editor noise
+*.log
+*.tmp
+*.bak
+*.orig
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/

@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.ai-sw-enterprise/schemas/featureplan-v2.schema.json",
+  "title": "FeaturePlan v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "unit", "document_type", "part_name", "operations"],
+  "properties": {
+    "version": {
+      "const": "2.0"
+    },
+    "unit": {
+      "const": "mm"
+    },
+    "document_type": {
+      "const": "part"
+    },
+    "part_name": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{1,80}$"
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,80}$"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "source": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "inferred_parameters": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}\\.params\\.[A-Za-z_][A-Za-z0-9_]*$"
+          },
+          "maxItems": 256
+        },
+        "explicit_parameters": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}\\.params\\.[A-Za-z_][A-Za-z0-9_]*$"
+          },
+          "maxItems": 256
+        }
+      }
+    },
+    "operations": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 128,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+          "required": ["id", "op", "params"],
+          "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$"
+          },
+          "op": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{0,63}$"
+          },
+          "params": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "depends_on": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$"
+            }
+          }
+        }
+      }
+    },
+    "outputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "save_sldprt": {"type": "boolean"},
+        "export_step": {"type": "boolean"},
+        "capture_png": {"type": "boolean"}
+      }
+    }
+  }
+}

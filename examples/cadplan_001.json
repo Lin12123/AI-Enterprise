@@ -1,0 +1,39 @@
+{
+  "template": "mounting_plate",
+  "unit": "mm",
+  "part_name": "ai_mounting_plate",
+  "base": {
+    "length": 120,
+    "width": 80,
+    "thickness": 12
+  },
+  "corner_holes": {
+    "enabled": true,
+    "diameter": 6.6,
+    "offset_x": 50,
+    "offset_y": 30,
+    "through_all": true
+  },
+  "center_boss": {
+    "enabled": true,
+    "diameter": 30,
+    "height": 25
+  },
+  "center_hole": {
+    "enabled": true,
+    "diameter": 10,
+    "through_all": true
+  },
+  "fillet": {
+    "enabled": true,
+    "radius": 3
+  },
+  "outputs": {
+    "save_sldprt": true,
+    "export_step": true,
+    "capture_png": true
+  },
+  "notes": [
+    "M6 通孔默认按 6.6mm 间隙孔处理，需要用户确认。"
+  ]
+}
