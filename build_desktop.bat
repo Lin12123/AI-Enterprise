@@ -22,6 +22,11 @@ if exist "ui_desktop\resources\app_icon.ico" (
   --collect-submodules cad_dsl ^
   --collect-submodules policy ^
   --collect-submodules solidworks_api ^
+  --hidden-import win32com ^
+  --hidden-import win32com.client ^
+  --hidden-import pythoncom ^
+  --hidden-import pywintypes ^
+  --hidden-import win32api ^
   --collect-all PySide6 ^
   --collect-all shiboken6 ^
   %ICON_ARGS% ^

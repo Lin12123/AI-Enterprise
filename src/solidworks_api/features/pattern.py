@@ -1,5 +1,7 @@
 """Pattern feature implementation for fixed API executor."""
 
+from __future__ import annotations
+
 OPERATION_TYPE = "pattern"
 STATUS = "implemented"
 
