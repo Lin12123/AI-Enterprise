@@ -1,0 +1,1 @@
+- [开发环境约定](project_dev_environment.md) — AI-Enterprise 项目在 Windows 上的统一 IDE 与运行环境约定（C# 插件 + Python 服务）

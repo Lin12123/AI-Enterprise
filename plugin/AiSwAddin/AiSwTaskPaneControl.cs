@@ -141,7 +141,7 @@ namespace AiSwAddin
                 return;
             }
             _logBox.AppendText(string.Format("[{0:HH:mm:ss}] {1}{2}",
-                DateTime.Now, message, Environment.NewLine));
+                DateTime.Now, message, System.Environment.NewLine));
         }
 
         private void SetBusy(bool busy)

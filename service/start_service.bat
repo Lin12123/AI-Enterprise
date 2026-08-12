@@ -12,7 +12,8 @@ if exist ".venv\Scripts\python.exe" (
 
 rem 可选：自定义监听地址与端口(默认 127.0.0.1:8765)
 rem set "AI_SW_SERVICE_HOST=127.0.0.1"
-rem set "AI_SW_SERVICE_PORT=8765"
+rem set "AI_SW_SERVICE_PORT=8765"启动服务 start_service.bat
+
 
 rem 可选：选择大模型 provider(local=本机 Ollama, rule_based=规则解析)
 rem set "AI_SW_LLM_PROVIDER=local"
