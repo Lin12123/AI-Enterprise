@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props"
+          Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{6F2E9C31-6C8A-4E7B-9E4E-9B0F2E1A7C10}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <RootNamespace>AiSwAddin</RootNamespace>
+    <AssemblyName>AiSwAddin</AssemblyName>
+    <!-- SolidWorks 插件要求 .NET Framework(非 .NET Core/5+)，4.7.2 为常用稳定版本 -->
+    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
+    <!-- 生成 COM 互操作所需的类型库信息 -->
+    <RegisterForComInterop>true</RegisterForComInterop>
+    <Prefer32Bit>false</Prefer32Bit>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <Optimize>true</Optimize>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Net.Http" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Drawing" />
+    <!-- 以下 SolidWorks 互操作程序集需在安装了 SolidWorks 的机器上引用。
+         默认位于: C:\Program Files\SOLIDWORKS Corp\SOLIDWORKS\api\redist
+         请在 Visual Studio 中重新指向本机实际路径。 -->
+    <Reference Include="SolidWorks.Interop.sldworks" />
+    <Reference Include="SolidWorks.Interop.swconst" />
+    <Reference Include="SolidWorks.Interop.swpublished" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="AiSwAddin.cs" />
+    <Compile Include="AiSwTaskPaneControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="ServiceClient.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>
