@@ -35,20 +35,35 @@ namespace AiSwAddin
         private ITaskpaneView _taskPaneView;
         private AiSwTaskPaneControl _taskPaneControl;
         private string _iconPath;   // 运行时自绘生成的任务窗格图标文件路径
+        private Bitmap _iconBitmap; // 供 CreateTaskpaneView3 使用的位图；须存活到插件卸载才释放
 
         #region ISwAddin 实现
 
         /// <summary>SolidWorks 加载插件时调用。</summary>
         public bool ConnectToSW(object thisSW, int cookie)
         {
-            _swApp = (ISldWorks)thisSW;
-            _addinCookie = cookie;
+            try
+            {
+                _swApp = (ISldWorks)thisSW;
+                _addinCookie = cookie;
 
-            // 告知 SolidWorks 本插件的回调对象
-            _swApp.SetAddinCallbackInfo2(0, this, _addinCookie);
+                // 告知 SolidWorks 本插件的回调对象
+                _swApp.SetAddinCallbackInfo2(0, this, _addinCookie);
 
-            CreateTaskPane();
-            return true;
+                CreateTaskPane();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                // 加载失败时给出可见的诊断信息，避免 SolidWorks 静默失败让人无从排查
+                System.Windows.Forms.MessageBox.Show(
+                    "AI-SW 插件加载失败：\n" + ex.GetType().Name + ": " + ex.Message +
+                    "\n\n" + ex.StackTrace,
+                    "AI-SW 插件错误",
+                    System.Windows.Forms.MessageBoxButtons.OK,
+                    System.Windows.Forms.MessageBoxIcon.Error);
+                return false;
+            }
         }
 
         /// <summary>SolidWorks 卸载插件时调用，需释放所有 COM 资源。</summary>
@@ -76,15 +91,15 @@ namespace AiSwAddin
         {
             // 优先使用 CreateTaskpaneView3(Bitmap, tooltip) 直接传 Bitmap 对象(支持透明背景)；
             // 若 SolidWorks 版本较老不支持，则回退到 CreateTaskpaneView2(bmpPath, tooltip)。
+            // 注意：Bitmap 必须存活到插件卸载(存到 _iconBitmap 字段)，不能在 using 块里释放，
+            // 否则 SolidWorks 后续引用会拿到已释放的图像句柄。
             _taskPaneView = null;
             try
             {
-                using (var bmp = BuildTaskPaneBitmap())
+                _iconBitmap = BuildTaskPaneBitmap();
+                if (_iconBitmap != null)
                 {
-                    if (bmp != null)
-                    {
-                        _taskPaneView = _swApp.CreateTaskpaneView3(bmp, AddinTitle);
-                    }
+                    _taskPaneView = _swApp.CreateTaskpaneView3(_iconBitmap, AddinTitle);
                 }
             }
             catch
@@ -245,6 +260,13 @@ namespace AiSwAddin
                     File.Delete(_iconPath);
             }
             catch { }
+
+            // 释放供 CreateTaskpaneView3 使用的 Bitmap
+            if (_iconBitmap != null)
+            {
+                _iconBitmap.Dispose();
+                _iconBitmap = null;
+            }
         }
 
         #endregion
