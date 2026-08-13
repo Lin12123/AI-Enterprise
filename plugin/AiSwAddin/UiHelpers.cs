@@ -82,6 +82,89 @@ namespace AiSwAddin
         }
     }
 
+    /// <summary>
+    /// 顶部标题栏：渐变背景 + 全自绘的图标/标题/版本徽章/关闭按钮。
+    /// 文字直接绘制在渐变上，避免子 Label 在自绘背景上产生白底。
+    /// </summary>
+    internal class HeaderPanel : Panel
+    {
+        private readonly Color _left, _right;
+        public event EventHandler CloseClicked;
+        private Rectangle _closeRect;
+
+        public HeaderPanel(Color left, Color right)
+        {
+            _left = left;
+            _right = right;
+            DoubleBuffered = true;
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            if (Width <= 0 || Height <= 0) { base.OnPaint(e); return; }
+            var g = e.Graphics;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+
+            using (var brush = new LinearGradientBrush(
+                ClientRectangle, _left, _right, LinearGradientMode.Horizontal))
+            {
+                g.FillRectangle(brush, ClientRectangle);
+            }
+
+            int cy = Height / 2;
+
+            // 图标：半透明白圆角块 + 星形字符
+            var iconBox = new Rectangle(12, cy - 16, 32, 32);
+            using (var iconBg = new SolidBrush(Color.FromArgb(60, 255, 255, 255)))
+            using (var path = GfxUtil.RoundedRect(iconBox, 8))
+                g.FillPath(iconBg, path);
+            using (var iconFont = new Font("Segoe UI Symbol", 14f, FontStyle.Bold))
+                TextRenderer.DrawText(g, "✦", iconFont, iconBox, Color.White,
+                    TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+
+            // 标题：无底白字
+            int titleW;
+            using (var titleFont = new Font("Microsoft YaHei", 12f, FontStyle.Bold))
+            {
+                titleW = TextRenderer.MeasureText(g, "SolidWorks AI 绘图助手", titleFont).Width;
+                var titleRect = new Rectangle(52, 0, titleW + 8, Height);
+                TextRenderer.DrawText(g, "SolidWorks AI 绘图助手", titleFont, titleRect,
+                    Color.White, TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
+            }
+
+            // 版本徽章：半透明白圆角框 + 白字
+            using (var verFont = new Font("Microsoft YaHei", 8.5f, FontStyle.Bold))
+            {
+                Size verSize = TextRenderer.MeasureText(g, "v2.4", verFont);
+                var verRect = new Rectangle(52 + titleW + 12, cy - 11, verSize.Width + 16, 22);
+                using (var verBg = new SolidBrush(Color.FromArgb(70, 255, 255, 255)))
+                using (var path = GfxUtil.RoundedRect(verRect, 6))
+                    g.FillPath(verBg, path);
+                TextRenderer.DrawText(g, "v2.4", verFont, verRect, Color.White,
+                    TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+            }
+
+            // 关闭按钮：右上角白色 ✕，无底
+            _closeRect = new Rectangle(Width - 40, cy - 15, 30, 30);
+            using (var closeFont = new Font("Microsoft YaHei", 12f, FontStyle.Bold))
+                TextRenderer.DrawText(g, "✕", closeFont, _closeRect, Color.White,
+                    TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+        }
+
+        protected override void OnMouseClick(MouseEventArgs e)
+        {
+            base.OnMouseClick(e);
+            if (_closeRect.Contains(e.Location) && CloseClicked != null)
+                CloseClicked(this, EventArgs.Empty);
+        }
+
+        protected override void OnMouseMove(MouseEventArgs e)
+        {
+            base.OnMouseMove(e);
+            Cursor = _closeRect.Contains(e.Location) ? Cursors.Hand : Cursors.Default;
+        }
+    }
+
     /// <summary>圆角卡片面板，可选边框高亮（用于功能卡片、输入区等）。</summary>
     internal class CardPanel : Panel
     {

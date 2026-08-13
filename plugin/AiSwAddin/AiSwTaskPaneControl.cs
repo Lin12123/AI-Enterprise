@@ -81,58 +81,11 @@ namespace AiSwAddin
             Controls.Add(root);
         }
 
-        // ---- 顶部渐变标题栏 ----
+        // ---- 顶部渐变标题栏（全自绘，无白底）----
         private Control BuildHeader()
         {
-            var header = new GradientPanel(Theme.HeaderLeft, Theme.HeaderRight) { Dock = DockStyle.Fill };
-
-            var icon = new Label
-            {
-                Text = "✦",
-                Font = Theme.Title(16),
-                ForeColor = Theme.TextWhite,
-                AutoSize = false,
-                Size = new Size(36, 36),
-                Location = new Point(12, 13),
-                TextAlign = ContentAlignment.MiddleCenter
-            };
-
-            var title = new Label
-            {
-                Text = "SolidWorks AI 绘图助手",
-                Font = Theme.Title(12),
-                ForeColor = Theme.TextWhite,
-                AutoSize = true,
-                Location = new Point(54, 20)
-            };
-
-            var version = new Label
-            {
-                Text = " v2.4 ",
-                Font = Theme.Body(8.5f, FontStyle.Bold),
-                ForeColor = Theme.TextWhite,
-                BackColor = Color.FromArgb(80, 255, 255, 255),
-                AutoSize = true,
-                Location = new Point(258, 22)
-            };
-
-            var close = new Label
-            {
-                Text = "✕",
-                Font = Theme.Title(12),
-                ForeColor = Theme.TextWhite,
-                AutoSize = false,
-                Size = new Size(30, 30),
-                Location = new Point(360, 16),
-                TextAlign = ContentAlignment.MiddleCenter,
-                Cursor = Cursors.Hand
-            };
-            close.Click += (s, e) => AppendLog("[提示] 关闭按钮为展示性元素。");
-
-            header.Controls.Add(icon);
-            header.Controls.Add(title);
-            header.Controls.Add(version);
-            header.Controls.Add(close);
+            var header = new HeaderPanel(Theme.HeaderLeft, Theme.HeaderRight) { Dock = DockStyle.Fill };
+            header.CloseClicked += (s, e) => AppendLog("[提示] 关闭按钮为展示性元素。");
             return header;
         }
 
