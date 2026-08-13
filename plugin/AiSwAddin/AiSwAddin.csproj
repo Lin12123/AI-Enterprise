@@ -6,7 +6,12 @@
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ProjectGuid>{6F2E9C31-6C8A-4E7B-9E4E-9B0F2E1A7C10}</ProjectGuid>
-    <OutputType>Library</OutputType>
+    <!-- 【正常发布插件时用】Library：生成可被 SolidWorks 加载的 .dll。 -->
+    <!-- <OutputType>Library</OutputType> -->
+    <!-- 【临时预览 UI 时用】WinExe：让 Program.cs 的 Main() 能 F5 直接运行查看界面。
+         预览完毕、要发布插件前，请改回上面的 Library 并注释掉本行与 StartupObject。 -->
+    <OutputType>WinExe</OutputType>
+    <StartupObject>AiSwAddin.Program</StartupObject>
     <RootNamespace>AiSwAddin</RootNamespace>
     <AssemblyName>AiSwAddin</AssemblyName>
     <!-- SolidWorks 插件要求 .NET Framework(非 .NET Core/5+)，4.7.2 为常用稳定版本 -->
@@ -47,6 +52,8 @@
     </Compile>
     <Compile Include="ServiceClient.cs" />
     <Compile Include="UiHelpers.cs" />
+    <!-- 临时 UI 预览入口；发布插件时可从项目中排除（配合 OutputType 改回 Library） -->
+    <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
