@@ -32,6 +32,9 @@ namespace AiSwAddin
         public static readonly Color Green = Color.FromArgb(34, 160, 120);
         public static readonly Color Amber = Color.FromArgb(214, 158, 46);
 
+        // 模式药丸按钮：浅绿底 + 绿字/绿边
+        public static readonly Color GreenPillBg = Color.FromArgb(226, 245, 236);
+        public static readonly Color GreenPillBorder = Color.FromArgb(150, 210, 180);
         public static Font Title(float size, FontStyle style = FontStyle.Bold)
             => new Font("Microsoft YaHei", size, style);
         public static Font Body(float size, FontStyle style = FontStyle.Regular)
@@ -272,6 +275,162 @@ namespace AiSwAddin
                         Enabled ? Accent : Theme.TextSub,
                         TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
                 }
+            }
+        }
+    }
+
+    /// <summary>
+    /// 模式选择「药丸」按钮：浅绿圆角底 + 左侧图标 + 文字 + 右侧下拉箭头。
+    /// 点击时触发 Click 事件，由外部弹出下拉菜单。
+    /// </summary>
+    internal class ModePillButton : Control
+    {
+        public string Glyph { get; set; } = "☁";
+        public int Radius { get; set; } = 14;
+
+        public ModePillButton()
+        {
+            DoubleBuffered = true;
+            BackColor = Color.Transparent;
+            Cursor = Cursors.Hand;
+            Font = Theme.Body(9.5f, FontStyle.Bold);
+            ForeColor = Theme.Green;
+            Size = new Size(120, 30);
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            var r = new Rectangle(0, 0, Width - 1, Height - 1);
+            using (var path = GfxUtil.RoundedRect(r, Radius))
+            using (var fill = new SolidBrush(Theme.GreenPillBg))
+            using (var pen = new Pen(Theme.GreenPillBorder, 1))
+            {
+                e.Graphics.FillPath(fill, path);
+                e.Graphics.DrawPath(pen, path);
+            }
+
+            // 图标
+            int x = 10;
+            TextRenderer.DrawText(e.Graphics, Glyph, Font,
+                new Rectangle(x, 0, 18, Height), Theme.Green,
+                TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
+            x += 20;
+
+            // 文字
+            TextRenderer.DrawText(e.Graphics, Text, Font,
+                new Rectangle(x, 0, Width - x - 20, Height), Theme.Green,
+                TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
+
+            // 右侧下拉箭头
+            TextRenderer.DrawText(e.Graphics, "▾", Theme.Body(9),
+                new Rectangle(Width - 18, 0, 16, Height), Theme.Green,
+                TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
+        }
+    }
+
+    /// <summary>
+    /// 一个模式选项数据：图标、主标题、副标题。
+    /// </summary>
+    internal class ModeItem
+    {
+        public string Glyph;
+        public string Title;
+        public string Subtitle;
+        public ModeItem(string glyph, string title, string subtitle)
+        {
+            Glyph = glyph; Title = title; Subtitle = subtitle;
+        }
+    }
+
+    /// <summary>
+    /// 模式切换的弹出下拉面板（无边框浮层）。
+    /// 顶部一个「切换运行模式」标题，下面若干模式项：图标 + 主标题 + 副标题，
+    /// 当前选中项右侧显示绿色对勾。点击某项触发 ItemSelected，失去焦点自动关闭。
+    /// </summary>
+    internal class ModeDropdownForm : Form
+    {
+        private readonly ModeItem[] _items;
+        private int _selectedIndex;
+        private readonly int _rowHeight = 58;
+        private readonly int _headerHeight = 34;
+
+        /// <summary>选中项回调：参数为项索引。</summary>
+        public event Action<int> ItemSelected;
+
+        public ModeDropdownForm(ModeItem[] items, int selectedIndex)
+        {
+            _items = items;
+            _selectedIndex = selectedIndex;
+
+            FormBorderStyle = FormBorderStyle.None;
+            ShowInTaskbar = false;
+            StartPosition = FormStartPosition.Manual;
+            DoubleBuffered = true;
+            BackColor = Color.White;
+            Width = 300;
+            Height = _headerHeight + _rowHeight * _items.Length + 10;
+        }
+
+        protected override void OnDeactivate(EventArgs e)
+        {
+            base.OnDeactivate(e);
+            Close();   // 点击面板外部时自动关闭
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            var g = e.Graphics;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+
+            var r = new Rectangle(0, 0, Width - 1, Height - 1);
+            using (var path = GfxUtil.RoundedRect(r, 12))
+            using (var fill = new SolidBrush(Color.White))
+            using (var pen = new Pen(Theme.CardBorder, 1))
+            {
+                g.FillPath(fill, path);
+                g.DrawPath(pen, path);
+            }
+
+            TextRenderer.DrawText(g, "切换运行模式", Theme.Body(9, FontStyle.Bold),
+                new Rectangle(16, 8, Width - 32, 20), Theme.TextSub,
+                TextFormatFlags.Left | TextFormatFlags.VerticalCenter);
+
+            for (int i = 0; i < _items.Length; i++)
+            {
+                int top = _headerHeight + i * _rowHeight;
+                var it = _items[i];
+
+                TextRenderer.DrawText(g, it.Glyph, Theme.Title(15),
+                    new Rectangle(16, top, 28, _rowHeight), Theme.Green,
+                    TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
+
+                TextRenderer.DrawText(g, it.Title, Theme.Body(11, FontStyle.Bold),
+                    new Rectangle(52, top + 10, Width - 100, 22), Theme.TextMain,
+                    TextFormatFlags.Left | TextFormatFlags.NoPadding);
+
+                TextRenderer.DrawText(g, it.Subtitle, Theme.Body(8.5f),
+                    new Rectangle(52, top + 32, Width - 100, 18), Theme.TextSub,
+                    TextFormatFlags.Left | TextFormatFlags.NoPadding);
+
+                if (i == _selectedIndex)
+                {
+                    TextRenderer.DrawText(g, "✓", Theme.Title(13),
+                        new Rectangle(Width - 40, top, 28, _rowHeight), Theme.Green,
+                        TextFormatFlags.Right | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
+                }
+            }
+        }
+
+        protected override void OnMouseClick(MouseEventArgs e)
+        {
+            base.OnMouseClick(e);
+            int idx = (e.Y - _headerHeight) / _rowHeight;
+            if (idx >= 0 && idx < _items.Length)
+            {
+                _selectedIndex = idx;
+                ItemSelected?.Invoke(idx);
+                Close();
             }
         }
     }

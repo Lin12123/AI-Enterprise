@@ -34,6 +34,15 @@ namespace AiSwAddin
         private RoundButton _sendBtn;
         private ComboBox _targetBox;   // 目标：新建零件 / 当前文档
 
+        // 运行模式：0=企业协同, 1=离线本地
+        private ModePillButton _modePill;
+        private int _modeIndex = 0;
+        private static readonly ModeItem[] _modeItems = new[]
+        {
+            new ModeItem("☁", "企业协同模式", "实时检索知识库与标准"),
+            new ModeItem("⛆", "离线本地模式", "使用缓存规则，不受断网影响")
+        };
+
         public AiSwTaskPaneControl()
         {
             BuildUi();
@@ -93,50 +102,67 @@ namespace AiSwAddin
         {
             var host = new Panel { Dock = DockStyle.Fill, BackColor = Theme.PageBg, Padding = new Padding(12, 8, 12, 4) };
 
-            var mode = new ComboBox
+            // 用横向 FlowLayoutPanel 承载：模式药丸按钮 + 三个徽章，自动排布、自适应宽度
+            var flow = new FlowLayoutPanel
             {
-                DropDownStyle = ComboBoxStyle.DropDownList,
-                Font = Theme.Body(9),
-                Width = 90,
-                Location = new Point(12, 10)
+                Dock = DockStyle.Fill,
+                BackColor = Theme.PageBg,
+                FlowDirection = FlowDirection.LeftToRight,
+                WrapContents = true,   // 放不下时自动换行，避免溢出被裁切
+                AutoScroll = false,
+                Padding = new Padding(0)
             };
-            mode.Items.AddRange(new object[] { "离线模式", "在线模式" });
-            mode.SelectedIndex = 0;
 
-            host.Controls.Add(mode);
+            // 模式药丸按钮（绿色圆角，图标+文字+箭头），点击弹出模式菜单
+            _modePill = new ModePillButton
+            {
+                Glyph = _modeItems[_modeIndex].Glyph,
+                Text = _modeItems[_modeIndex].Title.Replace("模式", ""),
+                Size = new Size(130, 30),
+                Margin = new Padding(0, 3, 8, 0)
+            };
+            _modePill.Click += OnModePillClick;
 
-            // 徽章依次排在模式下拉框之后（同一行）
-            int badgeX = mode.Right + 8;
-            const int badgeY = 11;
-            const int badgeW = 96;
-            const int badgeGap = 4;
+            flow.Controls.Add(_modePill);
+            flow.Controls.Add(MakeBadge("📖", "GB/T 14689-2024", Theme.Primary));
+            flow.Controls.Add(MakeBadge("🛡", "Q/HW 2026.2", Theme.Amber));
+            flow.Controls.Add(MakeBadge("▣", "v2.4.1-sp2", Theme.Green));
 
-            var b1 = MakeBadge("GB/T 14689-2024", Theme.Primary, badgeW);
-            b1.Location = new Point(badgeX, badgeY);
-            badgeX = b1.Right + badgeGap;
-
-            var b2 = MakeBadge("Q/HW 2026.2", Theme.Amber, badgeW);
-            b2.Location = new Point(badgeX, badgeY);
-            badgeX = b2.Right + badgeGap;
-
-            var b3 = MakeBadge("v2.4.1-sp2", Theme.Green, badgeW);
-            b3.Location = new Point(badgeX, badgeY);
-
-            host.Controls.Add(b1);
-            host.Controls.Add(b2);
-            host.Controls.Add(b3);
-
+            host.Controls.Add(flow);
             return host;
         }
 
-        private BadgeLabel MakeBadge(string text, Color accent, int width = 158)
+        /// <summary>点击模式药丸：在按钮下方弹出模式选择浮层。</summary>
+        private void OnModePillClick(object sender, EventArgs e)
+        {
+            var popup = new ModeDropdownForm(_modeItems, _modeIndex);
+            // 定位到药丸按钮左下角
+            var pt = _modePill.PointToScreen(new Point(0, _modePill.Height + 2));
+            popup.Location = pt;
+            popup.ItemSelected += OnModeSelected;
+            popup.Show();
+            popup.Activate();
+        }
+
+        /// <summary>选中某个模式后，更新药丸按钮显示并记录日志。</summary>
+        private void OnModeSelected(int index)
+        {
+            _modeIndex = index;
+            _modePill.Glyph = _modeItems[index].Glyph;
+            _modePill.Text = _modeItems[index].Title.Replace("模式", "");
+            _modePill.Invalidate();
+            AppendLog("[模式] 已切换为：" + _modeItems[index].Title);
+        }
+
+        private BadgeLabel MakeBadge(string glyph, string text, Color accent)
         {
             return new BadgeLabel
             {
-                Text = text,
+                Text = glyph + " " + text,
                 AccentColor = accent,
-                Size = new Size(width, 24),
-                Margin = new Padding(0, 2, 6, 2)
+                AutoSize = true,                        // 按文字自适应宽度
+                Padding = new Padding(8, 3, 8, 3),      // 文字与圆角边框留白
+                Margin = new Padding(0, 5, 4, 0)
             };
         }
 
