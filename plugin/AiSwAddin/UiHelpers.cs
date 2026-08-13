@@ -241,6 +241,9 @@ namespace AiSwAddin
         public Color Accent { get; set; } = Theme.Primary;
         public int Radius { get; set; } = 10;
 
+        /// <summary>true 时用自绘 3D 立方体线框代替 Glyph 字符（用于"新建 3D 零件"卡片）。</summary>
+        public bool DrawCubeIcon { get; set; } = false;
+
         private bool _selected;
         public bool Selected
         {
@@ -281,15 +284,29 @@ namespace AiSwAddin
                 g.DrawPath(pen, path);
             }
 
-            int iconH = 34;
-            using (var iconFont = Theme.Title(15))
-                TextRenderer.DrawText(g, Glyph, iconFont,
-                    new Rectangle(0, 8, Width, iconH), Accent,
-                    TextFormatFlags.HorizontalCenter | TextFormatFlags.Bottom | TextFormatFlags.NoPadding);
+            int iconH = 26;
+            const int iconTop = 4;    // 顶部留白减少，把空间让给下方文字
+            const int gap = 1;        // 图标与文字的垂直间距
+            const int bottomPad = 4;  // 底部留白
+
+            if (DrawCubeIcon)
+            {
+                // 自绘 3D 立方体线框：等轴测视图（画三个可见面的轮廓 + 前面X形对角）
+                DrawIsoCube(g, new Rectangle(0, iconTop, Width, iconH), Accent);
+            }
+            else
+            {
+                using (var iconFont = Theme.Title(15))
+                    TextRenderer.DrawText(g, Glyph, iconFont,
+                        new Rectangle(0, iconTop, Width, iconH), Accent,
+                        TextFormatFlags.HorizontalCenter | TextFormatFlags.Bottom | TextFormatFlags.NoPadding);
+            }
 
             using (var textFont = Theme.Body(9, FontStyle.Bold))
                 TextRenderer.DrawText(g, Text, textFont,
-                    new Rectangle(0, 8 + iconH + 2, Width, Height - (8 + iconH + 2) - 6), Theme.TextMain,
+                    new Rectangle(0, iconTop + iconH + gap, Width,
+                                  Height - (iconTop + iconH + gap) - bottomPad),
+                    Theme.TextMain,
                     TextFormatFlags.HorizontalCenter | TextFormatFlags.Top | TextFormatFlags.NoPadding);
         }
 
@@ -300,6 +317,50 @@ namespace AiSwAddin
             int g = (int)(c.G * (1 - k) + 255 * k);
             int b = (int)(c.B * (1 - k) + 255 * k);
             return Color.FromArgb(r, g, b);
+        }
+
+        /// <summary>
+        /// 在给定矩形区域内居中绘制一个等轴测（isometric）风格的 3D 立方体线框。
+        /// 六边形外轮廓 + 中心到三个上顶点的三条内边，形成经典的"3D 立方体"视觉。
+        /// </summary>
+        private static void DrawIsoCube(Graphics g, Rectangle area, Color color)
+        {
+            // 取区域内可用的最大偶数尺寸，保证像素对齐
+            int s = Math.Min(area.Width, area.Height) - 2;
+            if (s < 8) return;
+
+            float cx = area.X + area.Width / 2f;
+            float cy = area.Y + area.Height / 2f;
+
+            // 等轴测立方体的六个外顶点 + 中心点(前后立方体交点)
+            // 用半宽 hw、半高 hh：hw ≈ s * 0.45，hh ≈ s * 0.5
+            float hw = s * 0.45f;
+            float hh = s * 0.5f;
+            float qh = hh / 2f;    // 上/下顶点到中心水平线的距离(半高的一半)
+
+            var top    = new PointF(cx, cy - hh);
+            var right  = new PointF(cx + hw, cy - qh);
+            var brRight= new PointF(cx + hw, cy + qh);
+            var bottom = new PointF(cx, cy + hh);
+            var blLeft = new PointF(cx - hw, cy + qh);
+            var left   = new PointF(cx - hw, cy - qh);
+            var center = new PointF(cx, cy);
+
+            using (var pen = new Pen(color, 1.6f))
+            {
+                pen.LineJoin = LineJoin.Round;
+                pen.StartCap = LineCap.Round;
+                pen.EndCap = LineCap.Round;
+
+                // 六边形外轮廓
+                var outline = new[] { top, right, brRight, bottom, blLeft, left, top };
+                g.DrawLines(pen, outline);
+
+                // 三条内边：中心分别连到 top(上顶点)、left(左中)、right(右中)
+                g.DrawLine(pen, center, top);
+                g.DrawLine(pen, center, left);
+                g.DrawLine(pen, center, right);
+            }
         }
 
         private static GraphicsPath RoundedRectF(RectangleF r, float radius)

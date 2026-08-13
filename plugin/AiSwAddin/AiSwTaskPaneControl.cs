@@ -211,7 +211,7 @@ namespace AiSwAddin
             host.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.3f));
             host.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.3f));
 
-            _cardNew3d = MakeFeatureCard("⬢", "新建 3D 零件", Theme.Primary, true, OnGenerateClick);
+            _cardNew3d = MakeFeatureCard("⬡", "新建 3D 零件", Theme.Primary, true, OnGenerateClick, drawCube: true);
             _card3dTo2d = MakeFeatureCard("▤", "3D 转 2D 出图", Theme.Purple, false,
                 (s, e) => AppendLog("[提示] 3D 转 2D 出图为展示性功能。"));
             _cardUpload = MakeFeatureCard("☁", "上传云平台", Theme.Green, false,
@@ -223,7 +223,7 @@ namespace AiSwAddin
             return host;
         }
 
-        private FeatureCard MakeFeatureCard(string glyph, string text, Color accent, bool active, EventHandler onClick)
+        private FeatureCard MakeFeatureCard(string glyph, string text, Color accent, bool active, EventHandler onClick, bool drawCube = false)
         {
             var card = new FeatureCard
             {
@@ -232,6 +232,7 @@ namespace AiSwAddin
                 Glyph = glyph,
                 Text = text,
                 Accent = accent,
+                DrawCubeIcon = drawCube,
                 Selected = active
             };
 
