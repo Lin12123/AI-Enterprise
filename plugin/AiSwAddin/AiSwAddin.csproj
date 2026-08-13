@@ -65,8 +65,6 @@
     <Compile Include="Program.cs" />
     <Compile Include="ServiceClient.cs" />
     <Compile Include="UiHelpers.cs" />
-    <!-- 临时 UI 预览入口；发布插件时可从项目中排除（配合 OutputType 改回 Library） -->
-    <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>

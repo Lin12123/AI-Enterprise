@@ -190,7 +190,7 @@ namespace AiSwAddin
         {
             var g = e.Graphics;
             g.SmoothingMode = SmoothingMode.AntiAlias;
-            g.PixelOffsetMode = PixelOffsetMode.HalfPixel;
+            g.PixelOffsetMode = PixelOffsetMode.Half;
 
             // 用浮点矩形并按边框宽度的一半内缩，使描边正好落在控件内部，
             // 四条边(尤其底边、右边)都能完整绘制，不被裁切。
