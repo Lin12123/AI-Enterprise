@@ -63,21 +63,21 @@ namespace AiSwAddin
             };
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 62));   // 标题栏
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 52));   // 模式行
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 44));   // 徽章行
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 96));   // 功能卡片
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 130));  // AI 就绪信息卡
+//            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 44));   // 徽章行
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 120));  // 功能卡片
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 90));  // AI 就绪信息卡
             root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));   // 日志区(自适应)
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 150));  // 输入卡
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 180));  // 输入卡
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 40));   // 任务中心栏
 
             root.Controls.Add(BuildHeader(), 0, 0);
             root.Controls.Add(BuildModeRow(), 0, 1);
-            root.Controls.Add(BuildBadgeRow(), 0, 2);
+//            root.Controls.Add(BuildBadgeRow(), 0, 2);
             root.Controls.Add(BuildFeatureCards(), 0, 3);
             root.Controls.Add(BuildReadyCard(), 0, 4);
             root.Controls.Add(BuildLogArea(), 0, 5);
             root.Controls.Add(BuildInputCard(), 0, 6);
-            root.Controls.Add(BuildTaskBar(), 0, 7);
+            root.Controls.Add(BuildTaskBar(), 0, 8);
 
             Controls.Add(root);
         }
@@ -105,27 +105,27 @@ namespace AiSwAddin
             mode.Items.AddRange(new object[] { "离线模式", "在线模式" });
             mode.SelectedIndex = 0;
 
-            var project = new ComboBox
-            {
-                DropDownStyle = ComboBoxStyle.DropDownList,
-                Font = Theme.Body(9),
-                Width = 250,
-                Location = new Point(130, 10)
-            };
-            project.Items.Add("P-205 工业机器人关节总成");
-            project.SelectedIndex = 0;
-
-            _targetBox = new ComboBox
-            {
-                DropDownStyle = ComboBoxStyle.DropDownList,
-                Font = Theme.Body(9),
-                Width = 96,
-                Location = new Point(286, 10)
-            };
-            _targetBox.Items.AddRange(new object[] { "新建零件", "当前文档" });
-            _targetBox.SelectedIndex = 0;
-
-            project.Width = 150;
+//            var project = new ComboBox
+//            {
+//                DropDownStyle = ComboBoxStyle.DropDownList,
+//                Font = Theme.Body(9),
+//                Width = 250,
+//                Location = new Point(130, 10)
+//            };
+//            project.Items.Add("P-205 工业机器人关节总成");
+//            project.SelectedIndex = 0;
+//
+//            _targetBox = new ComboBox
+//            {
+//                DropDownStyle = ComboBoxStyle.DropDownList,
+//                Font = Theme.Body(9),
+//                Width = 96,
+//                Location = new Point(286, 10)
+//            };
+//            _targetBox.Items.AddRange(new object[] { "新建零件", "当前文档" });
+//            _targetBox.SelectedIndex = 0;
+//
+//            project.Width = 150;
 
             host.Controls.Add(mode);
             host.Controls.Add(project);
@@ -298,17 +298,7 @@ namespace AiSwAddin
                 Text = "请描述建模需求，例如：做一个长100宽80厚10的底板，四角各开一个直径6的通孔"
             };
 
-            var bottomBar = new Panel { Dock = DockStyle.Fill, BackColor = Color.Transparent };
-
-            var attach = new Label
-            {
-                Text = "📎 附件      ⌘ /指令",
-                Font = Theme.Body(9),
-                ForeColor = Theme.TextSub,
-                AutoSize = true,
-                Location = new Point(4, 14),
-                BackColor = Color.Transparent
-            };
+            var bottomBar = new Panel { Dock = DockStyle.Bottom, Height = 46, BackColor = Color.Transparent, Padding = new Padding(0, 4, 0, 4) };
 
             _sendBtn = new RoundButton
             {
@@ -316,11 +306,21 @@ namespace AiSwAddin
                 Filled = true,
                 Accent = Theme.Primary,
                 Size = new Size(96, 38),
-                Anchor = AnchorStyles.Top | AnchorStyles.Right,
-                Location = new Point(260, 6)
+                Dock = DockStyle.Right
             };
             _sendBtn.Click += OnSendClick;
 
+            var attach = new Label
+            {
+                Text = "📎 附件      ⌘ /指令",
+                Font = Theme.Body(9),
+                ForeColor = Theme.TextSub,
+                Dock = DockStyle.Fill,
+                TextAlign = ContentAlignment.MiddleLeft,
+                BackColor = Color.Transparent
+            };
+
+            // 先加 Fill，再加 Right，确保发送按钮固定在右侧、附件标签填充左侧剩余空间
             bottomBar.Controls.Add(attach);
             bottomBar.Controls.Add(_sendBtn);
 

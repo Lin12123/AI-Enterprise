@@ -126,16 +126,16 @@ namespace AiSwAddin
             int titleW;
             using (var titleFont = new Font("Microsoft YaHei", 12f, FontStyle.Bold))
             {
-                titleW = TextRenderer.MeasureText(g, "SolidWorks AI 绘图助手", titleFont).Width;
+                titleW = TextRenderer.MeasureText(g, "ThinkForm AI 绘图助手", titleFont).Width;
                 var titleRect = new Rectangle(52, 0, titleW + 8, Height);
-                TextRenderer.DrawText(g, "SolidWorks AI 绘图助手", titleFont, titleRect,
+                TextRenderer.DrawText(g, "ThinkForm AI 绘图助手", titleFont, titleRect,
                     Color.White, TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
             }
 
             // 版本徽章：半透明白圆角框 + 白字
             using (var verFont = new Font("Microsoft YaHei", 8.5f, FontStyle.Bold))
             {
-                Size verSize = TextRenderer.MeasureText(g, "v2.4", verFont);
+                Size verSize = TextRenderer.MeasureText(g, "v1.0", verFont);
                 var verRect = new Rectangle(52 + titleW + 12, cy - 11, verSize.Width + 16, 22);
                 using (var verBg = new SolidBrush(Color.FromArgb(70, 255, 255, 255)))
                 using (var path = GfxUtil.RoundedRect(verRect, 6))
