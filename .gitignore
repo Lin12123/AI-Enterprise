@@ -64,3 +64,22 @@ Thumbs.db
 desktop.ini
 .vscode/
 .idea/
+
+# PyInstaller / packaging build artifacts
+build/
+dist/
+*.egg-info/
+
+# Top-level generated outputs
+outputs/
+
+# .NET / Visual Studio build artifacts (SolidWorks addin & preview)
+bin/
+obj/
+.vs/
+*.dll
+*.exe
+*.pdb
+*.user
+*.suo
+
