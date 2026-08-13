@@ -33,30 +33,13 @@ namespace AiSwAddin
                 Text = "AiSwAddin UI 预览（不含 SolidWorks）",
                 StartPosition = FormStartPosition.CenterScreen,
                 ClientSize = new Size(500, 820),
-                MinimumSize = new Size(420, 400),
+                MinimumSize = new Size(360, 400),
                 FormBorderStyle = FormBorderStyle.Sizable,   // 可自由拉长拉宽
-                MaximizeBox = true,
-                BackColor = Color.FromArgb(230, 232, 238)     // 两侧留白颜色，模拟主机应用背景
+                MaximizeBox = true
             };
 
-            // 真实的 SolidWorks 任务窗格宽度固定；这里让被测控件保持固定 400 宽并居中，
-            // 两侧空白由窗体背景填充，避免拉宽时按 400 宽设计的自绘元素被拉伸变形。
-            const int PaneWidth = 400;
-            var control = new AiSwTaskPaneControl
-            {
-                Width = PaneWidth,
-                Anchor = AnchorStyles.Top | AnchorStyles.Bottom
-            };
-
-            void Layout()
-            {
-                control.Left = Math.Max(0, (form.ClientSize.Width - PaneWidth) / 2);
-                control.Top = 0;
-                control.Height = form.ClientSize.Height;
-            }
-            form.Resize += (s, e) => Layout();
-            form.Shown += (s, e) => Layout();
-
+            // 控件填满窗体，随窗体拉长拉宽自适应；内部所有自绘元素已按相对坐标绘制
+            var control = new AiSwTaskPaneControl { Dock = DockStyle.Fill };
             form.Controls.Add(control);
             Application.Run(form);
         }

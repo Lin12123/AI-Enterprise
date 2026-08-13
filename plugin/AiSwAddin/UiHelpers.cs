@@ -72,6 +72,7 @@ namespace AiSwAddin
             _left = left;
             _right = right;
             DoubleBuffered = true;
+            SetStyle(ControlStyles.ResizeRedraw, true);   // 拉伸时整体重绘，避免残影
         }
         protected override void OnPaint(PaintEventArgs e)
         {
@@ -100,6 +101,8 @@ namespace AiSwAddin
             _left = left;
             _right = right;
             DoubleBuffered = true;
+            // 拉宽/拉高时整体重绘，避免关闭按钮等右对齐元素残留旧位置的重影
+            SetStyle(ControlStyles.ResizeRedraw, true);
         }
 
         protected override void OnPaint(PaintEventArgs e)
@@ -321,30 +324,30 @@ namespace AiSwAddin
 
         /// <summary>
         /// 在给定矩形区域内居中绘制一个等轴测（isometric）风格的 3D 立方体线框。
-        /// 六边形外轮廓 + 中心到三个上顶点的三条内边，形成经典的"3D 立方体"视觉。
+        /// 六边形外轮廓 + 中心到三个可见顶点（正上、左下、右下）的三条内边，
+        /// 形成经典的"3D 立方体"视觉。
         /// </summary>
         private static void DrawIsoCube(Graphics g, Rectangle area, Color color)
         {
-            // 取区域内可用的最大偶数尺寸，保证像素对齐
-            int s = Math.Min(area.Width, area.Height) - 2;
+            // 取区域内可用的最大偶数尺寸，并缩到 0.7 倍，视觉上与字符图标(▤/☁)大小接近
+            int s = (int)((Math.Min(area.Width, area.Height) - 2) * 0.7f);
             if (s < 8) return;
 
             float cx = area.X + area.Width / 2f;
             float cy = area.Y + area.Height / 2f;
 
-            // 等轴测立方体的六个外顶点 + 中心点(前后立方体交点)
-            // 用半宽 hw、半高 hh：hw ≈ s * 0.45，hh ≈ s * 0.5
+            // 六边形顶点：hw = 半宽, hh = 半高, qh = 半高的一半(上/下顶点到中心水平线的距离)
             float hw = s * 0.45f;
             float hh = s * 0.5f;
-            float qh = hh / 2f;    // 上/下顶点到中心水平线的距离(半高的一半)
+            float qh = hh / 2f;
 
-            var top    = new PointF(cx, cy - hh);
-            var right  = new PointF(cx + hw, cy - qh);
-            var brRight= new PointF(cx + hw, cy + qh);
-            var bottom = new PointF(cx, cy + hh);
-            var blLeft = new PointF(cx - hw, cy + qh);
-            var left   = new PointF(cx - hw, cy - qh);
-            var center = new PointF(cx, cy);
+            var top     = new PointF(cx, cy - hh);
+            var right   = new PointF(cx + hw, cy - qh);
+            var brRight = new PointF(cx + hw, cy + qh);
+            var bottom  = new PointF(cx, cy + hh);
+            var blLeft  = new PointF(cx - hw, cy + qh);
+            var left    = new PointF(cx - hw, cy - qh);
+            var center  = new PointF(cx, cy);
 
             using (var pen = new Pen(color, 1.6f))
             {
@@ -356,10 +359,10 @@ namespace AiSwAddin
                 var outline = new[] { top, right, brRight, bottom, blLeft, left, top };
                 g.DrawLines(pen, outline);
 
-                // 三条内边：中心分别连到 top(上顶点)、left(左中)、right(右中)
+                // 三条内边：中心连接到"正上、左下、右下"三个顶点
                 g.DrawLine(pen, center, top);
-                g.DrawLine(pen, center, left);
-                g.DrawLine(pen, center, right);
+                g.DrawLine(pen, center, blLeft);
+                g.DrawLine(pen, center, brRight);
             }
         }
 
