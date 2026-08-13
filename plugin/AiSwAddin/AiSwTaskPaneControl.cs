@@ -175,7 +175,7 @@ namespace AiSwAddin
                 BackColor = Theme.PageBg,
                 ColumnCount = 3,
                 RowCount = 1,
-                Padding = new Padding(12, 0, 12, 8)
+                Padding = new Padding(12, 0, 12, 6)
             };
             host.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.3f));
             host.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.3f));
@@ -207,10 +207,10 @@ namespace AiSwAddin
             var icon = new Label
             {
                 Text = glyph,
-                Font = Theme.Title(18),
+                Font = Theme.Title(15),
                 ForeColor = accent,
                 Dock = DockStyle.Top,
-                Height = 44,
+                Height = 36,
                 TextAlign = ContentAlignment.BottomCenter,
                 BackColor = Color.Transparent
             };
@@ -220,7 +220,7 @@ namespace AiSwAddin
                 Font = Theme.Body(9, FontStyle.Bold),
                 ForeColor = Theme.TextMain,
                 Dock = DockStyle.Fill,
-                TextAlign = ContentAlignment.TopCenter,
+                TextAlign = ContentAlignment.MiddleCenter,
                 BackColor = Color.Transparent
             };
 
