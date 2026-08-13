@@ -290,6 +290,11 @@ namespace AiSwAddin
 
         public ModePillButton()
         {
+            // 启用透明背景与自绘所需样式，否则设置 Color.Transparent 会抛异常
+            SetStyle(ControlStyles.SupportsTransparentBackColor
+                     | ControlStyles.UserPaint
+                     | ControlStyles.AllPaintingInWmPaint
+                     | ControlStyles.OptimizedDoubleBuffer, true);
             DoubleBuffered = true;
             BackColor = Color.Transparent;
             Cursor = Cursors.Hand;
