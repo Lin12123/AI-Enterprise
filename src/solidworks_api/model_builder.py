@@ -66,18 +66,25 @@ DISPATCH = {
 
 
 class ModelBuilder:
-    def build(self, sw_app: object, plan: FeaturePlan) -> tuple[str, ...]:
+    def build(self, sw_app: object, plan: FeaturePlan, use_active_doc: bool = False) -> tuple[str, ...]:
+        # use_active_doc=True 时在当前打开的活动文档里建模，不新建窗口；
+        # 默认 False 保持原有行为：新建零件文档。
         plan = plan_operations(plan)
-        sw_model = None
+        sw_model = self._active_part(sw_app) if use_active_doc else None
         state = {"base": {}, "boss": {}, "sketches": {}, "saved_outputs": [], "sw_app": sw_app}
         explicit_output = False
         for operation in plan.operations:
             try:
                 if operation.op == "create_new_part":
+                    # 若指定在当前文档建模，则忽略 create_new_part，不再新开窗口
+                    if use_active_doc:
+                        if sw_model is None:
+                            sw_model = self._active_part(sw_app)
+                        continue
                     sw_model = self._create_new_part(sw_app)
                     continue
                 if sw_model is None:
-                    sw_model = self._create_new_part(sw_app)
+                    sw_model = self._active_part(sw_app) if use_active_doc else self._create_new_part(sw_app)
                 if operation.op == "rebuild_model":
                     self._rebuild_model(sw_model)
                     continue
@@ -116,6 +123,15 @@ class ModelBuilder:
             return self._save_outputs(sw_model, plan)
         except Exception as exc:
             raise RuntimeError(f"保存输出失败: {exc}") from exc
+
+    def _active_part(self, sw_app: object) -> object:
+        """返回当前活动零件文档；无活动文档时报错，提示用户先打开一个零件。"""
+        active_doc = getattr(sw_app, "ActiveDoc", None)
+        if active_doc is None:
+            raise RuntimeError(
+                "已选择在当前文档建模，但 SolidWorks 没有活动文档。请先打开或新建一个零件后再执行。"
+            )
+        return active_doc
 
     def _create_new_part(self, sw_app: object) -> object:
         errors: list[str] = []

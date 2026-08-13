@@ -216,9 +216,10 @@ def _handle_execute(payload: dict) -> dict:
     if not isinstance(plan, dict):
         return {"ok": False, "error": "缺少 plan 字段或格式错误"}
 
+    use_active_doc = bool(payload.get("use_active_doc", False))
     from solidworks_api.executor import SolidWorksApiExecutor
 
-    result = SolidWorksApiExecutor().execute(plan, dry_run=False)
+    result = SolidWorksApiExecutor().execute(plan, dry_run=False, use_active_doc=use_active_doc)
     return _execution_result_to_dict(result)
 
 

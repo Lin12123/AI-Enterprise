@@ -65,10 +65,13 @@ namespace AiSwAddin
             return PostAsync("/api/dry_run", "{\"plan\":" + planJson + "}");
         }
 
-        /// <summary>真实建模(Python 侧通过 pywin32 连接当前打开的 SolidWorks)。</summary>
-        public Task<string> ExecuteAsync(string planJson)
+        /// <summary>真实建模(Python 侧通过 pywin32 连接当前打开的 SolidWorks)。
+        /// useActiveDoc=true 时在当前活动文档建模，否则新建零件文档。</summary>
+        public Task<string> ExecuteAsync(string planJson, bool useActiveDoc)
         {
-            return PostAsync("/api/execute", "{\"plan\":" + planJson + "}");
+            string flag = useActiveDoc ? "true" : "false";
+            return PostAsync("/api/execute",
+                "{\"plan\":" + planJson + ",\"use_active_doc\":" + flag + "}");
         }
 
         /// <summary>统一的 POST 请求，返回响应体字符串；失败抛出可读异常。</summary>

@@ -67,7 +67,7 @@ class SolidWorksApiExecutor:
             outputs=_planned_output_paths(planned),
         )
 
-    def execute(self, plan_data: Mapping[str, Any] | FeaturePlan, dry_run: bool = True) -> ExecutionResult:
+    def execute(self, plan_data: Mapping[str, Any] | FeaturePlan, dry_run: bool = True, use_active_doc: bool = False) -> ExecutionResult:
         if dry_run:
             return self.dry_run(plan_data)
         plan = plan_data if isinstance(plan_data, FeaturePlan) else FeaturePlan.from_dict(canonicalize_featureplan_structure(dict(plan_data)))
@@ -84,7 +84,7 @@ class SolidWorksApiExecutor:
         try:
             planned = plan_operations(plan)
             self.session.connect()
-            outputs = self.model_builder.build(self.session.require_connected(), planned)
+            outputs = self.model_builder.build(self.session.require_connected(), planned, use_active_doc)
         except Exception as exc:
             return ExecutionResult(status="error", message=str(exc))
         return ExecutionResult(
