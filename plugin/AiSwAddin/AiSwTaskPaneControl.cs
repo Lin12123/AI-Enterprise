@@ -7,109 +7,296 @@ using SolidWorks.Interop.sldworks;
 namespace AiSwAddin
 {
     /// <summary>
-    /// 任务窗格中的 UI 控件(WinForms UserControl)。
+    /// 任务窗格 UI 控件（WinForms UserControl），按设计稿重做视觉。
     ///
-    /// 作为 COM 控件被 SolidWorks 任务窗格加载，因此需 ComVisible + ProgId。
-    /// 界面元素：需求输入框、provider 选择、四个流程按钮(生成/校验/预演/执行)、日志区。
-    /// 业务逻辑全部通过 ServiceClient 走本地 Python HTTP 服务，本控件不含建模代码。
+    /// 结构（自上而下）：
+    ///   顶部渐变标题栏 → 模式/项目行 → 标准徽章行 → 三个功能卡片
+    ///   → AI 助手就绪信息卡 + 日志区 → 底部输入卡 → 底部任务中心栏
+    ///
+    /// 说明：部分元素（项目下拉、标准徽章、云平台、任务中心栏）为展示性 UI，
+    /// 暂不接后端；核心的“生成/校验/预演/执行”四步业务逻辑保留并接入功能卡与发送按钮。
     /// </summary>
     [ComVisible(true)]
     [ProgId(ProgId)]
     [ClassInterface(ClassInterfaceType.AutoDual)]
     public class AiSwTaskPaneControl : UserControl
     {
-        // SolidWorks 通过该 ProgId 在任务窗格中实例化本控件
         public const string ProgId = "AiSwAddin.AiSwTaskPaneControl";
 
         private ISldWorks _swApp;
         private readonly ServiceClient _client = new ServiceClient();
-
-        // 保存最近一次生成的 FeaturePlan(JSON 字符串)，供校验/预演/执行复用
         private string _currentPlanJson = null;
 
-        // ---- UI 控件字段 ----
+        // 需要在事件中访问的控件
         private TextBox _inputBox;
-        private ComboBox _providerBox;
-        private Button _generateBtn;
-        private Button _validateBtn;
-        private Button _dryRunBtn;
-        private Button _executeBtn;
         private TextBox _logBox;
+        private CardPanel _cardNew3d, _card3dTo2d, _cardUpload;
+        private RoundButton _sendBtn;
 
         public AiSwTaskPaneControl()
         {
             BuildUi();
         }
 
-        /// <summary>由插件主类注入 SolidWorks 应用实例。</summary>
         public void SetSolidWorks(ISldWorks swApp)
         {
             _swApp = swApp;
-            AppendLog("[就绪] AI-SW 插件已加载。请先启动本地 Python 服务(start_service.bat)。");
+            AppendLog("[就绪] AI 助手已加载。请先启动本地服务(start_service.bat)。");
         }
 
-        /// <summary>构建界面布局。</summary>
+        /// <summary>构建整体界面。</summary>
         private void BuildUi()
         {
-            Width = 340;
-            Height = 640;
-            Padding = new Padding(8);
+            Width = 400;
+            Height = 900;
+            BackColor = Theme.PageBg;
+            AutoScroll = true;
 
-            var layout = new TableLayoutPanel
+            var root = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
                 ColumnCount = 1,
-                RowCount = 6,
-                AutoSize = true
+                RowCount = 8,
+                BackColor = Theme.PageBg,
+                Padding = new Padding(0)
             };
-            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 30));   // 标题
-            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 120));  // 输入框
-            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));   // provider
-            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 80));   // 按钮区
-            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 24));   // 日志标题
-            layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));   // 日志区
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 62));   // 标题栏
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 52));   // 模式行
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 44));   // 徽章行
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 96));   // 功能卡片
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 130));  // AI 就绪信息卡
+            root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));   // 日志区(自适应)
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 150));  // 输入卡
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 40));   // 任务中心栏
+
+            root.Controls.Add(BuildHeader(), 0, 0);
+            root.Controls.Add(BuildModeRow(), 0, 1);
+            root.Controls.Add(BuildBadgeRow(), 0, 2);
+            root.Controls.Add(BuildFeatureCards(), 0, 3);
+            root.Controls.Add(BuildReadyCard(), 0, 4);
+            root.Controls.Add(BuildLogArea(), 0, 5);
+            root.Controls.Add(BuildInputCard(), 0, 6);
+            root.Controls.Add(BuildTaskBar(), 0, 7);
+
+            Controls.Add(root);
+        }
+
+        // ---- 顶部渐变标题栏 ----
+        private Control BuildHeader()
+        {
+            var header = new GradientPanel(Theme.HeaderLeft, Theme.HeaderRight) { Dock = DockStyle.Fill };
+
+            var icon = new Label
+            {
+                Text = "✦",
+                Font = Theme.Title(16),
+                ForeColor = Theme.TextWhite,
+                AutoSize = false,
+                Size = new Size(36, 36),
+                Location = new Point(12, 13),
+                TextAlign = ContentAlignment.MiddleCenter
+            };
 
             var title = new Label
             {
-                Text = "AI-SW 智能建模",
-                Font = new Font("Microsoft YaHei", 11, FontStyle.Bold),
-                Dock = DockStyle.Fill,
-                TextAlign = ContentAlignment.MiddleLeft
+                Text = "SolidWorks AI 绘图助手",
+                Font = Theme.Title(12),
+                ForeColor = Theme.TextWhite,
+                AutoSize = true,
+                Location = new Point(54, 20)
             };
-            layout.Controls.Add(title, 0, 0);
 
-            _inputBox = new TextBox
+            var version = new Label
             {
-                Multiline = true,
-                ScrollBars = ScrollBars.Vertical,
-                Dock = DockStyle.Fill,
-                Text = "例如：做一个长100宽80厚10的底板，四角各开一个直径6的通孔"
+                Text = " v2.4 ",
+                Font = Theme.Body(8.5f, FontStyle.Bold),
+                ForeColor = Theme.TextWhite,
+                BackColor = Color.FromArgb(80, 255, 255, 255),
+                AutoSize = true,
+                Location = new Point(258, 22)
             };
-            layout.Controls.Add(_inputBox, 0, 1);
 
-            var providerPanel = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.LeftToRight };
-            providerPanel.Controls.Add(new Label { Text = "模型：", AutoSize = true, TextAlign = ContentAlignment.MiddleLeft, Padding = new Padding(0, 6, 0, 0) });
-            _providerBox = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 160 };
-            _providerBox.Items.AddRange(new object[] { "local", "rule_based", "openai" });
-            _providerBox.SelectedIndex = 0;
-            providerPanel.Controls.Add(_providerBox);
-            layout.Controls.Add(providerPanel, 0, 2);
+            var close = new Label
+            {
+                Text = "✕",
+                Font = Theme.Title(12),
+                ForeColor = Theme.TextWhite,
+                AutoSize = false,
+                Size = new Size(30, 30),
+                Location = new Point(360, 16),
+                TextAlign = ContentAlignment.MiddleCenter,
+                Cursor = Cursors.Hand
+            };
+            close.Click += (s, e) => AppendLog("[提示] 关闭按钮为展示性元素。");
 
-            var buttonPanel = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.LeftToRight, WrapContents = true };
-            _generateBtn = MakeButton("① 生成计划", OnGenerateClick);
-            _validateBtn = MakeButton("② 校验", OnValidateClick);
-            _dryRunBtn = MakeButton("③ 预演", OnDryRunClick);
-            _executeBtn = MakeButton("④ 执行建模", OnExecuteClick);
-            _validateBtn.Enabled = false;
-            _dryRunBtn.Enabled = false;
-            _executeBtn.Enabled = false;
-            buttonPanel.Controls.Add(_generateBtn);
-            buttonPanel.Controls.Add(_validateBtn);
-            buttonPanel.Controls.Add(_dryRunBtn);
-            buttonPanel.Controls.Add(_executeBtn);
-            layout.Controls.Add(buttonPanel, 0, 3);
+            header.Controls.Add(icon);
+            header.Controls.Add(title);
+            header.Controls.Add(version);
+            header.Controls.Add(close);
+            return header;
+        }
 
-            layout.Controls.Add(new Label { Text = "运行日志：", Dock = DockStyle.Fill }, 0, 4);
+        // ---- 模式行：离线模式下拉 + 项目下拉 ----
+        private Control BuildModeRow()
+        {
+            var host = new Panel { Dock = DockStyle.Fill, BackColor = Theme.PageBg, Padding = new Padding(12, 8, 12, 4) };
+
+            var mode = new ComboBox
+            {
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                Font = Theme.Body(9),
+                Width = 110,
+                Location = new Point(12, 10)
+            };
+            mode.Items.AddRange(new object[] { "离线模式", "在线模式" });
+            mode.SelectedIndex = 0;
+
+            var project = new ComboBox
+            {
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                Font = Theme.Body(9),
+                Width = 250,
+                Location = new Point(130, 10)
+            };
+            project.Items.Add("P-205 工业机器人关节总成");
+            project.SelectedIndex = 0;
+
+            host.Controls.Add(mode);
+            host.Controls.Add(project);
+            return host;
+        }
+
+        // ---- 标准徽章行 ----
+        private Control BuildBadgeRow()
+        {
+            var flow = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = Theme.PageBg,
+                Padding = new Padding(12, 2, 12, 8),
+                FlowDirection = FlowDirection.LeftToRight,
+                WrapContents = false
+            };
+
+            flow.Controls.Add(MakeBadge("GB/T 14689-2024", Theme.Primary));
+            flow.Controls.Add(MakeBadge("Q/HW 2026.2", Theme.Amber));
+            flow.Controls.Add(MakeBadge("v2.4.1-sp2", Theme.Green));
+            return flow;
+        }
+
+        private BadgeLabel MakeBadge(string text, Color accent)
+        {
+            return new BadgeLabel
+            {
+                Text = text,
+                AccentColor = accent,
+                Size = new Size(118, 26),
+                Margin = new Padding(0, 2, 6, 2)
+            };
+        }
+
+        // ---- 三个功能卡片 ----
+        private Control BuildFeatureCards()
+        {
+            var host = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = Theme.PageBg,
+                ColumnCount = 3,
+                RowCount = 1,
+                Padding = new Padding(12, 0, 12, 8)
+            };
+            host.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.3f));
+            host.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.3f));
+            host.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.3f));
+
+            _cardNew3d = MakeFeatureCard("⬢", "新建 3D 零件", Theme.Primary, true, OnGenerateClick);
+            _card3dTo2d = MakeFeatureCard("▤", "3D 转 2D 出图", Theme.Purple, false,
+                (s, e) => AppendLog("[提示] 3D 转 2D 出图为展示性功能。"));
+            _cardUpload = MakeFeatureCard("☁", "上传云平台", Theme.Green, false,
+                (s, e) => AppendLog("[提示] 上传云平台为展示性功能。"));
+
+            host.Controls.Add(_cardNew3d, 0, 0);
+            host.Controls.Add(_card3dTo2d, 1, 0);
+            host.Controls.Add(_cardUpload, 2, 0);
+            return host;
+        }
+
+        private CardPanel MakeFeatureCard(string glyph, string text, Color accent, bool active, EventHandler onClick)
+        {
+            var card = new CardPanel
+            {
+                Dock = DockStyle.Fill,
+                Margin = new Padding(4),
+                BorderColor = active ? accent : Theme.CardBorder,
+                BorderWidth = active ? 2 : 1,
+                Cursor = Cursors.Hand
+            };
+
+            var icon = new Label
+            {
+                Text = glyph,
+                Font = Theme.Title(18),
+                ForeColor = accent,
+                Dock = DockStyle.Top,
+                Height = 44,
+                TextAlign = ContentAlignment.BottomCenter,
+                BackColor = Color.Transparent
+            };
+            var label = new Label
+            {
+                Text = text,
+                Font = Theme.Body(9, FontStyle.Bold),
+                ForeColor = Theme.TextMain,
+                Dock = DockStyle.Fill,
+                TextAlign = ContentAlignment.TopCenter,
+                BackColor = Color.Transparent
+            };
+
+            card.Click += onClick;
+            icon.Click += onClick;
+            label.Click += onClick;
+            card.Controls.Add(label);
+            card.Controls.Add(icon);
+            return card;
+        }
+
+        // ---- AI 助手就绪信息卡 ----
+        private Control BuildReadyCard()
+        {
+            var host = new Panel { Dock = DockStyle.Fill, BackColor = Theme.PageBg, Padding = new Padding(12, 0, 12, 6) };
+            var card = new CardPanel { Dock = DockStyle.Fill };
+
+            var head = new Label
+            {
+                Text = "✦  AI 助手就绪",
+                Font = Theme.Title(10),
+                ForeColor = Theme.Primary,
+                Dock = DockStyle.Top,
+                Height = 34,
+                Padding = new Padding(14, 8, 0, 0),
+                BackColor = Color.Transparent
+            };
+            var body = new Label
+            {
+                Text = "请在上方选择功能模式或在下方输入框直接描述 CAD 建模、修改参数或工程图出图需求。",
+                Font = Theme.Body(9),
+                ForeColor = Theme.TextSub,
+                Dock = DockStyle.Fill,
+                Padding = new Padding(14, 0, 14, 8),
+                BackColor = Color.Transparent
+            };
+            card.Controls.Add(body);
+            card.Controls.Add(head);
+            host.Controls.Add(card);
+            return host;
+        }
+
+        // ---- 运行日志区 ----
+        private Control BuildLogArea()
+        {
+            var host = new Panel { Dock = DockStyle.Fill, BackColor = Theme.PageBg, Padding = new Padding(12, 0, 12, 6) };
+            var card = new CardPanel { Dock = DockStyle.Fill, Padding = new Padding(6) };
 
             _logBox = new TextBox
             {
@@ -117,24 +304,98 @@ namespace AiSwAddin
                 ReadOnly = true,
                 ScrollBars = ScrollBars.Vertical,
                 Dock = DockStyle.Fill,
+                BorderStyle = BorderStyle.None,
                 BackColor = Color.White,
+                ForeColor = Theme.TextMain,
                 Font = new Font("Consolas", 9)
             };
-            layout.Controls.Add(_logBox, 0, 5);
-
-            Controls.Add(layout);
+            card.Controls.Add(_logBox);
+            host.Controls.Add(card);
+            return host;
         }
 
-        private Button MakeButton(string text, EventHandler onClick)
+        // ---- 底部输入卡：输入框 + 附件/指令 + 发送 ----
+        private Control BuildInputCard()
         {
-            var btn = new Button { Text = text, Width = 150, Height = 32, Margin = new Padding(2) };
-            btn.Click += onClick;
-            return btn;
+            var host = new Panel { Dock = DockStyle.Fill, BackColor = Theme.PageBg, Padding = new Padding(12, 0, 12, 6) };
+            var card = new CardPanel { Dock = DockStyle.Fill, Padding = new Padding(10) };
+
+            _inputBox = new TextBox
+            {
+                Multiline = true,
+                BorderStyle = BorderStyle.None,
+                Dock = DockStyle.Top,
+                Height = 70,
+                Font = Theme.Body(9.5f),
+                ForeColor = Theme.TextMain,
+                Text = "请描述建模需求，例如：做一个长100宽80厚10的底板，四角各开一个直径6的通孔"
+            };
+
+            var bottomBar = new Panel { Dock = DockStyle.Fill, BackColor = Color.Transparent };
+
+            var attach = new Label
+            {
+                Text = "📎 附件      ⌘ /指令",
+                Font = Theme.Body(9),
+                ForeColor = Theme.TextSub,
+                AutoSize = true,
+                Location = new Point(4, 14),
+                BackColor = Color.Transparent
+            };
+
+            _sendBtn = new RoundButton
+            {
+                Text = "➤ 发送",
+                Filled = true,
+                Accent = Theme.Primary,
+                Size = new Size(96, 38),
+                Anchor = AnchorStyles.Top | AnchorStyles.Right,
+                Location = new Point(260, 6)
+            };
+            _sendBtn.Click += OnSendClick;
+
+            bottomBar.Controls.Add(attach);
+            bottomBar.Controls.Add(_sendBtn);
+
+            card.Controls.Add(bottomBar);
+            card.Controls.Add(_inputBox);
+            host.Controls.Add(card);
+            return host;
         }
 
-        /// <summary>向日志区追加一行(自动滚动到底部，线程安全)。</summary>
+        // ---- 底部任务中心栏 ----
+        private Control BuildTaskBar()
+        {
+            var bar = new Panel { Dock = DockStyle.Fill, BackColor = Color.FromArgb(237, 240, 245) };
+            var left = new Label
+            {
+                Text = "☰ 抽屉内任务中心 (非阻塞后台队列)",
+                Font = Theme.Body(9, FontStyle.Bold),
+                ForeColor = Theme.TextMain,
+                AutoSize = true,
+                Location = new Point(12, 11),
+                BackColor = Color.Transparent
+            };
+            var right = new Label
+            {
+                Text = "SolidWorks 写入锁  ⌃",
+                Font = Theme.Body(9),
+                ForeColor = Theme.TextSub,
+                AutoSize = true,
+                Anchor = AnchorStyles.Top | AnchorStyles.Right,
+                Location = new Point(250, 11),
+                BackColor = Color.Transparent
+            };
+            bar.Controls.Add(left);
+            bar.Controls.Add(right);
+            return bar;
+        }
+
+        // ==== 通用工具 ====
+
         private void AppendLog(string message)
         {
+            if (_logBox == null) return;
             if (_logBox.InvokeRequired)
             {
                 _logBox.BeginInvoke(new Action<string>(AppendLog), message);
@@ -146,20 +407,14 @@ namespace AiSwAddin
 
         private void SetBusy(bool busy)
         {
-            _generateBtn.Enabled = !busy;
-            // 后续按钮的可用性由各步骤结果决定，忙碌时统一禁用
-            if (busy)
-            {
-                _validateBtn.Enabled = false;
-                _dryRunBtn.Enabled = false;
-                _executeBtn.Enabled = false;
-            }
+            if (_sendBtn != null) _sendBtn.Enabled = !busy;
+            if (_cardNew3d != null) _cardNew3d.Enabled = !busy;
         }
 
-        // ---- 事件处理：串联 生成 → 校验 → 预演 → 执行 四个步骤 ----
+        // ==== 业务逻辑：发送 = 生成→校验→预演→执行(带确认) 的一体化流程 ====
 
-        /// <summary>① 生成计划：自然语言 → FeaturePlan。</summary>
-        private async void OnGenerateClick(object sender, EventArgs e)
+        /// <summary>“发送”按钮：串起完整流程。</summary>
+        private async void OnSendClick(object sender, EventArgs e)
         {
             string prompt = _inputBox.Text.Trim();
             if (string.IsNullOrEmpty(prompt))
@@ -169,25 +424,21 @@ namespace AiSwAddin
             }
 
             SetBusy(true);
-            AppendLog("[生成] 正在调用本地 AI 服务解析需求...");
             try
             {
-               string provider = _providerBox.SelectedItem?.ToString() ?? "local";
-                string resp = await _client.GeneratePlanAsync(prompt, provider);
+                if (!await GeneratePlanAsync(prompt)) return;
+                if (!await ValidateAsync()) return;
+                if (!await DryRunAsync()) return;
 
-                // 从响应中提取 plan 子对象(避免引入 JSON 库，做最小化提取)
-                _currentPlanJson = ExtractPlanJson(resp);
-                if (_currentPlanJson == null)
+                var confirm = MessageBox.Show(
+                    "预演通过。是否在当前 SolidWorks 中真实执行建模？\n请确认已打开 SolidWorks。",
+                    "确认执行", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                if (confirm != DialogResult.Yes)
                 {
-                    AppendLog("[生成失败] 服务返回未包含有效 plan：" + Truncate(resp));
+                    AppendLog("[执行取消] 用户取消了真实建模。");
                     return;
                 }
-                AppendLog("[生成成功] 已生成 FeaturePlan。");
-                _validateBtn.Enabled = true;
-            }
-            catch (Exception ex)
-            {
-                AppendLog("[生成异常] " + ex.Message);
+                await ExecuteAsync();
             }
             finally
             {
@@ -195,114 +446,87 @@ namespace AiSwAddin
             }
         }
 
-        /// <summary>② 校验：policy 引擎校验计划合法性。</summary>
-        private async void OnValidateClick(object sender, EventArgs e)
+        /// <summary>功能卡“新建 3D 零件”：等同于发送流程。</summary>
+        private void OnGenerateClick(object sender, EventArgs e)
         {
-            if (_currentPlanJson == null) { AppendLog("[错误] 请先生成计划。"); return; }
-            SetBusy(true);
+            OnSendClick(sender, e);
+        }
+
+        private async System.Threading.Tasks.Task<bool> GeneratePlanAsync(string prompt)
+        {
+            AppendLog("[生成] 正在调用本地 AI 服务解析需求...");
+            try
+            {
+                string resp = await _client.GeneratePlanAsync(prompt, "local");
+                _currentPlanJson = ExtractPlanJson(resp);
+                if (_currentPlanJson == null)
+                {
+                    AppendLog("[生成失败] 服务返回未包含有效 plan：" + Truncate(resp));
+                    return false;
+                }
+                AppendLog("[生成成功] 已生成 FeaturePlan。");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                AppendLog("[生成异常] " + ex.Message);
+                return false;
+            }
+        }
+
+        private async System.Threading.Tasks.Task<bool> ValidateAsync()
+        {
             AppendLog("[校验] 正在进行安全与几何规则校验...");
             try
             {
                 string resp = await _client.ValidateAsync(_currentPlanJson);
                 bool allowed = resp.Contains("\"allowed\": true") || resp.Contains("\"allowed\":true");
-                if (allowed)
-                {
-                    AppendLog("[校验通过] 计划符合规则。");
-                    _dryRunBtn.Enabled = true;
-                }
-                else
-                {
-                    AppendLog("[校验未通过] " + Truncate(resp));
-                }
+                if (allowed) { AppendLog("[校验通过] 计划符合规则。"); return true; }
+                AppendLog("[校验未通过] " + Truncate(resp));
+                return false;
             }
             catch (Exception ex)
             {
                 AppendLog("[校验异常] " + ex.Message);
-            }
-            finally
-            {
-                _generateBtn.Enabled = true;
-                SetBusy(false);
-                _generateBtn.Enabled = true;
+                return false;
             }
         }
 
-        /// <summary>③ 预演：不连接 SolidWorks，仅输出执行计划。</summary>
-        private async void OnDryRunClick(object sender, EventArgs e)
+        private async System.Threading.Tasks.Task<bool> DryRunAsync()
         {
-            if (_currentPlanJson == null) { AppendLog("[错误] 请先生成计划。"); return; }
-            SetBusy(true);
             AppendLog("[预演] 正在生成执行计划(不修改模型)...");
             try
             {
                 string resp = await _client.DryRunAsync(_currentPlanJson);
                 bool ok = resp.Contains("\"ok\": true") || resp.Contains("\"ok\":true");
-                if (ok)
-                {
-                    AppendLog("[预演通过] 执行计划已就绪，可执行真实建模。");
-                    _executeBtn.Enabled = true;
-                }
-                else
-                {
-                    AppendLog("[预演失败] " + Truncate(resp));
-                }
+                if (ok) { AppendLog("[预演通过] 执行计划已就绪。"); return true; }
+                AppendLog("[预演失败] " + Truncate(resp));
+                return false;
             }
             catch (Exception ex)
             {
                 AppendLog("[预演异常] " + ex.Message);
-            }
-            finally
-            {
-                _generateBtn.Enabled = true;
-                SetBusy(false);
-                _generateBtn.Enabled = true;
+                return false;
             }
         }
 
-        /// <summary>④ 执行建模：Python 侧通过 pywin32 驱动当前 SolidWorks 真实建模。</summary>
-        private async void OnExecuteClick(object sender, EventArgs e)
+        private async System.Threading.Tasks.Task ExecuteAsync()
         {
-            if (_currentPlanJson == null) { AppendLog("[错误] 请先生成计划。"); return; }
-
-            var confirm = MessageBox.Show(
-                "即将在当前 SolidWorks 中真实执行建模操作，是否继续？\n请确认已打开 SolidWorks。",
-                "确认执行", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
-            if (confirm != DialogResult.Yes)
-            {
-                AppendLog("[执行取消] 用户取消了真实建模。");
-                return;
-            }
-
-            SetBusy(true);
             AppendLog("[执行] 正在通过本地服务驱动 SolidWorks 建模...");
             try
             {
                 string resp = await _client.ExecuteAsync(_currentPlanJson);
                 bool ok = resp.Contains("\"ok\": true") || resp.Contains("\"ok\":true");
-                if (ok)
-                {
-                    AppendLog("[执行完成] SolidWorks 建模成功。");
-                }
-                else
-                {
-                    AppendLog("[执行失败] " + Truncate(resp));
-                }
+                AppendLog(ok ? "[执行完成] SolidWorks 建模成功。" : "[执行失败] " + Truncate(resp));
             }
             catch (Exception ex)
             {
                 AppendLog("[执行异常] " + ex.Message);
             }
-            finally
-            {
-                _generateBtn.Enabled = true;
-                SetBusy(false);
-                _generateBtn.Enabled = true;
-            }
         }
 
-        // ---- 轻量 JSON 辅助(避免引入外部 JSON 库) ----
+        // ---- 轻量 JSON 辅助 ----
 
-        /// <summary>从 generate_plan 响应中提取 "plan" 对象的 JSON 子串。</summary>
         private static string ExtractPlanJson(string resp)
         {
             if (string.IsNullOrEmpty(resp)) return null;
@@ -310,8 +534,6 @@ namespace AiSwAddin
             if (keyIndex < 0) return null;
             int braceStart = resp.IndexOf('{', keyIndex);
             if (braceStart < 0) return null;
-
-            // 括号配平，找到与 plan 对应的闭合大括号
             int depth = 0;
             for (int i = braceStart; i < resp.Length; i++)
             {
@@ -319,14 +541,12 @@ namespace AiSwAddin
                 else if (resp[i] == '}')
                 {
                     depth--;
-                    if (depth == 0)
-                        return resp.Substring(braceStart, i - braceStart + 1);
+                    if (depth == 0) return resp.Substring(braceStart, i - braceStart + 1);
                 }
             }
             return null;
         }
 
-        /// <summary>截断过长文本用于日志显示。</summary>
         private static string Truncate(string text)
         {
             if (string.IsNullOrEmpty(text)) return "";

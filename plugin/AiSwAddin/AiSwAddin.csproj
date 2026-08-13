@@ -46,6 +46,7 @@
       <SubType>UserControl</SubType>
     </Compile>
     <Compile Include="ServiceClient.cs" />
+    <Compile Include="UiHelpers.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
