@@ -324,7 +324,7 @@ namespace AiSwAddin
 
         /// <summary>
         /// 在给定矩形区域内居中绘制一个等轴测（isometric）风格的 3D 立方体线框。
-        /// 六边形外轮廓 + 中心到三个可见顶点（正上、左下、右下）的三条内边，
+        /// 六边形外轮廓 + 中心到三个可见顶点（正下、左下、右下）的三条内边，
         /// 形成经典的"3D 立方体"视觉。
         /// </summary>
         private static void DrawIsoCube(Graphics g, Rectangle area, Color color)
@@ -359,8 +359,8 @@ namespace AiSwAddin
                 var outline = new[] { top, right, brRight, bottom, blLeft, left, top };
                 g.DrawLines(pen, outline);
 
-                // 三条内边：中心连接到"正上、左下、右下"三个顶点
-                g.DrawLine(pen, center, top);
+                // 三条内边：中心连接到"正下、左下、右下"三个顶点
+                g.DrawLine(pen, center, bottom);
                 g.DrawLine(pen, center, blLeft);
                 g.DrawLine(pen, center, brRight);
             }
