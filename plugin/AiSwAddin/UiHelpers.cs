@@ -231,6 +231,92 @@ namespace AiSwAddin
     }
 
     /// <summary>
+    /// 功能卡片：图标 + 文字全部在控件内自绘（不使用子 Label），
+    /// 从根本上避免子控件覆盖底部边框导致边框缺失。
+    /// 支持选中态：选中时用 Accent 色 2px 边框 + 浅色底。
+    /// </summary>
+    internal class FeatureCard : Control
+    {
+        public string Glyph { get; set; } = "";
+        public Color Accent { get; set; } = Theme.Primary;
+        public int Radius { get; set; } = 10;
+
+        private bool _selected;
+        public bool Selected
+        {
+            get { return _selected; }
+            set { _selected = value; Invalidate(); }
+        }
+
+        public FeatureCard()
+        {
+            SetStyle(ControlStyles.UserPaint
+                     | ControlStyles.AllPaintingInWmPaint
+                     | ControlStyles.OptimizedDoubleBuffer
+                     | ControlStyles.ResizeRedraw
+                     | ControlStyles.SupportsTransparentBackColor, true);
+            DoubleBuffered = true;
+            BackColor = Color.Transparent;
+            Cursor = Cursors.Hand;
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            var g = e.Graphics;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            g.PixelOffsetMode = PixelOffsetMode.Half;
+
+            int bw = _selected ? 2 : 1;
+            Color border = _selected ? Accent : Theme.CardBorder;
+            Color fillColor = _selected ? TintColor(Accent) : Theme.CardBg;
+
+            float half = bw / 2f;
+            var rf = new RectangleF(half, half, Width - bw - 1, Height - bw - 1);
+
+            using (var path = RoundedRectF(rf, Radius))
+            using (var fill = new SolidBrush(fillColor))
+            using (var pen = new Pen(border, bw))
+            {
+                g.FillPath(fill, path);
+                g.DrawPath(pen, path);
+            }
+
+            int iconH = 34;
+            using (var iconFont = Theme.Title(15))
+                TextRenderer.DrawText(g, Glyph, iconFont,
+                    new Rectangle(0, 8, Width, iconH), Accent,
+                    TextFormatFlags.HorizontalCenter | TextFormatFlags.Bottom | TextFormatFlags.NoPadding);
+
+            using (var textFont = Theme.Body(9, FontStyle.Bold))
+                TextRenderer.DrawText(g, Text, textFont,
+                    new Rectangle(0, 8 + iconH + 2, Width, Height - (8 + iconH + 2) - 6), Theme.TextMain,
+                    TextFormatFlags.HorizontalCenter | TextFormatFlags.Top | TextFormatFlags.NoPadding);
+        }
+
+        private static Color TintColor(Color c)
+        {
+            const double k = 0.88;
+            int r = (int)(c.R * (1 - k) + 255 * k);
+            int g = (int)(c.G * (1 - k) + 255 * k);
+            int b = (int)(c.B * (1 - k) + 255 * k);
+            return Color.FromArgb(r, g, b);
+        }
+
+        private static GraphicsPath RoundedRectF(RectangleF r, float radius)
+        {
+            float d = radius * 2;
+            var path = new GraphicsPath();
+            if (radius <= 0) { path.AddRectangle(r); path.CloseFigure(); return path; }
+            path.AddArc(r.X, r.Y, d, d, 180, 90);
+            path.AddArc(r.Right - d, r.Y, d, d, 270, 90);
+            path.AddArc(r.Right - d, r.Bottom - d, d, d, 0, 90);
+            path.AddArc(r.X, r.Bottom - d, d, d, 90, 90);
+            path.CloseFigure();
+            return path;
+        }
+    }
+
+    /// <summary>
     /// 徽章标签：圆角描边小标签（如 GB/T 14689-2024）。
     /// 通过设置前景/边框色区分不同类别。
     /// </summary>

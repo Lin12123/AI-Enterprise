@@ -30,7 +30,7 @@ namespace AiSwAddin
         // 需要在事件中访问的控件
         private TextBox _inputBox;
         private TextBox _logBox;
-        private CardPanel _cardNew3d, _card3dTo2d, _cardUpload;
+        private FeatureCard _cardNew3d, _card3dTo2d, _cardUpload;
         private RoundButton _sendBtn;
         private ComboBox _targetBox;   // 目标：新建零件 / 当前文档
 
@@ -223,76 +223,34 @@ namespace AiSwAddin
             return host;
         }
 
-        private CardPanel MakeFeatureCard(string glyph, string text, Color accent, bool active, EventHandler onClick)
+        private FeatureCard MakeFeatureCard(string glyph, string text, Color accent, bool active, EventHandler onClick)
         {
-            var card = new CardPanel
+            var card = new FeatureCard
             {
                 Dock = DockStyle.Fill,
                 Margin = new Padding(4, 4, 4, 6),
-                Padding = new Padding(2, 6, 2, 6),
-                BorderColor = active ? accent : Theme.CardBorder,
-                BorderWidth = active ? 2 : 1,
-                FillColor = active ? Tint(accent) : Theme.CardBg,
-                Accent = accent,          // 记住主题色，供选中态切换使用
-                Cursor = Cursors.Hand
-            };
-
-            var icon = new Label
-            {
-                Text = glyph,
-                Font = Theme.Title(15),
-                ForeColor = accent,
-                Dock = DockStyle.Top,
-                Height = 30,
-                TextAlign = ContentAlignment.BottomCenter,
-                BackColor = Color.Transparent
-            };
-            var label = new Label
-            {
+                Glyph = glyph,
                 Text = text,
-                Font = Theme.Body(9, FontStyle.Bold),
-                ForeColor = Theme.TextMain,
-                Dock = DockStyle.Fill,
-                TextAlign = ContentAlignment.TopCenter,
-                BackColor = Color.Transparent
+                Accent = accent,
+                Selected = active
             };
 
             // 点击时先切换选中态，再执行各卡片自身的业务回调
-            EventHandler handler = (s, e) =>
+            card.Click += (s, e) =>
             {
                 SelectFeatureCard(card);
                 if (onClick != null) onClick(s, e);
             };
-            card.Click += handler;
-            icon.Click += handler;
-            label.Click += handler;
-            card.Controls.Add(label);
-            card.Controls.Add(icon);
             return card;
         }
 
-        /// <summary>把 accent 色调淡，作为选中卡片的浅色背景。</summary>
-        private static Color Tint(Color c)
-        {
-            // 与白色按比例混合，得到柔和的浅色底
-            const double k = 0.88;
-            int r = (int)(c.R * (1 - k) + 255 * k);
-            int g = (int)(c.G * (1 - k) + 255 * k);
-            int b = (int)(c.B * (1 - k) + 255 * k);
-            return Color.FromArgb(r, g, b);
-        }
-
-        /// <summary>设置某张功能卡片为选中态，其余恢复未选中。</summary>
-        private void SelectFeatureCard(CardPanel selected)
+        /// <summary>设置�张功能卡片为选中态，其余恢复未选中。</summary>
+        private void SelectFeatureCard(FeatureCard selected)
         {
             foreach (var card in new[] { _cardNew3d, _card3dTo2d, _cardUpload })
             {
                 if (card == null) continue;
-                bool on = (card == selected);
-                card.BorderColor = on ? card.Accent : Theme.CardBorder;
-                card.BorderWidth = on ? 2 : 1;
-                card.FillColor = on ? Tint(card.Accent) : Theme.CardBg;
-                card.Invalidate();
+                card.Selected = (card == selected);
             }
         }
 
