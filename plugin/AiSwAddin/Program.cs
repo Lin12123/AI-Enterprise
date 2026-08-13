@@ -3,15 +3,18 @@ using System.Drawing;
 using System.Windows.Forms;
 using AiSwAddin;
 
-namespace AiSwPreview
+namespace AiSwAddin
 {
     /// <summary>
-    /// UI 快速预览入口。
+    /// UI 快速预览入口（临时调试用）。
     ///
-    /// 目的：不启动 SolidWorks，即可在本机直接查看 AiSwTaskPaneControl 的界面效果，
-    /// 用于调试布局（如输入卡发送按钮位置、功能卡片高度等）。
+    /// 目的：不启动 SolidWorks，即可在本机 F5 直接查看 AiSwTaskPaneControl 的界面，
+    /// 用于调试布局（如发送按钮位置、功能卡片高度等）。
     ///
-    /// 使用方式：在 Visual Studio 中将本项目设为启动项目，按 F5 运行即可。
+    /// 使用前提：需将本项目的 OutputType 临时设为 WinExe（见 AiSwAddin.csproj）。
+    /// 【重要】发布 SolidWorks 插件前，务必把 OutputType 改回 Library，
+    /// 并注释掉 StartupObject，否则生成的不是可被 SW 加载的 .dll。
+    ///
     /// 说明：
     ///   - 控件构造函数只调用 BuildUi()，不依赖 SolidWorks 实例，可独立渲染。
     ///   - 未调用 SetSolidWorks()，因此“发送”后的真实业务流程不会执行，
@@ -34,11 +37,7 @@ namespace AiSwPreview
                 MinimumSize = new Size(360, 600)
             };
 
-            var control = new AiSwTaskPaneControl
-            {
-                Dock = DockStyle.Fill
-            };
-
+            var control = new AiSwTaskPaneControl { Dock = DockStyle.Fill };
             form.Controls.Add(control);
             Application.Run(form);
         }
