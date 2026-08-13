@@ -1,100 +1,58 @@
-@echo off
-setlocal
-cd /d %~dp0
+# -*- mode: python ; coding: utf-8 -*-
+from PyInstaller.utils.hooks import collect_submodules
+from PyInstaller.utils.hooks import collect_all
 
-set "PYINSTALLER=pyinstaller"
-if exist ".venv\Scripts\pyinstaller.exe" (
-  set "PYINSTALLER=.venv\Scripts\pyinstaller.exe"
+datas = [('ui_desktop/styles/theme.qss', 'ui_desktop/styles'), ('ui_desktop/resources/app_icon.ico', 'ui_desktop/resources'), ('ui_desktop/resources/app_icon.png', 'ui_desktop/resources'), ('resources/materials/material_catalog.json', 'resources/materials')]
+binaries = []
+hiddenimports = ['win32com', 'win32com.client', 'pythoncom', 'pywintypes', 'win32api']
+hiddenimports += collect_submodules('cad_dsl')
+hiddenimports += collect_submodules('policy')
+hiddenimports += collect_submodules('solidworks_api')
+tmp_ret = collect_all('PySide6')
+datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
+tmp_ret = collect_all('shiboken6')
+datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
+
+
+a = Analysis(
+    ['ui_desktop/main.py'],
+    pathex=['src'],
+    binaries=binaries,
+    datas=datas,
+    hiddenimports=hiddenimports,
+    hookspath=[],
+    hooksconfig={},
+    runtime_hooks=[],
+    excludes=[],
+    noarchive=False,
+    optimize=0,
 )
+pyz = PYZ(a.pure)
 
-set "ICON_ARGS="
-if exist "ui_desktop\resources\app_icon.ico" (
-  set "ICON_ARGS=--icon ui_desktop\resources\app_icon.ico"
-) else (
-  echo Icon not found: ui_desktop\resources\app_icon.ico
-  echo Building with default Windows application icon.
+exe = EXE(
+    pyz,
+    a.scripts,
+    [],
+    exclude_binaries=True,
+    name='AI-SW Workbench',
+    debug=False,
+    bootloader_ignore_signals=False,
+    strip=False,
+    upx=True,
+    console=False,
+    disable_windowed_traceback=False,
+    argv_emulation=False,
+    target_arch=None,
+    codesign_identity=None,
+    entitlements_file=None,
+    icon=['ui_desktop/resources/app_icon.ico'],
 )
-
-"%PYINSTALLER%" ^
-  --name "AI-SW Workbench" ^
-  --windowed ^
-  --paths src ^
-  --collect-submodules cad_dsl ^
-  --collect-submodules policy ^
-  --collect-submodules solidworks_api ^
-  --hidden-import win32com ^
-  --hidden-import win32com.client ^
-  --hidden-import pythoncom ^
-  --hidden-import pywintypes ^
-  --hidden-import win32api ^
-  --collect-all PySide6 ^
-  --collect-all shiboken6 ^
-  %ICON_ARGS% ^
-  --add-data "ui_desktop\styles\theme.qss;ui_desktop\styles" ^
-  --add-data "ui_desktop\resources\app_icon.ico;ui_desktop\resources" ^
-  --add-data "ui_desktop\resources\app_icon.png;ui_desktop\resources" ^
-  --add-data "resources\materials\material_catalog.json;resources\materials" ^
-  --clean ^
-  --noconfirm ^
-  ui_desktop\main.py
-
-if errorlevel 1 (
-  echo Build failed.
-  pause
-  exit /b 1
+coll = COLLECT(
+    exe,
+    a.binaries,
+    a.datas,
+    strip=False,
+    upx=True,
+    upx_exclude=[],
+    name='AI-SW Workbench',
 )
-
-echo Build finished.
-echo Output: dist\AI-SW Workbench\AI-SW Workbench.exe
-pause
-
-@echo off
-setlocal
-cd /d %~dp0
-
-set "PYINSTALLER=pyinstaller"
-if exist ".venv\Scripts\pyinstaller.exe" (
-  set "PYINSTALLER=.venv\Scripts\pyinstaller.exe"
-)
-
-set "ICON_ARGS="
-if exist "ui_desktop\resources\app_icon.ico" (
-  set "ICON_ARGS=--icon ui_desktop\resources\app_icon.ico"
-) else (
-  echo Icon not found: ui_desktop\resources\app_icon.ico
-  echo Building with default Windows application icon.
-)
-
-"%PYINSTALLER%" ^
-  --name "AI-SW Workbench" ^
-  --windowed ^
-  --paths src ^
-  --collect-submodules cad_dsl ^
-  --collect-submodules policy ^
-  --collect-submodules solidworks_api ^
-  --hidden-import win32com ^
-  --hidden-import win32com.client ^
-  --hidden-import pythoncom ^
-  --hidden-import pywintypes ^
-  --hidden-import win32api ^
-  --collect-all PySide6 ^
-  --collect-all shiboken6 ^
-  %ICON_ARGS% ^
-  --add-data "ui_desktop\styles\theme.qss;ui_desktop\styles" ^
-  --add-data "ui_desktop\resources\app_icon.ico;ui_desktop\resources" ^
-  --add-data "ui_desktop\resources\app_icon.png;ui_desktop\resources" ^
-  --add-data "resources\materials\material_catalog.json;resources\materials" ^
-  --clean ^
-  --noconfirm ^
-  ui_desktop\main.py
-
-if errorlevel 1 (
-  echo Build failed.
-  pause
-  exit /b 1
-)
-
-echo Build finished.
-echo Output: dist\AI-SW Workbench\AI-SW Workbench.exe
-pause
-

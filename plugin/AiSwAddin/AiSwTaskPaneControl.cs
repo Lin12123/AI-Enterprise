@@ -72,12 +72,12 @@ namespace AiSwAddin
 
             root.Controls.Add(BuildHeader(), 0, 0);
             root.Controls.Add(BuildModeRow(), 0, 1);
-//            root.Controls.Add(BuildBadgeRow(), 0, 2);
-            root.Controls.Add(BuildFeatureCards(), 0, 3);
-            root.Controls.Add(BuildReadyCard(), 0, 4);
-            root.Controls.Add(BuildLogArea(), 0, 5);
-            root.Controls.Add(BuildInputCard(), 0, 6);
-            root.Controls.Add(BuildTaskBar(), 0, 8);
+            //root.Controls.Add(BuildBadgeRow(), 0, 2);
+            root.Controls.Add(BuildFeatureCards(), 0, 2);
+            root.Controls.Add(BuildReadyCard(), 0, 3);
+            root.Controls.Add(BuildLogArea(), 0, 4);
+            root.Controls.Add(BuildInputCard(), 0, 5);
+            root.Controls.Add(BuildTaskBar(), 0, 6);
 
             Controls.Add(root);
         }
@@ -105,54 +105,28 @@ namespace AiSwAddin
             mode.Items.AddRange(new object[] { "离线模式", "在线模式" });
             mode.SelectedIndex = 0;
 
-//            var project = new ComboBox
-//            {
-//                DropDownStyle = ComboBoxStyle.DropDownList,
-//                Font = Theme.Body(9),
-//                Width = 250,
-//                Location = new Point(130, 10)
-//            };
-//            project.Items.Add("P-205 工业机器人关节总成");
-//            project.SelectedIndex = 0;
-//
-            _targetBox = new ComboBox
-            {
-                DropDownStyle = ComboBoxStyle.DropDownList,
-                Font = Theme.Body(9),
-                Width = 96,
-                Location = new Point(286, 10)
-            };
-            _targetBox.Items.AddRange(new object[] { "新建零件", "当前文档" });
-            _targetBox.SelectedIndex = 0;
-//
-//            project.Width = 150;
-
             host.Controls.Add(mode);
-            host.Controls.Add(MakeBadge("GB/T 14689-2024", Theme.Primary));
-            host.Controls.Add(MakeBadge("Q/HW 2026.2", Theme.Amber));
-            host.Controls.Add(MakeBadge("v2.4.1-sp2", Theme.Green));
-//            host.Controls.Add(project);
-            host.Controls.Add(_targetBox);
+ 
             return host;
         }
 
         // ---- 标准徽章行 ----
-//        private Control BuildBadgeRow()
-//        {
-//            var flow = new FlowLayoutPanel
-//            {
-//                Dock = DockStyle.Fill,
-//                BackColor = Theme.PageBg,
-//                Padding = new Padding(12, 2, 12, 8),
-//                FlowDirection = FlowDirection.LeftToRight,
-//                WrapContents = false
-//            };
-//
-//            flow.Controls.Add(MakeBadge("GB/T 14689-2024", Theme.Primary));
-//            flow.Controls.Add(MakeBadge("Q/HW 2026.2", Theme.Amber));
-//            flow.Controls.Add(MakeBadge("v2.4.1-sp2", Theme.Green));
-//            return flow;
-//        }
+        private Control BuildBadgeRow()
+        {
+            var flow = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = Theme.PageBg,
+                Padding = new Padding(12, 2, 12, 8),
+                FlowDirection = FlowDirection.LeftToRight,
+                WrapContents = false
+            };
+
+            flow.Controls.Add(MakeBadge("GB/T 14689-2024", Theme.Primary));
+            flow.Controls.Add(MakeBadge("Q/HW 2026.2", Theme.Amber));
+            flow.Controls.Add(MakeBadge("v2.4.1-sp2", Theme.Green));
+            return flow;
+        }
 
         private BadgeLabel MakeBadge(string text, Color accent)
         {
