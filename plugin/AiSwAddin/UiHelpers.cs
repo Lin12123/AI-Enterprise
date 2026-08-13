@@ -192,13 +192,13 @@ namespace AiSwAddin
             g.SmoothingMode = SmoothingMode.AntiAlias;
             g.PixelOffsetMode = PixelOffsetMode.Half;
 
-            // 用浮点矩形并按边框宽度的一半内缩，使描边正好落在控件内部，
-            // 四条边(尤其底边、右边)都能完整绘制，不被裁切。
+            // 用浮点矩形并按边框宽度的一半内缩，使描边正好落在控件内部；
+            // 底部/右侧再各留 1px 安全余量，防止控件最后一像素被父容器裁剪导致底边框缺失。
             float half = BorderWidth / 2f;
             var rf = new RectangleF(
                 half, half,
-                Width - BorderWidth,
-                Height - BorderWidth);
+                Width - BorderWidth - 1,
+                Height - BorderWidth - 1);
 
             using (var path = RoundedRectF(rf, Radius))
             using (var fill = new SolidBrush(FillColor))

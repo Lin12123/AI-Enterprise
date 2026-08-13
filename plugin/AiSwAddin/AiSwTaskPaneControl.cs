@@ -228,7 +228,7 @@ namespace AiSwAddin
             var card = new CardPanel
             {
                 Dock = DockStyle.Fill,
-                Margin = new Padding(4),
+                Margin = new Padding(4, 4, 4, 6),
                 Padding = new Padding(2, 6, 2, 6),
                 BorderColor = active ? accent : Theme.CardBorder,
                 BorderWidth = active ? 2 : 1,
