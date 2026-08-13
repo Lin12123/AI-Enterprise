@@ -72,7 +72,7 @@ namespace AiSwAddin
             };
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 62));   // 标题栏
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 52));   // 模式行(含标准徽章)
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 100));  // 功能卡片
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 80));  // 功能卡片
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 90));  // AI 就绪信息卡
             root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));   // 日志区(自适应)
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 180));  // 输入卡
