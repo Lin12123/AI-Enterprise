@@ -60,21 +60,28 @@ namespace AiSwAddin
             Width = 400;
             Height = 900;
             BackColor = Theme.PageBg;
-            AutoScroll = true;
+            AutoScroll = true;                 // 高度不足时整体可滚动，避免内容被裁
 
             var root = new TableLayoutPanel
             {
-                Dock = DockStyle.Fill,
+                // 关键：Top + AutoSize，让容器按内容所需高度撑开；
+                // 当撑开高度 > 可视区时，外层 UserControl 的 AutoScroll 会出现滚动条，
+                // 而不是压缩 Absolute 行导致内容被裁切。
+                Dock = DockStyle.Top,
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
                 ColumnCount = 1,
                 RowCount = 7,
                 BackColor = Theme.PageBg,
-                Padding = new Padding(0)
+                Padding = new Padding(0),
+                // 保证整体不小于内容所需的最小高度（各固定行之和 + 日志最小高）
+                MinimumSize = new Size(0, 62 + 52 + 80 + 90 + 160 + 180 + 40)
             };
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 62));   // 标题栏
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 52));   // 模式行(含标准徽章)
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 80));  // 功能卡片
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 90));  // AI 就绪信息卡
-            root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));   // 日志区(自适应)
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 80));   // 功能卡片
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 90));   // AI 就绪信息卡
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 160));  // 日志区(最小高度, 随窗口拉伸见下)
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 180));  // 输入卡
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 40));   // 任务中心栏
 
@@ -87,6 +94,29 @@ namespace AiSwAddin
             root.Controls.Add(BuildTaskBar(), 0, 6);
 
             Controls.Add(root);
+
+            // 当空间富余时，让日志区随可视高度自动拉伸（填满剩余空间），
+            // 空间不足时保持最小高度并由外层滚动条兜底。
+            Resize += (s, e) => AdjustRootHeight(root);
+            AdjustRootHeight(root);
+        }
+
+        /// <summary>
+        /// 根据当前可视高度动态调整 root 高度：
+        /// - 可视区足够高：root 撑满可视区，日志区(第4行)吃掉多余空间；
+        /// - 可视区不够高：root 保持内容最小高度，触发外层 AutoScroll 滚动。
+        /// </summary>
+        private void AdjustRootHeight(TableLayoutPanel root)
+        {
+            if (root.RowStyles.Count < 5) return;
+
+            int fixedOthers = 62 + 52 + 80 + 90 + 180 + 40;   // 除日志区外的固定行之和
+            const int logMin = 160;                            // 日志区最小高度
+            int avail = ClientSize.Height;                     // 当前可视高度
+
+            // 日志区可用高度：可视高减去其它固定行；不足则用最小值
+            int logHeight = Math.Max(logMin, avail - fixedOthers);
+            root.RowStyles[4].Height = logHeight;              // 第4行=日志区
         }
 
         // ---- 顶部渐变标题栏（全自绘，无白底）----
