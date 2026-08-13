@@ -57,13 +57,12 @@ namespace AiSwAddin
             {
                 Dock = DockStyle.Fill,
                 ColumnCount = 1,
-                RowCount = 8,
+                RowCount = 7,
                 BackColor = Theme.PageBg,
                 Padding = new Padding(0)
             };
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 62));   // 标题栏
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 52));   // 模式行
-//            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 44));   // 徽章行
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 52));   // 模式行(含标准徽章)
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 120));  // 功能卡片
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 90));  // AI 就绪信息卡
             root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));   // 日志区(自适应)
@@ -72,7 +71,6 @@ namespace AiSwAddin
 
             root.Controls.Add(BuildHeader(), 0, 0);
             root.Controls.Add(BuildModeRow(), 0, 1);
-            //root.Controls.Add(BuildBadgeRow(), 0, 2);
             root.Controls.Add(BuildFeatureCards(), 0, 2);
             root.Controls.Add(BuildReadyCard(), 0, 3);
             root.Controls.Add(BuildLogArea(), 0, 4);
@@ -90,7 +88,7 @@ namespace AiSwAddin
             return header;
         }
 
-        // ---- 模式行：离线模式下拉 + 项目下拉 ----
+        // ---- 模式行：离线模式下拉 + 标准徽章 ----
         private Control BuildModeRow()
         {
             var host = new Panel { Dock = DockStyle.Fill, BackColor = Theme.PageBg, Padding = new Padding(12, 8, 12, 4) };
@@ -99,42 +97,45 @@ namespace AiSwAddin
             {
                 DropDownStyle = ComboBoxStyle.DropDownList,
                 Font = Theme.Body(9),
-                Width = 110,
+                Width = 90,
                 Location = new Point(12, 10)
             };
             mode.Items.AddRange(new object[] { "离线模式", "在线模式" });
             mode.SelectedIndex = 0;
 
             host.Controls.Add(mode);
- 
+
+            // 徽章依次排在模式下拉框之后（同一行）
+            int badgeX = mode.Right + 8;
+            const int badgeY = 11;
+            const int badgeW = 96;
+            const int badgeGap = 4;
+
+            var b1 = MakeBadge("GB/T 14689-2024", Theme.Primary, badgeW);
+            b1.Location = new Point(badgeX, badgeY);
+            badgeX = b1.Right + badgeGap;
+
+            var b2 = MakeBadge("Q/HW 2026.2", Theme.Amber, badgeW);
+            b2.Location = new Point(badgeX, badgeY);
+            badgeX = b2.Right + badgeGap;
+
+            var b3 = MakeBadge("v2.4.1-sp2", Theme.Green, badgeW);
+            b3.Location = new Point(badgeX, badgeY);
+
+            host.Controls.Add(b1);
+            host.Controls.Add(b2);
+            host.Controls.Add(b3);
+
             return host;
         }
 
-        // ---- 标准徽章行 ----
-        private Control BuildBadgeRow()
-        {
-            var flow = new FlowLayoutPanel
-            {
-                Dock = DockStyle.Fill,
-                BackColor = Theme.PageBg,
-                Padding = new Padding(12, 2, 12, 8),
-                FlowDirection = FlowDirection.LeftToRight,
-                WrapContents = false
-            };
-
-            flow.Controls.Add(MakeBadge("GB/T 14689-2024", Theme.Primary));
-            flow.Controls.Add(MakeBadge("Q/HW 2026.2", Theme.Amber));
-            flow.Controls.Add(MakeBadge("v2.4.1-sp2", Theme.Green));
-            return flow;
-        }
-
-        private BadgeLabel MakeBadge(string text, Color accent)
+        private BadgeLabel MakeBadge(string text, Color accent, int width = 158)
         {
             return new BadgeLabel
             {
                 Text = text,
                 AccentColor = accent,
-                Size = new Size(158, 26),
+                Size = new Size(width, 24),
                 Margin = new Padding(0, 2, 6, 2)
             };
         }
