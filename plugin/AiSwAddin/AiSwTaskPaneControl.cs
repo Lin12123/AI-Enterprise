@@ -75,11 +75,11 @@ namespace AiSwAddin
                 BackColor = Theme.PageBg,
                 Padding = new Padding(0),
                 // 保证整体不小于内容所需的最小高度（各固定行之和 + 日志最小高）
-                MinimumSize = new Size(0, 62 + 52 + 80 + 90 + 160 + 180 + 40)
+                MinimumSize = new Size(0, 62 + 52 + 88 + 90 + 160 + 180 + 40)
             };
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 62));   // 标题栏
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 52));   // 模式行(含标准徽章)
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 80));   // 功能卡片
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 88));   // 功能卡片
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 90));   // AI 就绪信息卡
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 160));  // 日志区(最小高度, 随窗口拉伸见下)
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 180));  // 输入卡
@@ -110,7 +110,7 @@ namespace AiSwAddin
         {
             if (root.RowStyles.Count < 5) return;
 
-            int fixedOthers = 62 + 52 + 80 + 90 + 180 + 40;   // 除日志区外的固定行之和
+            int fixedOthers = 62 + 52 + 88 + 90 + 180 + 40;   // 除日志区外的固定行之和
             const int logMin = 160;                            // 日志区最小高度
             int avail = ClientSize.Height;                     // 当前可视高度
 
@@ -205,7 +205,7 @@ namespace AiSwAddin
                 BackColor = Theme.PageBg,
                 ColumnCount = 3,
                 RowCount = 1,
-                Padding = new Padding(12, 0, 12, 6)
+                Padding = new Padding(12, 2, 12, 10)
             };
             host.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.3f));
             host.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.3f));
