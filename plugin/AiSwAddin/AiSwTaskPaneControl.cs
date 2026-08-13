@@ -23,6 +23,9 @@ namespace AiSwAddin
     {
         public const string ProgId = "AiSwAddin.AiSwTaskPaneControl";
 
+        /// <summary>用户点击标题栏 ✕ 时触发，用于通知宿主(AiSwAddin)关闭任务窗格。</summary>
+        public event EventHandler CloseRequested;
+
         private ISldWorks _swApp;
         private readonly ServiceClient _client = new ServiceClient();
         private string _currentPlanJson = null;
@@ -123,7 +126,11 @@ namespace AiSwAddin
         private Control BuildHeader()
         {
             var header = new HeaderPanel(Theme.HeaderLeft, Theme.HeaderRight) { Dock = DockStyle.Fill };
-            header.CloseClicked += (s, e) => AppendLog("[提示] 关闭按钮为展示性元素。");
+            header.CloseClicked += (s, e) =>
+            {
+                // 通知宿主关闭当前任务窗格；订阅者会调用 ITaskpaneView.DeleteView() 移除窗格
+                CloseRequested?.Invoke(this, EventArgs.Empty);
+            };
             return header;
         }
 

@@ -74,9 +74,29 @@ namespace AiSwAddin
         /// <summary>创建右侧任务窗格并放入自定义 UI 控件。</summary>
         private void CreateTaskPane()
         {
-            // 运行时自绘一张任务窗格标签图标(BMP)，第二参数传其文件路径；第三参数为提示文本
-            _iconPath = BuildTaskPaneIcon();
-            _taskPaneView = _swApp.CreateTaskpaneView2(_iconPath ?? string.Empty, AddinTitle);
+            // 优先使用 CreateTaskpaneView3(Bitmap, tooltip) 直接传 Bitmap 对象(支持透明背景)；
+            // 若 SolidWorks 版本较老不支持，则回退到 CreateTaskpaneView2(bmpPath, tooltip)。
+            _taskPaneView = null;
+            try
+            {
+                using (var bmp = BuildTaskPaneBitmap())
+                {
+                    if (bmp != null)
+                    {
+                        _taskPaneView = _swApp.CreateTaskpaneView3(bmp, AddinTitle);
+                    }
+                }
+            }
+            catch
+            {
+                _taskPaneView = null;   // 老版本无此 API 或调用失败，走回退
+            }
+
+            if (_taskPaneView == null)
+            {
+                _iconPath = BuildTaskPaneIcon();
+                _taskPaneView = _swApp.CreateTaskpaneView2(_iconPath ?? string.Empty, AddinTitle);
+            }
 
             _taskPaneControl = (AiSwTaskPaneControl)_taskPaneView.AddControl(
                 AiSwTaskPaneControl.ProgId, string.Empty);
@@ -85,6 +105,58 @@ namespace AiSwAddin
             if (_taskPaneControl != null)
             {
                 _taskPaneControl.SetSolidWorks(_swApp);
+                // 点击标题栏 ✕ 时关闭任务窗格；用 BeginInvoke 延迟到当前消息处理完成后再删除，
+                // 避免在窗格控件自身的事件回调栈中同步销毁自己导致的异常。
+                _taskPaneControl.CloseRequested += (s, e) =>
+                {
+                    if (_taskPaneControl != null)
+                        _taskPaneControl.BeginInvoke((Action)RemoveTaskPane);
+                    else
+                        RemoveTaskPane();
+                };
+            }
+        }
+
+        /// <summary>
+        /// 生成一张带透明背景的 24x24 任务窗格标签图标 Bitmap（供 CreateTaskpaneView3 使用）。
+        /// 蓝紫渐变圆角块 + 白色 ✦，风格与标题栏 Logo 一致，背景为完全透明。
+        /// </summary>
+        private static Bitmap BuildTaskPaneBitmap()
+        {
+            try
+            {
+                const int size = 24;
+                var bmp = new Bitmap(size, size, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+                using (var g = Graphics.FromImage(bmp))
+                {
+                    g.SmoothingMode = SmoothingMode.AntiAlias;
+                    // 不 Clear 白色，保持完全透明背景
+
+                    var rect = new Rectangle(1, 1, size - 3, size - 3);
+                    using (var path2 = RoundedRect(rect, 6))
+                    using (var brush = new LinearGradientBrush(
+                        rect, Color.FromArgb(59, 91, 219), Color.FromArgb(38, 166, 154),
+                        LinearGradientMode.ForwardDiagonal))
+                    {
+                        g.FillPath(brush, path2);
+                    }
+
+                    using (var font = new Font("Segoe UI Symbol", 11f, FontStyle.Bold))
+                    using (var sf = new StringFormat
+                    {
+                        Alignment = StringAlignment.Center,
+                        LineAlignment = StringAlignment.Center
+                    })
+                    using (var white = new SolidBrush(Color.White))
+                    {
+                        g.DrawString("✦", font, white, rect, sf);
+                    }
+                }
+                return bmp;
+            }
+            catch
+            {
+                return null;
             }
         }
 
@@ -92,8 +164,8 @@ namespace AiSwAddin
         /// 运行时用 GDI+ 绘制一张任务窗格标签图标并保存为 BMP，返回文件路径。
         ///
         /// SolidWorks 的 CreateTaskpaneView2 需要一个磁盘上的位图文件路径，
-        /// 这里生成 24x24、蓝紫渐变圆角底 + 白色 ✦ 的图标，风格与标题栏 Logo 一致，
-        /// 无需随插件附带任何外部图片文件。生成失败时返回 null(退回默认图标)。
+        /// 这里生成 24x24 图标，背景色采用与任务窗格标签区接近的浅灰(实现视觉伪透明)。
+        /// 仅当 CreateTaskpaneView3(Bitmap) 不可用时才会用到本方法。
         /// </summary>
         private string BuildTaskPaneIcon()
         {
@@ -107,7 +179,8 @@ namespace AiSwAddin
                     using (var g = Graphics.FromImage(bmp))
                     {
                         g.SmoothingMode = SmoothingMode.AntiAlias;
-                        g.Clear(Color.White);
+                        // 用接近 SolidWorks 任务窗格标签区的浅灰做背景色，视觉上接近透明
+                        g.Clear(Color.FromArgb(240, 240, 240));
 
                         var rect = new Rectangle(1, 1, size - 3, size - 3);
                         using (var path2 = RoundedRect(rect, 6))

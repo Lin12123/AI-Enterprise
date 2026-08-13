@@ -540,8 +540,8 @@ namespace AiSwAddin
     {
         private readonly ModeItem[] _items;
         private int _selectedIndex;
-        private readonly int _rowHeight = 58;
-        private readonly int _headerHeight = 34;
+        private readonly int _rowHeight = 68;
+        private readonly int _headerHeight = 36;
 
         /// <summary>选中项回调：参数为项索引。</summary>
         public event Action<int> ItemSelected;
@@ -594,11 +594,11 @@ namespace AiSwAddin
                     TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
 
                 TextRenderer.DrawText(g, it.Title, Theme.Body(11, FontStyle.Bold),
-                    new Rectangle(52, top + 10, Width - 100, 22), Theme.TextMain,
+                    new Rectangle(52, top + 10, Width - 100, 26), Theme.TextMain,
                     TextFormatFlags.Left | TextFormatFlags.NoPadding);
 
                 TextRenderer.DrawText(g, it.Subtitle, Theme.Body(8.5f),
-                    new Rectangle(52, top + 32, Width - 100, 18), Theme.TextSub,
+                    new Rectangle(52, top + 38, Width - 100, 22), Theme.TextSub,
                     TextFormatFlags.Left | TextFormatFlags.NoPadding);
 
                 if (i == _selectedIndex)
