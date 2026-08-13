@@ -175,29 +175,58 @@ namespace AiSwAddin
         public Color BorderColor { get; set; } = Theme.CardBorder;
         public Color FillColor { get; set; } = Theme.CardBg;
         public int BorderWidth { get; set; } = 1;
+        /// <summary>该卡片的主题强调色，用于选中态的边框与浅色底。</summary>
+        public Color Accent { get; set; } = Theme.Primary;
 
         public CardPanel()
         {
             DoubleBuffered = true;
             BackColor = Color.Transparent;
+            // 让自绘随尺寸变化整体重绘，避免 Dock=Fill 缩放时底/右边框残缺
+            SetStyle(ControlStyles.ResizeRedraw, true);
         }
 
         protected override void OnPaint(PaintEventArgs e)
         {
-            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-            // 按边框宽度内缩绘制区域，确保描边(尤其 BorderWidth=2 的主卡片)整条边框
-            // 都落在控件可视区内，避免底边/右边被裁切看不到。
-            int inset = BorderWidth;
-            var r = new Rectangle(inset, inset,
-                Width - 1 - inset * 2, Height - 1 - inset * 2);
-            using (var path = GfxUtil.RoundedRect(r, Radius))
+            var g = e.Graphics;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            g.PixelOffsetMode = PixelOffsetMode.HalfPixel;
+
+            // 用浮点矩形并按边框宽度的一半内缩，使描边正好落在控件内部，
+            // 四条边(尤其底边、右边)都能完整绘制，不被裁切。
+            float half = BorderWidth / 2f;
+            var rf = new RectangleF(
+                half, half,
+                Width - BorderWidth,
+                Height - BorderWidth);
+
+            using (var path = RoundedRectF(rf, Radius))
             using (var fill = new SolidBrush(FillColor))
             using (var pen = new Pen(BorderColor, BorderWidth))
             {
-                e.Graphics.FillPath(fill, path);
-                e.Graphics.DrawPath(pen, path);
+                g.FillPath(fill, path);
+                g.DrawPath(pen, path);
             }
             base.OnPaint(e);
+        }
+
+        /// <summary>浮点版圆角矩形路径。</summary>
+        private static GraphicsPath RoundedRectF(RectangleF r, float radius)
+        {
+            float d = radius * 2;
+            var path = new GraphicsPath();
+            if (radius <= 0)
+            {
+                path.AddRectangle(r);
+                path.CloseFigure();
+                return path;
+            }
+            path.AddArc(r.X, r.Y, d, d, 180, 90);
+            path.AddArc(r.Right - d, r.Y, d, d, 270, 90);
+            path.AddArc(r.Right - d, r.Bottom - d, d, d, 0, 90);
+            path.AddArc(r.X, r.Bottom - d, d, d, 90, 90);
+            path.CloseFigure();
+            return path;
         }
     }
 

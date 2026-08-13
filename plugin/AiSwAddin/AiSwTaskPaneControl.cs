@@ -232,6 +232,8 @@ namespace AiSwAddin
                 Padding = new Padding(2, 6, 2, 6),
                 BorderColor = active ? accent : Theme.CardBorder,
                 BorderWidth = active ? 2 : 1,
+                FillColor = active ? Tint(accent) : Theme.CardBg,
+                Accent = accent,          // 记住主题色，供选中态切换使用
                 Cursor = Cursors.Hand
             };
 
@@ -255,12 +257,43 @@ namespace AiSwAddin
                 BackColor = Color.Transparent
             };
 
-            card.Click += onClick;
-            icon.Click += onClick;
-            label.Click += onClick;
+            // 点击时先切换选中态，再执行各卡片自身的业务回调
+            EventHandler handler = (s, e) =>
+            {
+                SelectFeatureCard(card);
+                if (onClick != null) onClick(s, e);
+            };
+            card.Click += handler;
+            icon.Click += handler;
+            label.Click += handler;
             card.Controls.Add(label);
             card.Controls.Add(icon);
             return card;
+        }
+
+        /// <summary>把 accent 色调淡，作为选中卡片的浅色背景。</summary>
+        private static Color Tint(Color c)
+        {
+            // 与白色按比例混合，得到柔和的浅色底
+            const double k = 0.88;
+            int r = (int)(c.R * (1 - k) + 255 * k);
+            int g = (int)(c.G * (1 - k) + 255 * k);
+            int b = (int)(c.B * (1 - k) + 255 * k);
+            return Color.FromArgb(r, g, b);
+        }
+
+        /// <summary>设置某张功能卡片为选中态，其余恢复未选中。</summary>
+        private void SelectFeatureCard(CardPanel selected)
+        {
+            foreach (var card in new[] { _cardNew3d, _card3dTo2d, _cardUpload })
+            {
+                if (card == null) continue;
+                bool on = (card == selected);
+                card.BorderColor = on ? card.Accent : Theme.CardBorder;
+                card.BorderWidth = on ? 2 : 1;
+                card.FillColor = on ? Tint(card.Accent) : Theme.CardBg;
+                card.Invalidate();
+            }
         }
 
         // ---- AI 助手就绪信息卡 ----

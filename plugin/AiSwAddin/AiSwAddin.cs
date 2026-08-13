@@ -1,5 +1,8 @@
 using System;
 using System.Runtime.InteropServices;
+using System.Drawing;
+using System.Drawing.Drawing2D;
+using System.IO;
 using Microsoft.Win32;
 using SolidWorks.Interop.sldworks;
 using SolidWorks.Interop.swpublished;
@@ -31,6 +34,7 @@ namespace AiSwAddin
         private int _addinCookie;
         private ITaskpaneView _taskPaneView;
         private AiSwTaskPaneControl _taskPaneControl;
+        private string _iconPath;   // 运行时自绘生成的任务窗格图标文件路径
 
         #region ISwAddin 实现
 
@@ -70,8 +74,9 @@ namespace AiSwAddin
         /// <summary>创建右侧任务窗格并放入自定义 UI 控件。</summary>
         private void CreateTaskPane()
         {
-            // 第二参数为任务窗格图标(空字符串表示使用默认)，第三参数为提示文本
-            _taskPaneView = _swApp.CreateTaskpaneView2(string.Empty, AddinTitle);
+            // 运行时自绘一张任务窗格标签图标(BMP)，第二参数传其文件路径；第三参数为提示文本
+            _iconPath = BuildTaskPaneIcon();
+            _taskPaneView = _swApp.CreateTaskpaneView2(_iconPath ?? string.Empty, AddinTitle);
 
             _taskPaneControl = (AiSwTaskPaneControl)_taskPaneView.AddControl(
                 AiSwTaskPaneControl.ProgId, string.Empty);
@@ -81,6 +86,72 @@ namespace AiSwAddin
             {
                 _taskPaneControl.SetSolidWorks(_swApp);
             }
+        }
+
+        /// <summary>
+        /// 运行时用 GDI+ 绘制一张任务窗格标签图标并保存为 BMP，返回文件路径。
+        ///
+        /// SolidWorks 的 CreateTaskpaneView2 需要一个磁盘上的位图文件路径，
+        /// 这里生成 24x24、蓝紫渐变圆角底 + 白色 ✦ 的图标，风格与标题栏 Logo 一致，
+        /// 无需随插件附带任何外部图片文件。生成失败时返回 null(退回默认图标)。
+        /// </summary>
+        private string BuildTaskPaneIcon()
+        {
+            try
+            {
+                const int size = 24;
+                string path = Path.Combine(Path.GetTempPath(), "aisw_taskpane_icon.bmp");
+
+                using (var bmp = new Bitmap(size, size))
+                {
+                    using (var g = Graphics.FromImage(bmp))
+                    {
+                        g.SmoothingMode = SmoothingMode.AntiAlias;
+                        g.Clear(Color.White);
+
+                        var rect = new Rectangle(1, 1, size - 3, size - 3);
+                        using (var path2 = RoundedRect(rect, 6))
+                        using (var brush = new LinearGradientBrush(
+                            rect, Color.FromArgb(59, 91, 219), Color.FromArgb(38, 166, 154),
+                            LinearGradientMode.ForwardDiagonal))
+                        {
+                            g.FillPath(brush, path2);
+                        }
+
+                        using (var font = new Font("Segoe UI Symbol", 11f, FontStyle.Bold))
+                        using (var sf = new StringFormat
+                        {
+                            Alignment = StringAlignment.Center,
+                            LineAlignment = StringAlignment.Center
+                        })
+                        using (var white = new SolidBrush(Color.White))
+                        {
+                            g.DrawString("✦", font, white, rect, sf);
+                        }
+                    }
+
+                    bmp.Save(path, System.Drawing.Imaging.ImageFormat.Bmp);
+                }
+
+                return path;
+            }
+            catch
+            {
+                return null;   // 生成失败则退回 SolidWorks 默认图标
+            }
+        }
+
+        /// <summary>生成圆角矩形路径(供图标绘制使用)。</summary>
+        private static GraphicsPath RoundedRect(Rectangle r, int radius)
+        {
+            int d = radius * 2;
+            var path = new GraphicsPath();
+            path.AddArc(r.X, r.Y, d, d, 180, 90);
+            path.AddArc(r.Right - d, r.Y, d, d, 270, 90);
+            path.AddArc(r.Right - d, r.Bottom - d, d, d, 0, 90);
+            path.AddArc(r.X, r.Bottom - d, d, d, 90, 90);
+            path.CloseFigure();
+            return path;
         }
 
         /// <summary>移除任务窗格。</summary>
@@ -93,6 +164,14 @@ namespace AiSwAddin
                 _taskPaneView = null;
             }
             _taskPaneControl = null;
+
+            // 清理临时图标文件(失败可忽略)
+            try
+            {
+                if (!string.IsNullOrEmpty(_iconPath) && File.Exists(_iconPath))
+                    File.Delete(_iconPath);
+            }
+            catch { }
         }
 
         #endregion
