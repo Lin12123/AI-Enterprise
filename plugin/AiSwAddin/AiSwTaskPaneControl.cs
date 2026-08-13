@@ -115,20 +115,23 @@ namespace AiSwAddin
 //            project.Items.Add("P-205 工业机器人关节总成");
 //            project.SelectedIndex = 0;
 //
-//            _targetBox = new ComboBox
-//            {
-//                DropDownStyle = ComboBoxStyle.DropDownList,
-//                Font = Theme.Body(9),
-//                Width = 96,
-//                Location = new Point(286, 10)
-//            };
-//            _targetBox.Items.AddRange(new object[] { "新建零件", "当前文档" });
-//            _targetBox.SelectedIndex = 0;
+            _targetBox = new ComboBox
+            {
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                Font = Theme.Body(9),
+                Width = 96,
+                Location = new Point(286, 10)
+            };
+            _targetBox.Items.AddRange(new object[] { "新建零件", "当前文档" });
+            _targetBox.SelectedIndex = 0;
 //
 //            project.Width = 150;
 
             host.Controls.Add(mode);
-            host.Controls.Add(project);
+            host.Controls.Add(MakeBadge("GB/T 14689-2024", Theme.Primary));
+            host.Controls.Add(MakeBadge("Q/HW 2026.2", Theme.Amber));
+            host.Controls.Add(MakeBadge("v2.4.1-sp2", Theme.Green));
+//            host.Controls.Add(project);
             host.Controls.Add(_targetBox);
             return host;
         }
