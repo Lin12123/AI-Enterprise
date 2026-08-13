@@ -199,6 +199,7 @@ namespace AiSwAddin
             {
                 Dock = DockStyle.Fill,
                 Margin = new Padding(4),
+                Padding = new Padding(2, 6, 2, 6),
                 BorderColor = active ? accent : Theme.CardBorder,
                 BorderWidth = active ? 2 : 1,
                 Cursor = Cursors.Hand
@@ -210,7 +211,7 @@ namespace AiSwAddin
                 Font = Theme.Title(15),
                 ForeColor = accent,
                 Dock = DockStyle.Top,
-                Height = 30,
+                Height = 28,
                 TextAlign = ContentAlignment.BottomCenter,
                 BackColor = Color.Transparent
             };
