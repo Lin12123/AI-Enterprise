@@ -185,7 +185,11 @@ namespace AiSwAddin
         protected override void OnPaint(PaintEventArgs e)
         {
             e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-            var r = new Rectangle(0, 0, Width - 1, Height - 1);
+            // 按边框宽度内缩绘制区域，确保描边(尤其 BorderWidth=2 的主卡片)整条边框
+            // 都落在控件可视区内，避免底边/右边被裁切看不到。
+            int inset = BorderWidth;
+            var r = new Rectangle(inset, inset,
+                Width - 1 - inset * 2, Height - 1 - inset * 2);
             using (var path = GfxUtil.RoundedRect(r, Radius))
             using (var fill = new SolidBrush(FillColor))
             using (var pen = new Pen(BorderColor, BorderWidth))

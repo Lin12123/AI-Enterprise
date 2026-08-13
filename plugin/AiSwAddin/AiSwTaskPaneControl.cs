@@ -251,8 +251,7 @@ namespace AiSwAddin
                 Font = Theme.Body(9, FontStyle.Bold),
                 ForeColor = Theme.TextMain,
                 Dock = DockStyle.Fill,
-                TextAlign = ContentAlignment.TopCenter,
-                Padding = new Padding(0, 2, 0, 0),
+                TextAlign = ContentAlignment.MiddleCenter,
                 BackColor = Color.Transparent
             };
 

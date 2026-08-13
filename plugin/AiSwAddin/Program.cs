@@ -32,9 +32,13 @@ namespace AiSwAddin
             {
                 Text = "AiSwAddin UI 预览（不含 SolidWorks）",
                 StartPosition = FormStartPosition.CenterScreen,
-                // 贴近 SolidWorks 任务窗格的典型宽度，便于还原真实观感
+                // 贴近 SolidWorks 任务窗格的典型宽度；固定宽度只允许纵向调整，
+                // 避免横向拉伸导致按 400 宽设计的自绘元素错位/重影
                 ClientSize = new Size(400, 820),
-                MinimumSize = new Size(360, 600)
+                MaximumSize = new Size(400, 2000),
+                MinimumSize = new Size(400, 400),
+                FormBorderStyle = FormBorderStyle.FixedDialog,
+                MaximizeBox = false
             };
 
             var control = new AiSwTaskPaneControl { Dock = DockStyle.Fill };
