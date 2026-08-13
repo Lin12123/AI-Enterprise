@@ -210,7 +210,7 @@ namespace AiSwAddin
                 Font = Theme.Title(15),
                 ForeColor = accent,
                 Dock = DockStyle.Top,
-                Height = 36,
+                Height = 30,
                 TextAlign = ContentAlignment.BottomCenter,
                 BackColor = Color.Transparent
             };
@@ -220,7 +220,8 @@ namespace AiSwAddin
                 Font = Theme.Body(9, FontStyle.Bold),
                 ForeColor = Theme.TextMain,
                 Dock = DockStyle.Fill,
-                TextAlign = ContentAlignment.MiddleCenter,
+                TextAlign = ContentAlignment.TopCenter,
+                Padding = new Padding(0, 2, 0, 0),
                 BackColor = Color.Transparent
             };
 
