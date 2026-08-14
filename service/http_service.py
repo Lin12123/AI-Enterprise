@@ -24,6 +24,7 @@ import sys
 import traceback
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.parse import urlparse, parse_qs
 
 
 # ---- 项目路径引导：确保能导入 app 与 src 下的核心包 ----------------------------
@@ -100,6 +101,33 @@ class AiSwRequestHandler(BaseHTTPRequestHandler):
         if self.path.rstrip("/") == "/api/health":
             self._send_json(200, {"ok": True, "status": "healthy", "service": self.server_version})
             return
+        # ---- 会话查询接口(纯读, 走 GET) ----
+        parsed = urlparse(self.path)
+        route = parsed.path.rstrip("/")
+        query = parse_qs(parsed.query)
+
+        # GET /api/sessions/recent?n=3  -> 任务中心"最近会话"列表
+        if route == "/api/sessions/recent":
+            try:
+                limit = int((query.get("n", ["3"])[0]).strip() or "3")
+            except ValueError:
+                limit = 3
+            from service.session_store import get_session_store
+            items = get_session_store().list_recent(limit=limit)
+            self._send_json(200, {"ok": True, "sessions": items})
+            return
+
+        # GET /api/sessions/<id>  -> 打开插件时恢复该会话完整对话
+        if route.startswith("/api/sessions/"):
+            sid = route[len("/api/sessions/"):]
+            from service.session_store import get_session_store
+            session = get_session_store().load(sid)
+            if session is None:
+                self._send_json(404, {"ok": False, "error": f"会话不存在: {sid}"})
+                return
+            self._send_json(200, {"ok": True, "session": session})
+            return
+
         self._send_json(404, {"ok": False, "error": f"未知路径: {self.path}"})
 
     def do_POST(self) -> None:  # noqa: N802
@@ -110,6 +138,9 @@ class AiSwRequestHandler(BaseHTTPRequestHandler):
             "/api/dry_run": _handle_dry_run,
             "/api/execute": _handle_execute,
             "/api/diagnose": _handle_diagnose,
+            "/api/sessions/create": _handle_session_create,
+            "/api/sessions/append": _handle_session_append,
+            "/api/sessions/status": _handle_session_status,
         }
         handler = handlers.get(route)
         if handler is None:
@@ -149,18 +180,59 @@ def _shared_session():
     return _SHARED_SESSION
 
 
+def _build_prompt_with_history(natural_language: str, session_id: str) -> str:
+    """把会话历史拼接为对话前缀，附在当前自然语言之前。
+
+    parse_featureplan_with_provider 只接受单字符串，故在此层把历史
+    messages 组织成"用户/助手"对话文本嵌入 prompt，实现同一会话上下文连续。
+    仅保留最近若干轮，避免 prompt 过长。
+    """
+    if not session_id:
+        return natural_language
+    try:
+        from service.session_store import get_session_store
+        store = get_session_store()
+        messages = store.get_messages(session_id) or []
+    except Exception:
+        return natural_language
+    if not messages:
+        return natural_language
+
+    # 只取最近 12 条(约 6 轮对话)，控制 prompt 体量
+    recent = messages[-12:]
+    lines = ["【以下为本次会话的历史对话，供你理解上下文，请在此基础上响应最新一条用户需求】"]
+    for msg in recent:
+        role = msg.get("role")
+        text = str(msg.get("text", "")).strip()
+        if not text:
+            continue
+        speaker = "用户" if role == "user" else "助手"
+        lines.append(f"{speaker}: {text}")
+    lines.append("【历史结束】")
+    lines.append(f"用户当前需求: {natural_language}")
+    return "\n".join(lines)
+
+
 def _handle_generate_plan(payload: dict) -> dict:
     """自然语言 → FeaturePlan。
 
     复用 app.providers.router 的 provider 路由(local/openai/rule_based)。
-    请求体: {"natural_language": "...", "provider": "local"}
-    返回: {"ok": True, "plan": {...}, "provider": "local"}
+    请求体: {"natural_language": "...", "provider": "local", "session_id": "..."}
+    返回: {"ok": True, "plan": {...}, "provider": "local", "session_id": "..."}
+
+    若带 session_id，则:
+      1) 取该会话历史拼进 prompt 送 LLM，实现上下文连续;
+      2) 生成成功后把用户输入与 AI 计划落盘到会话。
     """
     natural_language = str(payload.get("natural_language", "")).strip()
     if not natural_language:
         return {"ok": False, "error": "缺少 natural_language 字段"}
 
     provider = str(payload.get("provider", "local")).strip().lower() or "local"
+    session_id = str(payload.get("session_id", "")).strip()
+
+    # 拼接历史上下文(无 session_id 时原样返回)
+    prompt = _build_prompt_with_history(natural_language, session_id)
 
     # 通过环境变量指定 provider，与现有 router 的读取方式保持一致
     previous = os.environ.get("AI_SW_LLM_PROVIDER")
@@ -169,7 +241,7 @@ def _handle_generate_plan(payload: dict) -> dict:
         from app.providers.router import parse_featureplan_with_provider
         from cad_dsl.semantic_binding import canonicalize_featureplan_structure
 
-        plan = canonicalize_featureplan_structure(parse_featureplan_with_provider(natural_language))
+        plan = canonicalize_featureplan_structure(parse_featureplan_with_provider(prompt))
     finally:
         if previous is None:
             os.environ.pop("AI_SW_LLM_PROVIDER", None)
@@ -179,7 +251,24 @@ def _handle_generate_plan(payload: dict) -> dict:
     if not isinstance(plan, dict):
         return {"ok": False, "error": "解析器返回的不是合法计划对象"}
 
-    return {"ok": True, "provider": provider, "plan": plan}
+    # 生成成功后落盘会话(用户原始自然语言 + AI 计划摘要)
+    if session_id:
+        try:
+            from service.session_store import get_session_store
+            store = get_session_store()
+            store.append_message(session_id, {"role": "user", "text": natural_language})
+            plan_title = str(plan.get("title") or plan.get("name") or "已生成建模计划")
+            store.append_message(session_id, {
+                "role": "ai",
+                "text": plan_title,
+                "type": "plan",
+            })
+            store.set_context(session_id, "last_plan", plan)
+        except Exception:
+            # 落盘失败不影响主流程返回
+            pass
+
+    return {"ok": True, "provider": provider, "plan": plan, "session_id": session_id}
 
 
 def _handle_validate(payload: dict) -> dict:
@@ -268,6 +357,63 @@ def _handle_diagnose(payload: dict) -> dict:
 
     from policy.diagnostics import diagnose_to_response
     return diagnose_to_response(plan)
+
+
+def _handle_session_create(payload: dict) -> dict:
+    """新建会话。
+
+    请求体: {"title": "...", "first_message": {"role": "user", "text": "..."}}
+    返回:   {"ok": True, "session_id": "...", "session": {...}}
+    """
+    title = str(payload.get("title", "")).strip()
+    first_message = payload.get("first_message")
+    if first_message is not None and not isinstance(first_message, dict):
+        return {"ok": False, "error": "first_message 字段格式错误"}
+
+    from service.session_store import get_session_store
+    store = get_session_store()
+    sid = store.create_session(title=title, first_message=first_message)
+    return {"ok": True, "session_id": sid, "session": store.load(sid)}
+
+
+def _handle_session_append(payload: dict) -> dict:
+    """向会话追加一条消息。
+
+    请求体: {"session_id": "...", "message": {"role": "user|ai", "text": "...", "type": "..."}}
+    返回:   {"ok": bool}
+    """
+    session_id = str(payload.get("session_id", "")).strip()
+    message = payload.get("message")
+    if not session_id:
+        return {"ok": False, "error": "缺少 session_id 字段"}
+    if not isinstance(message, dict):
+        return {"ok": False, "error": "缺少 message 字段或格式错误"}
+
+    from service.session_store import get_session_store
+    ok = get_session_store().append_message(session_id, message)
+    if not ok:
+        return {"ok": False, "error": f"会话不存在: {session_id}"}
+    return {"ok": True}
+
+
+def _handle_session_status(payload: dict) -> dict:
+    """更新会话状态。
+
+    请求体: {"session_id": "...", "status": "active|done|failed"}
+    返回:   {"ok": bool}
+    """
+    session_id = str(payload.get("session_id", "")).strip()
+    status = str(payload.get("status", "")).strip()
+    if not session_id:
+        return {"ok": False, "error": "缺少 session_id 字段"}
+    if status not in {"active", "done", "failed"}:
+        return {"ok": False, "error": "status 必须为 active|done|failed 之一"}
+
+    from service.session_store import get_session_store
+    ok = get_session_store().set_status(session_id, status)
+    if not ok:
+        return {"ok": False, "error": f"会话不存在: {session_id}"}
+    return {"ok": True}
 
 
 def _execution_result_to_dict(result) -> dict:

@@ -201,7 +201,88 @@ C# 插件和 Python 服务是两个独立进程，修改后各自需要**独立�
 
 ---
 
-## 10. 后续扩展点
+## 10. 会话管理（临时方案：本地 JSON 文件）
+
+> 相关代码：[`service/session_store.py`](../../service/session_store.py)、[`service/http_service.py`](../../service/http_service.py)
+
+### 10.1 需求
+
+1. **上下文连续** — 同一会话内多轮对话，后续生成计划时把历史送给 LLM。
+2. **跨进程持久化** — 重开 SolidWorks / 插件后能找回历史对话。
+3. **任务中心** — 底部任务栏"任务中心"展示最近 3 个会话。
+
+### 10.2 为什么先不上数据库
+
+经评估选择**本地 JSON 文件**方案，不引入数据库。决策依据（五个维度）：
+
+| 维度 | 现状 | 结论 |
+|---|---|---|
+| 用户规模 | 单机单用户（插件跑在个人 SW 进程内） | 无并发写竞争压力 |
+| 数据量 | 一年至多数千条会话 | 文件足够，无需索引引擎 |
+| 查询模式 | 仅"最近 N 条列表" + "按 id 打开" | 无复杂关联/聚合查询 |
+| 部署环境 | 客户内网离线，禁装第三方包 | 纯标准库最稳妥（见离线约束备忘） |
+| 演进成本 | 未来若需全文检索再迁移 | JSON→SQLite 迁移路径清晰（见 §10.6） |
+
+### 10.3 存储结构
+
+```
+workspace/sessions/
+├── index.json                  # 会话索引：最近列表快速读取，无需扫全部文件
+└── <session_id>.json           # 单个会话完整记录
+```
+
+- `session_id` 形如 `20260814_225352_a1b2`（时间戳 + uuid4 前 4 位）
+- **单会话文件**：`id / title / status(active|done|failed) / started_at / updated_at / messages[] / context{}`
+- **index.json**：`{"sessions":[{id,title,status,started_at,updated_at}]}`，按 `updated_at` 倒序
+
+### 10.4 SessionStore API（[`session_store.py`](../../service/session_store.py)）
+
+进程内单例 `get_session_store()`，对外方法：
+
+| 方法 | 说明 |
+|---|---|
+| `create_session(title="", first_message=None)` | 新建会话，返回 session_id |
+| `append_message(session_id, message)` | 追加一条消息（首条用户消息可自动派生标题） |
+| `set_status(session_id, status)` | 置状态（非法值回落 active） |
+| `set_context(session_id, key, value)` | 写上下文（如 `last_plan`） |
+| `load(session_id)` | 读完整会话 |
+| `list_recent(limit=3)` | 最近 N 条摘要（供任务中心） |
+| `get_messages(session_id)` | 取消息列表（供上下文回放） |
+
+**三项可靠性保证**：
+- **线程安全** — 服务是 `ThreadingHTTPServer`，用一把 `RLock` 串行化读写。
+- **原子写盘** — 先写 `.tmp` 再 `os.replace`，防写入中途崩溃损坏文件。
+- **防路径穿越** — `session_id` 只保留字母/数字/`_`/`-`，阻断 `../../` 攻击。
+
+### 10.5 HTTP 接口与上下文注入
+
+**接口清单**（基地址 `http://127.0.0.1:8765`）：
+
+| 方法 | 路由 | 用途 |
+|---|---|---|
+| GET | `/api/sessions/recent?n=3` | 任务中心"最近会话"列表 |
+| GET | `/api/sessions/<id>` | 打开插件时恢复该会话完整对话 |
+| POST | `/api/sessions/create` | 新建会话 |
+| POST | `/api/sessions/append` | 追加消息 |
+| POST | `/api/sessions/status` | 更新状态 |
+
+**上下文注入策略**（[`_build_prompt_with_history`](../../service/http_service.py:183)）：
+`/api/generate_plan` 接受可选 `session_id`。因 `parse_featureplan_with_provider` 只接受单字符串，故在 HTTP 层把最近 **12 条消息（约 6 轮）** 组织成"用户/助手"对话前缀嵌入 prompt——既保证上下文连续，又不改动核心解析签名。生成成功后自动 `append_message`（用户输入 + AI 计划摘要）并 `set_context('last_plan')`。
+
+### 10.6 后续优化方案
+
+- **排序稳定性（已修复）** — `_now_iso()` 仅到秒级，高频操作同秒内 `sort` 不稳定；已加进程内单调序号 `_seq` 作次级排序键 `(updated_at, _seq)`，对外返回时过滤 `_seq`。后续可把时间戳升级到毫秒或改用单调时钟进一步弱化对 `_seq` 的依赖。
+- **迁移 SQLite 的触发条件** — 出现以下任一情形即应迁移：① 需按内容做**全文检索**；② 需**跨零件/跨会话关联查询**；③ 数据量上万导致 `index.json` 全量读写变慢；④ 出现**多用户并发**写入。
+- **迁移路径** — SessionStore 已把存储细节封装在类内，对外 API 不变；迁移时只需替换内部读写实现（JSON 文件 → sqlite3，仍属标准库，契合离线约束），HTTP 层与插件端无感。
+- **上下文注入优化** — 当前固定截取最近 12 条，未来可做 **token 预算裁剪**（按长度动态取轮数），避免长对话下 prompt 超限。
+
+### 10.7 待接入（插件端，下一阶段）
+
+服务端已就绪，插件端尚待：① `ServiceClient` 增加 session 相关方法；② 任务中心接入真实"最近会话"数据（当前为展示性 UI）；③ 打开插件时按 `session_id` 恢复历史对话。
+
+---
+
+## 11. 后续扩展点
 
 现有 UI 已经为几个业务功能预留了入口，但只有「新建 3D 零件」接入了真实流程：
 
@@ -218,7 +299,7 @@ C# 插件和 Python 服务是两个独立进程，修改后各自需要**独立�
 
 ---
 
-## 11. 已知限制与注意事项
+## 12. 已知限制与注意事项
 
 - **`_targetBox` 字段目前恒为 null**，`ExecuteAsync` 里读它只做安全判断，永远走"新建零件"分支。若要恢复"当前文档"选项，需在 UI 里重新加入目标下拉框
 - **任务窗格宽度固定约 400px**：UI 中大量元素按 400 宽设计（如标题栏 Logo 位置），拉宽窗体后仍能正确渲染（已在自绘中处理），但视觉上会显得空
@@ -227,7 +308,7 @@ C# 插件和 Python 服务是两个独立进程，修改后各自需要**独立�
 
 ---
 
-## 12. COM 线程模型与 SW 闪退防护
+## 13. COM 线程模型与 SW 闪退防护
 
 **踩过的两个坑（都由多线程 COM 引起）：**
 
@@ -243,7 +324,7 @@ C# 插件和 Python 服务是两个独立进程，修改后各自需要**独立�
 
 ---
 
-## 13. 智能选择目标窗口
+## 14. 智能选择目标窗口
 
 **需求：** 用户连续多次调「新建 3D 零件」时，第一次可以复用 SW 里的空零件窗口，之后每次应新开一个窗口，不要在已有零件上叠加特征。
 
