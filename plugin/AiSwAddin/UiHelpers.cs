@@ -766,7 +766,8 @@ namespace AiSwAddin
                 Filled = false,
                 Accent = Theme.TextSub,
                 Size = new Size(100, 34),
-                Dock = DockStyle.Left
+                Dock = DockStyle.Left,
+                Visible = false   // 移除「修改计划」按钮：用户想改直接在下方输入框重发即可
             };
             _modifyBtn.Click += (s, e) => ModifyClicked?.Invoke(this, EventArgs.Empty);
             _confirmBtn = new RoundButton

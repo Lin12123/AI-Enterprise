@@ -48,46 +48,55 @@ namespace AiSwAddin
         {
             if (string.IsNullOrEmpty(text)) return;
 
-            // 用一个 wrapper 容器控制气泡的左右对齐：用户消息靠右、AI 消息靠左
+            var bubble = new ChatBubble(role, text);
+            int maxW = Math.Max(120, ClientSize.Width - 40);
+            bubble.MeasureAndSet(maxW);
+
+            AppendControl(role, bubble);
+            _bubbles.Add(bubble);
+        }
+
+        /// <summary>
+        /// 追加一个自定义 Control 作为一条 AI 侧消息(如"执行面板卡片"、"诊断清单卡片")。
+        /// 该控件应已设置合适的 Width/Height；本方法会用 wrapper row 把它挂到会话流里。
+        /// </summary>
+        public void AppendControl(ChatRole role, Control content)
+        {
+            if (content == null) return;
+
             var row = new Panel
             {
-                Dock = DockStyle.Top,
                 BackColor = Color.Transparent,
                 Margin = new Padding(0),
                 Padding = new Padding(0, 0, 0, 6)
             };
 
-            var bubble = new ChatBubble(role, text);
-            // 先估算气泡宽/高，再据角色贴左/贴右
-            int maxW = Math.Max(120, ClientSize.Width - 40);
-            bubble.MeasureAndSet(maxW);
-
+            // 用户侧靠右, AI 侧靠左；纯控件消息(如面板)通常按 AI 处理，占据大部分宽度
             if (role == ChatRole.User)
             {
-                bubble.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-                bubble.Left = row.ClientSize.Width - bubble.Width - 8;
-                if (bubble.Left < 40) bubble.Left = 40;   // 极窄时避免贴到左边
+                content.Left = Math.Max(40, row.ClientSize.Width - content.Width - 8);
             }
             else
             {
-                bubble.Anchor = AnchorStyles.Top | AnchorStyles.Left;
-                bubble.Left = 8;
+                content.Left = 8;
+                // AI 侧的大卡片消息：如果宽度小于可用宽，就让它拉伸到近满宽，视觉更贴合"卡片消息"
+                int available = ClientSize.Width - 20;
+                if (content.Width > available - 16 || content is CardPanel)
+                {
+                    content.Width = available;
+                    content.Left = 8;
+                }
             }
-            bubble.Top = 0;
-            row.Height = bubble.Height + row.Padding.Bottom;
-            row.Controls.Add(bubble);
+            content.Top = 0;
+            row.Height = content.Height + row.Padding.Bottom;
+            row.Controls.Add(content);
 
-            // 每次插入到最上方前先把已有 rows 全部 Detach，再按"最老在最上、最新在最下"重新加
-            // 简化做法：直接 Add 到 Panel 顶部，Dock=Top 会让新加的在最上——不是我们要的顺序
-            // 因此改用 FlowLayoutPanel 或手动逆序管理。为简单起见，这里用手动追加到底：
-            // Panel.Controls.Add + Dock=Top 需要按逆序添加。改用非 Dock 布局：
-            row.Dock = DockStyle.None;
             LayoutBubbles(row);
-
-            _bubbles.Add(bubble);
             Controls.Add(row);
 
-            // 滚动到底部：把最新一条 row 滚入可见范围
+            // 添加到容器后触发一次布局，让面板内部子控件(TableLayoutPanel 等)按新宽度重排
+            content.PerformLayout();
+
             AutoScrollPosition = new Point(0, row.Bottom);
         }
 

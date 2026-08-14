@@ -89,31 +89,29 @@ namespace AiSwAddin
                 AutoSize = true,
                 AutoSizeMode = AutoSizeMode.GrowAndShrink,
                 ColumnCount = 1,
-                RowCount = 7,
+                RowCount = 6,
                 BackColor = Theme.PageBg,
                 Padding = new Padding(0),
-                // 保证整体不小于内容所需的最小高度（各固定行之和 + 日志最小高）
-                MinimumSize = new Size(0, 62 + 52 + 88 + 90 + 160 + 180 + 40)
+                // 保证整体不小于内容所需的最小高度（各固定行之和 + 会话最小高）
+                MinimumSize = new Size(0, 62 + 52 + 88 + 200 + 180 + 40)
             };
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 62));   // 标题栏
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 52));   // 模式行(含标准徽章)
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 88));   // 功能卡片
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 90));   // 执行计划面板(初始就绪态高度，之后由 AdjustRootHeight 动态改)
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 160));  // 日志区(最小高度, 随窗口拉伸见下)
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 200));  // AI 会话区(ChatView)，含执行面板/诊断清单卡片消息
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 180));  // 输入卡
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 40));   // 任务中心栏
 
             root.Controls.Add(BuildHeader(), 0, 0);
             root.Controls.Add(BuildModeRow(), 0, 1);
             root.Controls.Add(BuildFeatureCards(), 0, 2);
-            root.Controls.Add(BuildReadyCard(), 0, 3);
-            root.Controls.Add(BuildLogArea(), 0, 4);
-            root.Controls.Add(BuildInputCard(), 0, 5);
-            root.Controls.Add(BuildTaskBar(), 0, 6);
+            root.Controls.Add(BuildLogArea(), 0, 3);
+            root.Controls.Add(BuildInputCard(), 0, 4);
+            root.Controls.Add(BuildTaskBar(), 0, 5);
 
             Controls.Add(root);
 
-            // 当空间富余时，让日志区随可视高度自动拉伸（填满剩余空间），
+            // 当空间富余时，让 AI 会话区随可视高度自动拉伸,
             // 空间不足时保持最小高度并由外层滚动条兜底。
             Resize += (s, e) => AdjustRootHeight(root);
             AdjustRootHeight(root);
@@ -121,30 +119,21 @@ namespace AiSwAddin
 
         /// <summary>
         /// 根据当前可视高度动态调整 root 高度：
-        /// - 计划面板(第 3 行)按其自身 Height 占用固定高度；
-        /// - 日志区(第 4 行)吃掉剩余空间，最小压缩到 100 保证仍可见；
+        /// - AI 会话区(第3行)吃掉剩余空间，最小 200 保证至少几条气泡/一个卡片可见；
         /// - 空间实在不够时由外层 AutoScroll 兜底出现滚动条。
         /// </summary>
         private void AdjustRootHeight(TableLayoutPanel root)
         {
-            if (root.RowStyles.Count < 5) return;
+            if (root.RowStyles.Count < 4) return;
 
-            // 计划面板行改为按其实际高度取 Absolute（避免 AutoSize 行在混合行样式下变形）
-            int planH = 90;
-            if (_diagPanel != null && _diagPanel.Visible) planH = _diagPanel.Height;
-            else if (_planPanel != null) planH = _planPanel.Height;
-            if (planH < 60) planH = 60;
-            root.RowStyles[3].SizeType = SizeType.Absolute;
-            root.RowStyles[3].Height = planH;
-
-            // 第4行 = AI 会话区(ChatView)，剩余空间给它，最小 120 保证至少 2-3 条气泡可见
+            // 第3行 = ChatView 会话区，剩余空间给它
             const int fixedOthers = 62 + 52 + 88 + 180 + 40;   // 标题+模式+功能卡+输入卡+任务栏
-            const int chatMin = 120;
+            const int chatMin = 200;
             int avail = ClientSize.Height;
-            int chatHeight = avail - fixedOthers - planH;
+            int chatHeight = avail - fixedOthers;
             if (chatHeight < chatMin) chatHeight = chatMin;
-            root.RowStyles[4].SizeType = SizeType.Absolute;
-            root.RowStyles[4].Height = chatHeight;
+            root.RowStyles[3].SizeType = SizeType.Absolute;
+            root.RowStyles[3].Height = chatHeight;
         }
 
         // ---- 顶部渐变标题栏（全自绘，无白底）----
@@ -287,72 +276,13 @@ namespace AiSwAddin
             }
         }
 
-        // ---- AI 助手就绪信息卡 / 执行计划面板（同一位置切换） ----
-        private Control BuildReadyCard()
-        {
-            var host = new Panel { Dock = DockStyle.Fill, BackColor = Theme.PageBg, Padding = new Padding(12, 0, 12, 6) };
-            _reviewHost = host;
+        // ---- 执行计划面板 / 诊断清单面板：嵌入到 ChatView 作为消息卡片，不再占用主 UI 独立行 ----
 
-            _planPanel = new PlanReviewPanel { Dock = DockStyle.Top };
-            _planPanel.ShowIdleState("✦  AI 助手就绪",
-                "请在上方选择功能模式或在下方输入框直接描述 CAD 建模、修改参数或工程图出图需求。");
-            _planPanel.ModifyClicked += (s, e) => OnModifyPlan();
-            _planPanel.ConfirmClicked += (s, e) => OnConfirmExecute();
-            _planPanel.SizeChanged += (s, e) => TriggerAdjust();
-
-            // 诊断面板默认不可见，建模成功后才显示
-            _diagPanel = new DiagnosticPanel { Dock = DockStyle.Top, Visible = false };
-            _diagPanel.SubmitClicked += (s, e) => OnSubmitResult();
-            _diagPanel.LocateItem += (it) => AppendLog("[定位] " + it.Feature + "：" + it.Title);
-            _diagPanel.FixItem += (it) => AppendLog("[一键修] " + it.Code + " → " + it.FixHint);
-            _diagPanel.SizeChanged += (s, e) => TriggerAdjust();
-
-            // 添加顺序：Dock=Top 逆序生效 —— 先加的 _diagPanel 在下、后加的 _planPanel 在上
-            host.Controls.Add(_diagPanel);
-            host.Controls.Add(_planPanel);
-            return host;
-        }
-
-        /// <summary>提交按钮：目前只写日志，后续可对接"保存/上传"流程。</summary>
+        /// <summary>「查看成果与提交」按钮回调：目前只写日志，后续可对接"保存/上传"流程。</summary>
         private void OnSubmitResult()
         {
             AppendLog("[提交] 已确认本次建模成果，进入后续保存/上传流程。");
-        }
-
-        /// <summary>切换到"执行计划审阅"视图（发送后展示）。</summary>
-        private void ShowPlanReview()
-        {
-            if (_diagPanel != null) _diagPanel.Visible = false;
-            if (_planPanel != null) _planPanel.Visible = true;
-            TriggerAdjust();
-        }
-
-        /// <summary>切换到"诊断清单"视图（建模成功后展示）。</summary>
-        private void ShowDiagnostics()
-        {
-            if (_planPanel != null) _planPanel.Visible = false;
-            if (_diagPanel != null) _diagPanel.Visible = true;
-            TriggerAdjust();
-        }
-
-        /// <summary>触发 AdjustRootHeight 重算（用于计划面板变化时）。</summary>
-        private void TriggerAdjust()
-        {
-            if (Controls.Count == 0) return;
-            var root = Controls[0] as TableLayoutPanel;
-            if (root != null) AdjustRootHeight(root);
-        }
-
-        /// <summary>「修改计划」按钮：把当前 prompt 保留在输入框，隐藏计划面板回到就绪态。</summary>
-        private void OnModifyPlan()
-        {
-            _planPanel.ShowIdleState("✦  AI 助手就绪",
-                "已放弃当前计划，请在下方修改需求后重新发送。");
-            ShowPlanReview();   // 若之前在诊断视图，也切回计划视图
-            _currentPlanJson = null;
-            if (_inputBox != null) _inputBox.Focus();
-            AppendLog("[提示] 用户放弃当前计划，等待修改后重新发送。");
-            AppendChat(ChatRole.Ai, "好的，已放弃当前计划。请在下方修改需求后重新发送。");
+            AppendChat(ChatRole.Ai, "已确认本次建模成果，进入后续保存/上传流程。");
         }
 
         /// <summary>「确认并执行」按钮：走真实 SolidWorks 建模。</summary>
@@ -395,8 +325,16 @@ namespace AiSwAddin
             {
                 string resp = await _client.DiagnoseAsync(_currentPlanJson ?? "{}");
                 var items = ExtractDiagnostics(resp, out int warningCount);
+
+                // 每次都新建一个 DiagnosticPanel 实例, 作为 AI 侧的一条消息卡片挂到 ChatView
+                _diagPanel = new DiagnosticPanel();
+                _diagPanel.SubmitClicked += (s, e) => OnSubmitResult();
+                _diagPanel.LocateItem += (it) => AppendLog("[定位] " + it.Feature + "：" + it.Title);
+                _diagPanel.FixItem += (it) => AppendLog("[一键修] " + it.Code + " → " + it.FixHint);
                 _diagPanel.SetItems(items, warningCount);
-                ShowDiagnostics();
+                if (_chatView != null)
+                    _chatView.AppendControl(ChatRole.Ai, _diagPanel);
+
                 AppendLog("[诊断] 完成，共 " + items.Count + " 条("
                     + warningCount + " 警告)。");
                 AppendChat(ChatRole.Ai, string.Format(
@@ -489,41 +427,52 @@ namespace AiSwAddin
         private Control BuildTaskBar()
         {
             var bar = new Panel { Dock = DockStyle.Fill, BackColor = Color.FromArgb(237, 240, 245) };
+
+            // 用 Dock 布局：左侧任务标签(Fill 吃剩余空间), 右侧一组按钮(Dock=Right)
+            // 添加顺序：Fill 先加, 之后每个 Right 从右向左堆叠。
+
             var left = new Label
             {
-                Text = "☰ 抽屉内任务中心 (非阻塞后台队列)",
+                Text = "☰ 抽屉内任务中心",
                 Font = Theme.Body(9, FontStyle.Bold),
                 ForeColor = Theme.TextMain,
-                AutoSize = true,
-                Location = new Point(12, 11),
+                Dock = DockStyle.Fill,
+                TextAlign = ContentAlignment.MiddleLeft,
+                Padding = new Padding(12, 0, 0, 0),
                 BackColor = Color.Transparent
             };
+
+            var right = new Label
+            {
+                Text = "SolidWorks 写入锁 ⌃",
+                Font = Theme.Body(9),
+                ForeColor = Theme.TextSub,
+                Dock = DockStyle.Right,
+                Width = 120,
+                TextAlign = ContentAlignment.MiddleRight,
+                Padding = new Padding(0, 0, 12, 0),
+                BackColor = Color.Transparent
+            };
+
             // 「📄 日志」小按钮：点击弹出 LogPopupForm 展示累积的技术日志
             var logBtn = new Label
             {
                 Text = "📄 日志",
                 Font = Theme.Body(9, FontStyle.Bold),
                 ForeColor = Theme.Primary,
-                AutoSize = true,
+                Dock = DockStyle.Right,
+                Width = 60,
+                TextAlign = ContentAlignment.MiddleCenter,
                 Cursor = Cursors.Hand,
-                Anchor = AnchorStyles.Top | AnchorStyles.Right,
-                Location = new Point(220, 11),
                 BackColor = Color.Transparent
             };
             logBtn.Click += (s, e) => OpenLogPopup();
-            var right = new Label
-            {
-                Text = "SolidWorks 写入锁  ⌃",
-                Font = Theme.Body(9),
-                ForeColor = Theme.TextSub,
-                AutoSize = true,
-                Anchor = AnchorStyles.Top | AnchorStyles.Right,
-                Location = new Point(290, 11),
-                BackColor = Color.Transparent
-            };
-            bar.Controls.Add(left);
-            bar.Controls.Add(logBtn);
+
+            // 添加顺序影响 Dock=Right 的显示顺序：先加的右靠右, 后加的靠其左侧
+            // 需要最终视觉是 "left ... [📄日志] [SolidWorks 写入锁]"，所以先加 right 再加 logBtn，再加 left(Fill)
             bar.Controls.Add(right);
+            bar.Controls.Add(logBtn);
+            bar.Controls.Add(left);
             return bar;
         }
 
@@ -603,15 +552,22 @@ namespace AiSwAddin
                 // 生成/校验/预演通过：解析步骤 → 填充 PlanReviewPanel，等用户点"确认并执行"
                 var steps = ExtractSteps(_currentPlanJson);
                 string partName = ExtractStringField(_currentPlanJson, "part_name") ?? "AI-Part";
+
+                // 每次都新建一个 PlanReviewPanel 实例, 作为 AI 侧的一条消息卡片挂到 ChatView
+                _planPanel = new PlanReviewPanel();
                 _planPanel.PlanTitle = "◎  执行面板";
                 _planPanel.PlanDescription = string.Format(
                     "已把自然语言需求解析为 {0} 的 3D 参数化结构化建模步骤，共 {1} 步。",
                     partName, steps.Count);
+                _planPanel.ConfirmClicked += (s2, e2) => OnConfirmExecute();
                 _planPanel.SetSteps(steps);
-                ShowPlanReview();   // 若之前在诊断视图,切回计划视图
-                AppendLog("[待确认] 计划已就绪，请在计划面板中点击「确认并执行」。");
+
+                if (_chatView != null)
+                    _chatView.AppendControl(ChatRole.Ai, _planPanel);
+
+                AppendLog("[待确认] 计划已就绪，请在会话中点击「确认并执行」。");
                 AppendChat(ChatRole.Ai, string.Format(
-                    "已把你的需求解析为 {0} 步结构化建模。请在上方「执行面板」审阅步骤，确认无误后点「确认并执行」。",
+                    "已把你的需求解析为 {0} 步结构化建模(见上方卡片)。审阅确认后请点「确认并执行」；若要修改，直接在下方输入框重发即可。",
                     steps.Count));
             }
             finally
