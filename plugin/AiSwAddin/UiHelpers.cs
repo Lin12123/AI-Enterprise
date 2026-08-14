@@ -842,14 +842,14 @@ namespace AiSwAddin
         /// <summary>依据当前状态计算整体高度(header + steps + footer)并设置。</summary>
         private void RecalcHeight()
         {
-            int h = 68 + 2;
+            int h = 68 + 2;                  // header + border
             if (_stepsBox.Visible)
             {
-                h += _stepsHeader.Height;
+                h += _stepsHeader.Height;    // steps header 26
                 h += _stepsFlow.Padding.Top + _stepsFlow.Padding.Bottom;
-                h += _stepCount * 50;
+                h += _stepCount * 50;        // 每步 44 + 间距 6
             }
-            if (_footerBox.Visible) h += 52;
+            if (_footerBox.Visible) h += 56; // footer 52 + 底部 4px 视觉呼吸
             Height = h;
         }
 
@@ -858,12 +858,26 @@ namespace AiSwAddin
         {
             var g = e.Graphics;
             g.SmoothingMode = SmoothingMode.AntiAlias;
-            TextRenderer.DrawText(g, "解析后的 3D 建模树步骤(共 " + _stepCount + " 步)", Theme.Body(9, FontStyle.Bold),
-                new Rectangle(14, 4, _stepsHeader.Width - 200, 20), Theme.Primary,
-                TextFormatFlags.Left | TextFormatFlags.VerticalCenter);
-            TextRenderer.DrawText(g, "SolidWorks FeatureTree", Theme.Body(8.5f),
-                new Rectangle(_stepsHeader.Width - 180, 4, 170, 20), Theme.TextSub,
-                TextFormatFlags.Right | TextFormatFlags.VerticalCenter);
+
+            // 先精确测量右侧标签宽度，再据此切分左右两块，避免右侧文字被左裁
+            const string rightLabel = "SolidWorks FeatureTree";
+            using (var rightFont = Theme.Body(8.5f))
+            {
+                Size rSize = TextRenderer.MeasureText(g, rightLabel, rightFont);
+                int rightX = _stepsHeader.Width - rSize.Width - 14;
+                if (rightX < 8) rightX = 8;   // 极窄时避免负值
+
+                TextRenderer.DrawText(g, rightLabel, rightFont,
+                    new Rectangle(rightX, 4, rSize.Width + 2, 20), Theme.TextSub,
+                    TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
+
+                string leftText = "解析后的 3D 建模树步骤(共 " + _stepCount + " 步)";
+                int leftW = rightX - 14 - 8;
+                if (leftW < 20) leftW = 20;
+                TextRenderer.DrawText(g, leftText, Theme.Body(9, FontStyle.Bold),
+                    new Rectangle(14, 4, leftW, 20), Theme.Primary,
+                    TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
+            }
         }
     }
 
