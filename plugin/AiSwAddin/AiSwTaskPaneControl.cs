@@ -501,24 +501,26 @@ namespace AiSwAddin
             return (_inputBox.Text ?? string.Empty).Trim();
         }
 
-        // ---- 底部任务中心栏 ----
-        // 单行布局：左侧「☰ 抽屉内任务中心」，右侧「📄 日志」纯文字按钮，两者垂直居中水平对齐。
-        // 已移除原先的 "SolidWorks 写入锁 ⌃" 说明标签。
+        // ---- 底部任务栏 ----
+        // 单行布局：左侧「历史会话」纯文字按钮(可点击, 拉取最近会话列表), 右侧「日志」纯文字按钮，
+        // 两者垂直居中水平对齐。已移除原先的图标与 "SolidWorks 写入锁" 说明标签。
         private Control BuildTaskBar()
         {
             var bar = new Panel { Dock = DockStyle.Fill, BackColor = Color.FromArgb(237, 240, 245) };
 
             var left = new Label
             {
-                Text = "☰ 抽屉内任务中心",
+                Text = "历史会话",
                 Font = Theme.Body(9, FontStyle.Bold),
-                ForeColor = Theme.TextMain,
+                ForeColor = Theme.Primary,
                 Dock = DockStyle.Fill,
                 TextAlign = ContentAlignment.MiddleLeft,
                 AutoEllipsis = true,
                 Padding = new Padding(12, 0, 0, 0),
+                Cursor = Cursors.Hand,
                 BackColor = Color.Transparent
             };
+            left.Click += (s, e) => OpenHistorySessions();
 
             // 「日志」纯文字按钮：无 logo、无圆角，与左侧文字同一水平线
             var logBtn = new Label
@@ -549,6 +551,66 @@ namespace AiSwAddin
                 dlg.SetLog(_logBuffer.ToString());
                 dlg.ShowDialog(FindForm());
             }
+        }
+
+        /// <summary>点击底部「历史会话」时触发：向服务端拉取最近会话列表并在弹窗中展示。
+        /// 复用 LogPopupForm 作为只读文本弹窗，避免新增窗体类。</summary>
+        private async void OpenHistorySessions()
+        {
+            string text;
+            try
+            {
+                string resp = await _client.GetRecentSessionsAsync(20);
+                text = FormatSessionList(resp);
+            }
+            catch (Exception ex)
+            {
+                text = "拉取历史会话失败：" + ex.Message
+                    + Environment.NewLine + "请确认 service/start_service.bat 已启动。";
+            }
+            using (var dlg = new LogPopupForm())
+            {
+                dlg.Text = "历史会话";
+                dlg.SetLog(text);
+                dlg.ShowDialog(FindForm());
+            }
+        }
+
+        /// <summary>把 /api/sessions/recent 的响应体格式化为可读的会话列表文本。</summary>
+        private static string FormatSessionList(string resp)
+        {
+            if (string.IsNullOrEmpty(resp)) return "(无响应)";
+            int arrStart = resp.IndexOf("\"sessions\"", StringComparison.Ordinal);
+            if (arrStart < 0) return "暂无历史会话。";
+            int lb = resp.IndexOf('[', arrStart);
+            int rb = (lb >= 0) ? resp.IndexOf(']', lb) : -1;
+            if (lb < 0 || rb < 0 || rb <= lb) return "暂无历史会话。";
+            string inner = resp.Substring(lb + 1, rb - lb - 1).Trim();
+            if (inner.Length == 0) return "暂无历史会话。";
+
+            var sb = new System.Text.StringBuilder();
+            int idx = 1;
+            int p = 0;
+            while (p < inner.Length)
+            {
+                int objStart = inner.IndexOf('{', p);
+                if (objStart < 0) break;
+                int objEnd = inner.IndexOf('}', objStart);
+                if (objEnd < 0) break;
+                string obj = inner.Substring(objStart, objEnd - objStart + 1);
+                string title = ExtractStringField(obj, "title") ?? "未命名会话";
+                string status = ExtractStringField(obj, "status") ?? "";
+                string updated = ExtractStringField(obj, "updated_at") ?? "";
+                string id = ExtractStringField(obj, "id") ?? "";
+                sb.AppendLine(idx + ". " + title
+                    + (string.IsNullOrEmpty(status) ? "" : "  [" + status + "]"));
+                if (!string.IsNullOrEmpty(updated)) sb.AppendLine("   更新时间: " + updated);
+                if (!string.IsNullOrEmpty(id)) sb.AppendLine("   会话ID: " + id);
+                sb.AppendLine();
+                idx++;
+                p = objEnd + 1;
+            }
+            return sb.Length == 0 ? "暂无历史会话。" : sb.ToString();
         }
 
         // ==== 通用工具 ====

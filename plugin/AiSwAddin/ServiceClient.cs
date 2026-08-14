@@ -120,6 +120,22 @@ namespace AiSwAddin
             return PostAsync("/api/diagnose", "{\"plan\":" + planJson + "}");
         }
 
+        /// <summary>获取最近会话列表(纯读, GET)。返回响应体字符串。</summary>
+        public async Task<string> GetRecentSessionsAsync(int n = 20)
+        {
+            try
+            {
+                HttpResponseMessage resp = await _http.GetAsync(_baseUrl + "/api/sessions/recent?n=" + n);
+                return await resp.Content.ReadAsStringAsync();
+            }
+            catch (Exception ex)
+            {
+                throw new Exception(
+                    "无法连接本地 AI 服务(" + _baseUrl + ")。请先运行 service/start_service.bat 启动服务。详情: "
+                    + ex.Message);
+            }
+        }
+
         /// <summary>统一的 POST 请求，返回响应体字符串；失败抛出可读异常。</summary>
         private async Task<string> PostAsync(string path, string jsonBody)
         {
