@@ -40,6 +40,9 @@ namespace AiSwAddin
         /// <summary>累积的技术日志文本(隐藏), 通过底部「📄日志」按钮弹窗查看。</summary>
         private readonly System.Text.StringBuilder _logBuffer = new System.Text.StringBuilder();
 
+        /// <summary>AI 会话气泡视图 - 主 UI 中的对话流(用户蓝气泡/AI 白气泡)。</summary>
+        private ChatView _chatView;
+
         /// <summary>3D 建模执行计划面板；生成/校验/预演通过后填充并显示，用户点"确认并执行"才真正建模。</summary>
         private PlanReviewPanel _planPanel;
 
@@ -65,6 +68,8 @@ namespace AiSwAddin
         {
             _swApp = swApp;
             AppendLog("[就绪] AI 助手已加载。请先启动本地服务(start_service.bat)。");
+            AppendChat(ChatRole.Ai,
+                "你好，我已就绪。请描述你的 3D 建模需求，我会先解析成结构化步骤供你审阅，再实际调 SolidWorks 建模。");
         }
 
         /// <summary>构建整体界面。</summary>
@@ -132,10 +137,14 @@ namespace AiSwAddin
             root.RowStyles[3].SizeType = SizeType.Absolute;
             root.RowStyles[3].Height = planH;
 
-            // 日志区行(第4行)在 UI 中已隐藏：主界面不再直接展示技术日志，
-            // 用户可通过底部任务栏「📄日志」按钮弹窗查看。这里把该行高度置 0 收起。
+            // 第4行 = AI 会话区(ChatView)，剩余空间给它，最小 120 保证至少 2-3 条气泡可见
+            const int fixedOthers = 62 + 52 + 88 + 180 + 40;   // 标题+模式+功能卡+输入卡+任务栏
+            const int chatMin = 120;
+            int avail = ClientSize.Height;
+            int chatHeight = avail - fixedOthers - planH;
+            if (chatHeight < chatMin) chatHeight = chatMin;
             root.RowStyles[4].SizeType = SizeType.Absolute;
-            root.RowStyles[4].Height = 0;
+            root.RowStyles[4].Height = chatHeight;
         }
 
         // ---- 顶部渐变标题栏（全自绘，无白底）----
@@ -343,6 +352,7 @@ namespace AiSwAddin
             _currentPlanJson = null;
             if (_inputBox != null) _inputBox.Focus();
             AppendLog("[提示] 用户放弃当前计划，等待修改后重新发送。");
+            AppendChat(ChatRole.Ai, "好的，已放弃当前计划。请在下方修改需求后重新发送。");
         }
 
         /// <summary>「确认并执行」按钮：走真实 SolidWorks 建模。</summary>
@@ -351,16 +361,23 @@ namespace AiSwAddin
             if (string.IsNullOrEmpty(_currentPlanJson))
             {
                 AppendLog("[错误] 当前没有可执行的计划。");
+                AppendChat(ChatRole.Ai, "当前没有可执行的计划，请先描述需求并发送。");
                 return;
             }
+            AppendChat(ChatRole.User, "确认并执行");
             SetBusy(true);
             try
             {
                 bool ok = await ExecuteAsync();
                 if (ok)
                 {
+                    AppendChat(ChatRole.Ai, "SolidWorks 建模已完成，正在生成合规与几何质量诊断清单...");
                     // 建模成功 → 拉取诊断清单并切换视图，让用户审阅规则合规与几何质量
                     await LoadDiagnosticsAsync();
+                }
+                else
+                {
+                    AppendChat(ChatRole.Ai, "执行失败，请查看底部「📄 日志」了解详细错误。");
                 }
                 _currentPlanJson = null;
             }
@@ -382,10 +399,14 @@ namespace AiSwAddin
                 ShowDiagnostics();
                 AppendLog("[诊断] 完成，共 " + items.Count + " 条("
                     + warningCount + " 警告)。");
+                AppendChat(ChatRole.Ai, string.Format(
+                    "诊断完成：共 {0} 条建议，其中 {1} 条警告。请在上方清单查看详情或点「查看成果与提交」。",
+                    items.Count, warningCount));
             }
             catch (Exception ex)
             {
                 AppendLog("[诊断异常] " + ex.Message);
+                AppendChat(ChatRole.Ai, "诊断过程出现异常，详情请查看底部「📄 日志」。");
             }
         }
 
@@ -395,18 +416,22 @@ namespace AiSwAddin
             var host = new Panel { Dock = DockStyle.Fill, BackColor = Theme.PageBg, Padding = new Padding(12, 0, 12, 6) };
             var card = new CardPanel { Dock = DockStyle.Fill, Padding = new Padding(6) };
 
+            // 主视图：AI 会话气泡流(用户蓝色靠右, AI 白色靠左)
+            _chatView = new ChatView { Dock = DockStyle.Fill };
+            card.Controls.Add(_chatView);
+
+            // 兼容保留：隐藏的 TextBox 日志，仅在极端场景兜底(实际主展示用弹窗 LogPopupForm)
             _logBox = new TextBox
             {
                 Multiline = true,
                 ReadOnly = true,
-                ScrollBars = ScrollBars.Vertical,
-                Dock = DockStyle.Fill,
-                BorderStyle = BorderStyle.None,
+                Visible = false,   // 隐藏，主界面用 ChatView
                 BackColor = Color.White,
                 ForeColor = Theme.TextMain,
                 Font = new Font("Consolas", 9)
             };
             card.Controls.Add(_logBox);
+
             host.Controls.Add(card);
             return host;
         }
@@ -531,6 +556,21 @@ namespace AiSwAddin
             _logBox.AppendText(line + System.Environment.NewLine);
         }
 
+        /// <summary>
+        /// 追加一条 AI 会话气泡到主 UI 的 ChatView。这条路只用于对用户友好的"对话"文本，
+        /// 与技术性 AppendLog 分开：AppendLog 走隐藏 buffer + 弹窗，AppendChat 走 UI 气泡。
+        /// </summary>
+        private void AppendChat(ChatRole role, string text)
+        {
+            if (_chatView == null) return;
+            if (_chatView.InvokeRequired)
+            {
+                _chatView.BeginInvoke(new Action<ChatRole, string>(AppendChat), role, text);
+                return;
+            }
+            _chatView.Append(role, text);
+        }
+
         private void SetBusy(bool busy)
         {
             if (_sendBtn != null) _sendBtn.Enabled = !busy;
@@ -546,15 +586,19 @@ namespace AiSwAddin
             if (string.IsNullOrEmpty(prompt))
             {
                 AppendLog("[错误] 请先输入建模需求。");
+                AppendChat(ChatRole.Ai, "输入框是空的，请先描述你的建模需求。");
                 return;
             }
+
+            // 用户消息进会话流
+            AppendChat(ChatRole.User, prompt);
 
             SetBusy(true);
             try
             {
-                if (!await GeneratePlanAsync(prompt)) return;
-                if (!await ValidateAsync()) return;
-                if (!await DryRunAsync()) return;
+                if (!await GeneratePlanAsync(prompt)) { AppendChat(ChatRole.Ai, "抱歉，需求解析失败，可查看底部「📄 日志」了解详情。"); return; }
+                if (!await ValidateAsync()) { AppendChat(ChatRole.Ai, "该需求未通过安全/规则校验，请调整参数后再试。"); return; }
+                if (!await DryRunAsync()) { AppendChat(ChatRole.Ai, "预演失败，请检查参数或稍后重试。"); return; }
 
                 // 生成/校验/预演通过：解析步骤 → 填充 PlanReviewPanel，等用户点"确认并执行"
                 var steps = ExtractSteps(_currentPlanJson);
@@ -566,6 +610,9 @@ namespace AiSwAddin
                 _planPanel.SetSteps(steps);
                 ShowPlanReview();   // 若之前在诊断视图,切回计划视图
                 AppendLog("[待确认] 计划已就绪，请在计划面板中点击「确认并执行」。");
+                AppendChat(ChatRole.Ai, string.Format(
+                    "已把你的需求解析为 {0} 步结构化建模。请在上方「执行面板」审阅步骤，确认无误后点「确认并执行」。",
+                    steps.Count));
             }
             finally
             {
