@@ -128,26 +128,73 @@ def _ensure_part_saved(app: object, model: object) -> str:
     return target
 
 
+def _read_default_drawing_template(app: object) -> str:
+    """读取 SolidWorks 默认工程图模板路径。
+
+    真机上 GetUserPreferenceStringValue 在不同 pywin32 dispatch 模式下可能被
+    暴露为方法或属性；且有时按枚举值读回为空。这里做多重兼容：
+    1) callable 判断后调用/取值；
+    2) 兼容 swDefaultTemplateDrawing=3 常量；
+    3) 任一读到非空即返回。
+    """
+    getter = getattr(app, "GetUserPreferenceStringValue", None)
+    if getter is None:
+        return ""
+    for pref in (3,):  # swUserPreferenceStringValue_e.swDefaultTemplateDrawing = 3
+        try:
+            value = getter(pref) if callable(getter) else ""
+        except Exception:
+            value = ""
+        value = str(value or "").strip()
+        if value:
+            return value
+    return ""
+
+
+def _guess_drawing_template() -> str:
+    """当读不到默认模板时，扫描 SolidWorks 常见安装目录猜测工程图模板。
+
+    覆盖 chinese-simplified(chinese-sim) 与 english 语言目录、ProgramData 模板目录，
+    命中第一个存在的 .drwdot 即返回；全部不存在则返回空。
+    """
+    import glob
+
+    patterns = [
+        r"C:\ProgramData\SolidWorks\SOLIDWORKS *\templates\*.drwdot",
+        r"C:\ProgramData\SolidWorks\SOLIDWORKS *\templates\*\*.drwdot",
+        r"C:\Program Files\SOLIDWORKS Corp\SOLIDWORKS\lang\*\*.drwdot",
+        r"C:\Program Files\SOLIDWORKS Corp\SOLIDWORKS\data\templates\*.drwdot",
+    ]
+    for pat in patterns:
+        try:
+            hits = sorted(glob.glob(pat))
+        except Exception:
+            hits = []
+        for hit in hits:
+            if Path(hit).is_file():
+                return hit
+    return ""
+
+
 def _new_drawing_doc(app: object) -> object:
-    """新建工程图文档。优先用默认工程图模板，取不到时回退到常见模板名。"""
-    template = ""
-    try:
-        # swUserPreferenceStringValue_e.swDefaultTemplateDrawing = 3
-        template = str(app.GetUserPreferenceStringValue(3) or "").strip()
-    except Exception:
-        template = ""
+    """新建工程图文档。优先用默认工程图模板，取不到时扫描常见安装目录兜底。"""
+    template = _read_default_drawing_template(app)
+    if not template or not Path(template).is_file():
+        guessed = _guess_drawing_template()
+        if guessed:
+            template = guessed
     if not template:
         raise RuntimeError(
-            "未找到默认工程图模板(swDefaultTemplateDrawing)。"
+            "未找到默认工程图模板(swDefaultTemplateDrawing)，且在常见安装目录未扫描到 .drwdot 模板。"
             "请在 SolidWorks 选项→默认模板中设置工程图模板后重试。"
         )
     try:
         # NewDocument(template, paperSize, width, height)；paperSize=12 约 A3 横向
         draw = app.NewDocument(template, 12, 0.0, 0.0)
     except Exception as exc:
-        raise RuntimeError(str(exc)) from exc
+        raise RuntimeError(f"以模板 {template} 新建工程图失败: {exc}") from exc
     if draw is None:
-        raise RuntimeError("NewDocument 返回 None，工程图模板可能不可用。")
+        raise RuntimeError(f"NewDocument 返回 None，工程图模板可能不可用: {template}")
     return draw
 
 
@@ -183,5 +230,4 @@ def _save_drawing(app: object, draw_model: object, part_model: object) -> str:
         draw_model.Extension.SaveAs(target, 0, 1, dispatch_none(), byref_int(), byref_int())
     except Exception as exc:
         raise RuntimeError(str(exc)) from exc
-    return target
     return target
