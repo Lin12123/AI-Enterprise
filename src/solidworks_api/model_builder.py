@@ -67,24 +67,27 @@ DISPATCH = {
 
 class ModelBuilder:
     def build(self, sw_app: object, plan: FeaturePlan, use_active_doc: bool = False) -> tuple[str, ...]:
-        # use_active_doc=True 时在当前打开的活动文档里建模，不新建窗口；
-        # 默认 False 保持原有行为：新建零件文档。
+        # use_active_doc=True 时优先在当前活动文档里建模：若该文档是"空零件"(只有默认
+        # 基准面/原点, 没有用户特征)则直接复用；若已有实际零件, 自动改为新建窗口, 避免
+        # 用户之前的零件被继续叠加。
+        # use_active_doc=False 时保持原有行为：始终新建零件文档。
         plan = plan_operations(plan)
-        sw_model = self._active_part(sw_app) if use_active_doc else None
+        sw_model = self._pick_target_doc(sw_app, use_active_doc)
+        create_new_needed = sw_model is None
         state = {"base": {}, "boss": {}, "sketches": {}, "saved_outputs": [], "sw_app": sw_app}
         explicit_output = False
         for operation in plan.operations:
             try:
                 if operation.op == "create_new_part":
-                    # 若指定在当前文档建模，则忽略 create_new_part，不再新开窗口
-                    if use_active_doc:
-                        if sw_model is None:
-                            sw_model = self._active_part(sw_app)
+                    # 若已经复用了当前空零件文档，跳过 create_new_part 避免多开窗口
+                    if not create_new_needed and sw_model is not None:
                         continue
                     sw_model = self._create_new_part(sw_app)
+                    create_new_needed = False
                     continue
                 if sw_model is None:
-                    sw_model = self._active_part(sw_app) if use_active_doc else self._create_new_part(sw_app)
+                    sw_model = self._create_new_part(sw_app)
+                    create_new_needed = False
                 if operation.op == "rebuild_model":
                     self._rebuild_model(sw_model)
                     continue
@@ -124,14 +127,51 @@ class ModelBuilder:
         except Exception as exc:
             raise RuntimeError(f"保存输出失败: {exc}") from exc
 
-    def _active_part(self, sw_app: object) -> object:
-        """返回当前活动零件文档；无活动文档时报错，提示用户先打开一个零件。"""
+    def _pick_target_doc(self, sw_app: object, use_active_doc: bool) -> object | None:
+        """按需选择目标文档：
+        - use_active_doc=True 且当前活动文档是"空零件" → 复用它；
+        - 否则 → 返回 None 让主流程走新建。
+        （返回 None 时会在遇到首个建模 op 前调 _create_new_part）
+        """
+        if not use_active_doc:
+            return None
         active_doc = getattr(sw_app, "ActiveDoc", None)
         if active_doc is None:
-            raise RuntimeError(
-                "已选择在当前文档建模，但 SolidWorks 没有活动文档。请先打开或新建一个零件后再执行。"
-            )
+            return None
+        if not self._is_empty_part(active_doc):
+            # 已有实际零件，避免叠加，改用新窗口
+            return None
         return active_doc
+
+    def _is_empty_part(self, sw_model: object) -> bool:
+        """判断一个零件文档是否为"空"：只含默认基准面/原点，没有用户特征。"""
+        # 1) 必须是零件类型(swDocPART=1)。装配/工程图/其它一律视为非空(不适合建模)
+        try:
+            doc_type = int(sw_model.GetType())
+        except Exception:
+            return False
+        if doc_type != SW_DOC_PART:
+            return False
+
+        # 2) 遍历顶层 Feature，若发现非默认特征则视为非空
+        default_names = {"Front Plane", "Top Plane", "Right Plane", "Origin",
+                         "前视基准面", "上视基准面", "右视基准面", "原点"}
+        try:
+            feature = sw_model.FirstFeature()
+        except Exception:
+            return False
+        while feature is not None:
+            try:
+                name = feature.Name
+            except Exception:
+                name = ""
+            if name and name not in default_names:
+                return False
+            try:
+                feature = feature.GetNextFeature()
+            except Exception:
+                break
+        return True
 
     def _create_new_part(self, sw_app: object) -> object:
         errors: list[str] = []

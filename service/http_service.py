@@ -135,6 +135,19 @@ class AiSwRequestHandler(BaseHTTPRequestHandler):
 
 # ---- 业务处理函数(复用现有 Python 引擎) ---------------------------------------
 
+# 服务进程内唯一的 SolidWorksSession 实例，只在 SW 工作线程里被访问。
+_SHARED_SESSION = None
+
+
+def _shared_session():
+    """返回服务进程内唯一的 SolidWorksSession(仅供 SW 工作线程调用)。"""
+    global _SHARED_SESSION
+    if _SHARED_SESSION is None:
+        from solidworks_api.session import SolidWorksSession
+        _SHARED_SESSION = SolidWorksSession()
+    return _SHARED_SESSION
+
+
 def _handle_generate_plan(payload: dict) -> dict:
     """自然语言 → FeaturePlan。
 
@@ -211,15 +224,31 @@ def _handle_execute(payload: dict) -> dict:
     返回: {"ok": bool, "status": str, "message": str, "operations": [...], "outputs": [...]}
 
     注意：需目标机已安装 SolidWorks 且已打开，同时 Python 环境已安装 pywin32。
+
+    实现细节：本函数并不直接调用 SolidWorks——真正的 COM 调用必须在专用 STA
+    工作线程内完成，否则可能因跨线程 COM 使用导致 SolidWorks 闪退。见 sw_worker.py。
     """
     plan = payload.get("plan")
     if not isinstance(plan, dict):
         return {"ok": False, "error": "缺少 plan 字段或格式错误"}
 
     use_active_doc = bool(payload.get("use_active_doc", False))
-    from solidworks_api.executor import SolidWorksApiExecutor
 
-    result = SolidWorksApiExecutor().execute(plan, dry_run=False, use_active_doc=use_active_doc)
+    def _do_execute():
+        from solidworks_api.executor import SolidWorksApiExecutor
+        from solidworks_api.session import SolidWorksSession
+
+        # 复用工作线程内的单例 session：只需 GetActiveObject 一次，之后所有请求
+        # 都用同一份 SolidWorks COM 引用，避免重复连接/跨请求 COM 悬空。
+        session = _shared_session()
+        return SolidWorksApiExecutor(session=session).execute(
+            plan, dry_run=False, use_active_doc=use_active_doc)
+
+    from service.sw_worker import SolidWorksWorker
+    worker = SolidWorksWorker()
+    worker.start()
+    # 建模可能耗时较久，给一个宽松的超时(10 分钟)
+    result = worker.submit(_do_execute, timeout=600)
     return _execution_result_to_dict(result)
 
 
@@ -248,6 +277,14 @@ def _execution_result_to_dict(result) -> dict:
 
 def serve() -> None:
     host, port = _host(), _port()
+    # 预先启动 SW 专用 STA 工作线程：让 CoInitialize 提前完成，
+    # 后续第一次 /api/execute 请求不必等待线程冷启动。
+    try:
+        from service.sw_worker import SolidWorksWorker
+        SolidWorksWorker().start()
+    except Exception as exc:   # 未装 pythoncom 也不阻断服务启动
+        sys.stderr.write("[service] 警告: SW 工作线程未能启动: " + str(exc) + "\n")
+
     server = ThreadingHTTPServer((host, port), AiSwRequestHandler)
     print(f"AI-SW 本地服务已启动: http://{host}:{port}")
     print("按 Ctrl+C 停止。")

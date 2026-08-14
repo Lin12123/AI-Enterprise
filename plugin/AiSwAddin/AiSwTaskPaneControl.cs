@@ -548,10 +548,10 @@ namespace AiSwAddin
 
         private async System.Threading.Tasks.Task ExecuteAsync()
         {
-            bool useActiveDoc = _targetBox != null && _targetBox.SelectedIndex == 1;
-            AppendLog(useActiveDoc
-                ? "[执行] 正在当前文档中驱动 SolidWorks 建模..."
-                : "[执行] 正在新建零件并驱动 SolidWorks 建模...");
+            // 默认让服务端"智能选择目标窗口"：若 SolidWorks 当前活动文档是空零件则复用它，
+            // 若已有实际零件则自动新建一个窗口生成，避免叠加到用户已有零件上。
+            const bool useActiveDoc = true;
+            AppendLog("[执行] 正在驱动 SolidWorks 建模(若当前为空零件则复用，否则新建窗口)...");
             try
             {
                 string resp = await _client.ExecuteAsync(_currentPlanJson, useActiveDoc);
