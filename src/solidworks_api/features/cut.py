@@ -72,6 +72,89 @@ def _slot_error_context(plane, host, x, y, sketch_length, sketch_width, depth, d
     )
 
 
+def _slot_top_z_m(state: dict):
+    """推断 slot 所在顶面的 z 坐标(米)。优先用 base.top_z_m，其次用厚度换算。"""
+    from solidworks_api.units import mm_to_m
+
+    base = state.get("base", {})
+    top_z_m = base.get("top_z_m")
+    if top_z_m is not None:
+        try:
+            return float(top_z_m)
+        except (TypeError, ValueError):
+            pass
+    thickness = float(base.get("thickness", 0) or 0)
+    if thickness > 0:
+        return mm_to_m(thickness)
+    return None
+
+
+def _try_select_slot_face_by_center(
+    sw_model: object, plane: str, host: str, state: dict, x_mm: float, y_mm: float
+) -> bool:
+    """优先用 slot 的 center 坐标命中所在顶面，避免选到被前序孔洞切碎的其它面片。
+
+    仅对 host=base 的 top_face 生效；命中返回 True，未命中返回 False 让调用方回退
+    到通用 top_face 选面策略。任何异常都视为未命中(返回 False)，绝不因选面兜底
+    而中断主流程。
+    """
+    if plane != "top_face" or str(host or "base").strip().lower() != "base":
+        return False
+    top_z_m = _slot_top_z_m(state)
+    if top_z_m is None:
+        return False
+    try:
+        from solidworks_api.selectors import select_face_by_point_candidates
+        from solidworks_api.units import mm_to_m
+
+        # 以 slot 中心为核心构造候选点：中心优先，再沿槽附近做小偏移兜底，
+        # 确保命中的是 slot 轮廓真正覆盖的那块面片。
+        offsets_mm = [(0.0, 0.0), (2.0, 0.0), (-2.0, 0.0), (0.0, 2.0), (0.0, -2.0)]
+        candidates = [
+            (mm_to_m(x_mm + dx), mm_to_m(y_mm + dy), top_z_m) for dx, dy in offsets_mm
+        ]
+        select_face_by_point_candidates(sw_model, candidates)
+        return True
+    except Exception:
+        return False
+
+
+def _describe_active_sketch(sw_model: object) -> str:
+    """采集当前草图诊断信息(轮廓段数/线弧数)，拼入失败日志方便下次定位。
+
+    该函数仅用于切除失败后的排查，任何异常都吞掉并返回可读的降级说明，
+    绝不因诊断采集本身失败而掩盖原始的 FeatureCut3 错误。
+    """
+    parts: list[str] = []
+    try:
+        sketch = None
+        try:
+            candidate = getattr(sw_model.SketchManager, "ActiveSketch", None)
+            sketch = candidate() if callable(candidate) else candidate
+        except Exception:
+            sketch = None
+        if sketch is None:
+            return " [sketch_diag: 无法获取活动草图对象(可能已退出草图)]"
+        try:
+            segs = sketch.GetSketchSegments()
+            seg_count = len(segs) if segs is not None else 0
+            parts.append(f"segments={seg_count}")
+        except Exception as exc:
+            parts.append(f"segments=?({exc})")
+        for attr in ("GetLineCount2", "GetArcCount2"):
+            try:
+                method = getattr(sketch, attr, None)
+                if callable(method):
+                    parts.append(f"{attr}={method(0)}")
+            except Exception:
+                continue
+    except Exception as exc:
+        return f" [sketch_diag: 采集失败 {exc}]"
+    if not parts:
+        return " [sketch_diag: 无可用草图诊断信息]"
+    return " [sketch_diag: " + ", ".join(parts) + "]"
+
+
 def cut_slot(sw_model: object, params: dict, state: dict) -> None:
     from solidworks_api.features.extrude import _close_active_sketch
     from solidworks_api.features.hole import _blind_cut
@@ -104,7 +187,14 @@ def cut_slot(sw_model: object, params: dict, state: dict) -> None:
         sketch_length = length + overshoot_mm
 
     _close_active_sketch(sw_model, state)
-    _select_sketch_plane(sw_model, plane, state, host=host)
+    # 关键：slot 的草图基准面必须是 slot 轮廓覆盖区域的那块顶面。
+    # 前序的孔/口袋操作会把原始整块顶面切割成多个面片，若沿用通用
+    # top_face 选面（取最高 z 碎片面 / 选 (0,0,z) 那片面），当 slot 中心
+    # 偏离原点(如 center=(-36,0))时可能落在其它面片上，导致草图画在错误
+    # 的面上、FeatureCut3 找不到可切实体而返回 None。这里优先用 slot 自己
+    # 的 center 坐标去命中面，命中失败再回退通用 top_face 选面。
+    if not _try_select_slot_face_by_center(sw_model, plane, host, state, x, y):
+        _select_sketch_plane(sw_model, plane, state, host=host)
     sw_model.SketchManager.InsertSketch(True)
     if _native_slot_api_enabled() and hasattr(sw_model.SketchManager, "CreateSketchSlot"):
         try:
@@ -113,6 +203,8 @@ def cut_slot(sw_model: object, params: dict, state: dict) -> None:
             _create_rectangular_slot_fallback(sw_model, x, y, sketch_length, sketch_width, angle_deg)
     else:
         _create_rectangular_slot_fallback(sw_model, x, y, sketch_length, sketch_width, angle_deg)
+    # 在退出草图前采集诊断(段数/线弧数)；退出后 ActiveSketch 可能为 None 无法读取。
+    sketch_diag = _describe_active_sketch(sw_model)
     sw_model.SketchManager.InsertSketch(True)
     if through_all:
         from solidworks_api.features.hole import _through_all_cut_any
@@ -122,6 +214,7 @@ def cut_slot(sw_model: object, params: dict, state: dict) -> None:
             raise RuntimeError(
                 "cut_slot through_all failed: FeatureCut3 returned None"
                 + _slot_error_context(plane, host, x, y, sketch_length, sketch_width, depth, direction)
+                + sketch_diag
             )
     else:
         feature = _blind_cut(sw_model, depth)
@@ -136,6 +229,7 @@ def cut_slot(sw_model: object, params: dict, state: dict) -> None:
             raise RuntimeError(
                 "cut_slot failed: FeatureCut3 returned None (blind 与 through_all 均失败)"
                 + _slot_error_context(plane, host, x, y, sketch_length, sketch_width, depth, direction)
+                + sketch_diag
             )
     _record_pattern_seed_feature(
         state,
