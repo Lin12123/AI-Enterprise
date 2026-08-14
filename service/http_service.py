@@ -234,6 +234,8 @@ def _handle_execute(payload: dict) -> dict:
         return {"ok": False, "error": "缺少 plan 字段或格式错误"}
 
     use_active_doc = bool(payload.get("use_active_doc", False))
+    # 用户原始自然语言：当活动文档已有零件时，用于判断"修改当前"还是"新增零件"
+    prompt = str(payload.get("prompt", "") or "")
 
     def _do_execute():
         from solidworks_api.executor import SolidWorksApiExecutor
@@ -243,7 +245,7 @@ def _handle_execute(payload: dict) -> dict:
         # 都用同一份 SolidWorks COM 引用，避免重复连接/跨请求 COM 悬空。
         session = _shared_session()
         return SolidWorksApiExecutor(session=session).execute(
-            plan, dry_run=False, use_active_doc=use_active_doc)
+            plan, dry_run=False, use_active_doc=use_active_doc, prompt=prompt)
 
     from service.sw_worker import SolidWorksWorker
     worker = SolidWorksWorker()

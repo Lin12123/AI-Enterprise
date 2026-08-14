@@ -36,6 +36,22 @@ SW_DOC_PART = 1
 SW_DWG_PAPER_NONE = 0
 
 
+# 意图判断关键词：当活动文档已有零件时，用于区分"修改当前零件"还是"新增零件"。
+# 修改类词汇 → 复用当前窗口；新增类词汇 → 另开新窗口。
+_MODIFY_INTENT_KEYWORDS = (
+    "修改", "改成", "改为", "调整", "在此基础", "在这基础", "在现有", "继续",
+    "接着", "给它", "给这个", "把它", "把这个", "对当前", "对这个", "当前零件",
+    "现有零件", "这个零件", "再加", "再开", "追加", "补充",
+    "modify", "change", "edit", "adjust", "update", "add to", "current part",
+    "this part", "existing part",
+)
+_NEW_INTENT_KEYWORDS = (
+    "新建", "新增", "新的零件", "新零件", "另建", "另画", "另外画", "另外做",
+    "再画一个", "再做一个", "重新画", "重新建", "换一个", "单独",
+    "new part", "another part", "create a new", "separate part", "brand new",
+)
+
+
 DISPATCH = {
     "create_sketch": create_sketch,
     "sketch_center_rectangle": sketch_center_rectangle,
@@ -66,13 +82,16 @@ DISPATCH = {
 
 
 class ModelBuilder:
-    def build(self, sw_app: object, plan: FeaturePlan, use_active_doc: bool = False) -> tuple[str, ...]:
-        # use_active_doc=True 时优先在当前活动文档里建模：若该文档是"空零件"(只有默认
-        # 基准面/原点, 没有用户特征)则直接复用；若已有实际零件, 自动改为新建窗口, 避免
-        # 用户之前的零件被继续叠加。
+    def build(self, sw_app: object, plan: FeaturePlan, use_active_doc: bool = False,
+              prompt: str = "") -> tuple[str, ...]:
+        # use_active_doc=True 时优先在当前活动文档里建模：
+        #   - 当前活动文档是"空零件"(只有默认基准面/原点) → 直接复用；
+        #   - 当前活动文档已有实际零件 → 根据用户自然语言(prompt)判断意图：
+        #       * 修改类意图(修改/在此基础/继续...) → 复用当前文档，新特征叠加到现有零件；
+        #       * 新增类意图(新建/再画一个...)或意图不明 → 新建窗口，避免破坏已有零件。
         # use_active_doc=False 时保持原有行为：始终新建零件文档。
         plan = plan_operations(plan)
-        sw_model = self._pick_target_doc(sw_app, use_active_doc)
+        sw_model = self._pick_target_doc(sw_app, use_active_doc, prompt)
         create_new_needed = sw_model is None
         state = {"base": {}, "boss": {}, "sketches": {}, "saved_outputs": [], "sw_app": sw_app}
         explicit_output = False
@@ -127,10 +146,14 @@ class ModelBuilder:
         except Exception as exc:
             raise RuntimeError(f"保存输出失败: {exc}") from exc
 
-    def _pick_target_doc(self, sw_app: object, use_active_doc: bool) -> object | None:
+    def _pick_target_doc(self, sw_app: object, use_active_doc: bool,
+                         prompt: str = "") -> object | None:
         """按需选择目标文档：
+        - use_active_doc=False → 始终返回 None(新建)；
         - use_active_doc=True 且当前活动文档是"空零件" → 复用它；
-        - 否则 → 返回 None 让主流程走新建。
+        - use_active_doc=True 且当前活动文档已有零件 →
+            * prompt 判定为"修改当前"意图 → 复用当前文档；
+            * prompt 判定为"新增零件"意图或意图不明 → 返回 None(新建窗口)。
         （返回 None 时会在遇到首个建模 op 前调 _create_new_part）
         """
         if not use_active_doc:
@@ -138,10 +161,32 @@ class ModelBuilder:
         active_doc = getattr(sw_app, "ActiveDoc", None)
         if active_doc is None:
             return None
-        if not self._is_empty_part(active_doc):
-            # 已有实际零件，避免叠加，改用新窗口
-            return None
-        return active_doc
+        if self._is_empty_part(active_doc):
+            # 空零件，直接复用
+            return active_doc
+        # 活动文档已有实际零件：按用户自然语言意图决定复用还是新建
+        if self._classify_intent(prompt) == "modify":
+            return active_doc
+        # 新增意图 or 意图不明 → 新窗口，保护已有零件
+        return None
+
+    @staticmethod
+    def _classify_intent(prompt: str) -> str:
+        """根据用户自然语言判断意图：
+        返回 "modify"(修改当前零件) 或 "new"(新增/新建零件)。
+        规则：
+        - 命中新增类关键词 → "new"（新增优先级更高，避免误判为修改）;
+        - 命中修改类关键词 → "modify";
+        - 都未命中 → "new"（安全默认：不叠加破坏已有零件，另开窗口）。
+        """
+        text = (prompt or "").lower()
+        if not text.strip():
+            return "new"
+        if any(kw in text for kw in _NEW_INTENT_KEYWORDS):
+            return "new"
+        if any(kw in text for kw in _MODIFY_INTENT_KEYWORDS):
+            return "modify"
+        return "new"
 
     def _is_empty_part(self, sw_model: object) -> bool:
         """判断一个零件文档是否为"空"：只含默认基准面/原点，没有用户特征。"""

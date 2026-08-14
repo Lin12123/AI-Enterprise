@@ -29,6 +29,8 @@ namespace AiSwAddin
         private ISldWorks _swApp;
         private readonly ServiceClient _client = new ServiceClient();
         private string _currentPlanJson = null;
+        /// <summary>最近一次用户输入的原始自然语言需求，供执行时判断"修改当前零件"还是"新增零件"。</summary>
+        private string _lastPrompt = "";
         /// <summary>最近一次成功建模所写入的几何特征数量，供成果看板卡片展示。</summary>
         private int _lastFeatureCount = 0;
 
@@ -558,6 +560,7 @@ namespace AiSwAddin
 
             // 用户消息进会话流
             AppendChat(ChatRole.User, prompt);
+            _lastPrompt = prompt;   // 记录原始需求，执行阶段用于窗口复用/新增的意图判断
 
             SetBusy(true);
             try
@@ -660,13 +663,14 @@ namespace AiSwAddin
 
         private async System.Threading.Tasks.Task<bool> ExecuteAsync()
         {
-            // 默认让服务端"智能选择目标窗口"：若 SolidWorks 当前活动文档是空零件则复用它，
-            // 若已有实际零件则自动新建一个窗口生成，避免叠加到用户已有零件上。
+            // 默认让服务端"智能选择目标窗口"：若 SolidWorks 当前活动文档是空零件则复用它；
+            // 若已有实际零件，则根据用户原始需求(_lastPrompt)判断意图——"修改当前"则复用，
+            // "新增零件"或意图不明则自动新建窗口，避免叠加到用户已有零件上。
             const bool useActiveDoc = true;
-            AppendLog("[执行] 正在驱动 SolidWorks 建模(若当前为空零件则复用，否则新建窗口)...");
+            AppendLog("[执行] 正在驱动 SolidWorks 建模(空零件复用/已有零件按需求判断复用或新建窗口)...");
             try
             {
-                string resp = await _client.ExecuteAsync(_currentPlanJson, useActiveDoc);
+                string resp = await _client.ExecuteAsync(_currentPlanJson, useActiveDoc, _lastPrompt);
                 bool ok = resp.Contains("\"ok\": true") || resp.Contains("\"ok\":true");
                 AppendLog(ok ? "[执行完成] SolidWorks 建模成功。" : "[执行失败] " + Truncate(resp));
                 return ok;

@@ -66,12 +66,42 @@ namespace AiSwAddin
         }
 
         /// <summary>真实建模(Python 侧通过 pywin32 连接当前打开的 SolidWorks)。
-        /// useActiveDoc=true 时在当前活动文档建模，否则新建零件文档。</summary>
-        public Task<string> ExecuteAsync(string planJson, bool useActiveDoc)
+        /// useActiveDoc=true 时优先在当前活动文档建模；prompt 为用户原始自然语言需求，
+        /// 当活动文档已有零件时供服务端判断"修改当前"还是"新增零件"。</summary>
+        public Task<string> ExecuteAsync(string planJson, bool useActiveDoc, string prompt = "")
         {
             string flag = useActiveDoc ? "true" : "false";
+            string promptField = "\"" + JsonEscape(prompt ?? "") + "\"";
             return PostAsync("/api/execute",
-                "{\"plan\":" + planJson + ",\"use_active_doc\":" + flag + "}");
+                "{\"plan\":" + planJson + ",\"use_active_doc\":" + flag
+                + ",\"prompt\":" + promptField + "}");
+        }
+
+        /// <summary>把任意字符串转义为可安全嵌入 JSON 双引号内的形式。</summary>
+        private static string JsonEscape(string s)
+        {
+            if (string.IsNullOrEmpty(s)) return "";
+            var sb = new StringBuilder(s.Length + 8);
+            foreach (char c in s)
+            {
+                switch (c)
+                {
+                    case '\"': sb.Append("\\\""); break;
+                    case '\\': sb.Append("\\\\"); break;
+                    case '\b': sb.Append("\\b"); break;
+                    case '\f': sb.Append("\\f"); break;
+                    case '\n': sb.Append("\\n"); break;
+                    case '\r': sb.Append("\\r"); break;
+                    case '\t': sb.Append("\\t"); break;
+                    default:
+                        if (c < ' ')
+                            sb.Append("\\u").Append(((int)c).ToString("x4"));
+                        else
+                            sb.Append(c);
+                        break;
+                }
+            }
+            return sb.ToString();
         }
 
         /// <summary>获取 FeaturePlan 的软性诊断清单(规则合规与几何质量, 不阻断执行)。</summary>
