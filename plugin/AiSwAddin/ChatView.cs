@@ -64,23 +64,27 @@ namespace AiSwAddin
         {
             if (content == null) return;
 
+            // row 的最终宽度 = ChatView 可用内容宽度(此时 row 尚未加入容器，不能用 row.ClientSize.Width，否则为 0)
+            int rowWidth = ClientSize.Width - Padding.Horizontal;
+
             var row = new Panel
             {
                 BackColor = Color.Transparent,
                 Margin = new Padding(0),
-                Padding = new Padding(0, 0, 0, 6)
+                Padding = new Padding(0, 0, 0, 6),
+                Width = rowWidth
             };
 
             // 用户侧靠右, AI 侧靠左；纯控件消息(如面板)通常按 AI 处理，占据大部分宽度
             if (role == ChatRole.User)
             {
-                content.Left = Math.Max(40, row.ClientSize.Width - content.Width - 8);
+                content.Left = Math.Max(8, rowWidth - content.Width - 8);
             }
             else
             {
                 content.Left = 8;
                 // AI 侧的大卡片消息：如果宽度小于可用宽，就让它拉伸到近满宽，视觉更贴合"卡片消息"
-                int available = ClientSize.Width - 20;
+                int available = rowWidth - 12;
                 if (content.Width > available - 16 || content is CardPanel)
                 {
                     content.Width = available;
@@ -93,6 +97,10 @@ namespace AiSwAddin
 
             LayoutBubbles(row);
             Controls.Add(row);
+
+            // 加入容器后 row 已获得真实宽度，再对用户侧气泡做一次右对齐校正，避免"先左后瞬移"
+            if (role == ChatRole.User)
+                content.Left = Math.Max(8, row.ClientSize.Width - content.Width - 8);
 
             // 添加到容器后触发一次布局，让面板内部子控件(TableLayoutPanel 等)按新宽度重排
             content.PerformLayout();

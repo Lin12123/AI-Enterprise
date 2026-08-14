@@ -441,7 +441,14 @@ namespace AiSwAddin
             {
                 if (Filled)
                 {
-                    using (var fill = new SolidBrush(Enabled ? Accent : Color.FromArgb(180, Accent)))
+                    // 禁用态用不透明的实色(而非半透明 alpha)，否则圆角外四角透出父容器内容形成"灰方块"背景
+                    Color fillColor = Enabled
+                        ? Accent
+                        : Color.FromArgb(
+                            (Accent.R + 255) / 2,
+                            (Accent.G + 255) / 2,
+                            (Accent.B + 255) / 2);
+                    using (var fill = new SolidBrush(fillColor))
                         e.Graphics.FillPath(fill, path);
                     TextRenderer.DrawText(e.Graphics, Text, Font, ClientRectangle,
                         Theme.TextWhite, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
@@ -1230,7 +1237,7 @@ namespace AiSwAddin
             };
             _submitBtn = new RoundButton
             {
-                Text = "查看成果与提交 →",
+                Text = "查看成果与提交",
                 Filled = true,
                 Accent = Theme.Green,
                 Size = new Size(150, 34),
