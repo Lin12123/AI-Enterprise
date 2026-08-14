@@ -837,6 +837,9 @@ namespace AiSwAddin
             if (_confirmBtn == null) return;
             _confirmBtn.Enabled = enabled;
             _confirmBtn.Text = enabled ? "▶ 确认并执行" : "✓ 已执行";
+            // 禁用时切换到中性灰底，避免和"未执行"绿色态视觉混淆；启用时恢复绿色
+            _confirmBtn.Accent = enabled ? Theme.Green : Color.FromArgb(180, 188, 200);
+            _confirmBtn.Invalidate();
         }
 
         /// <summary>切换回初始占位态：显示"AI 助手就绪"提示，隐藏步骤列表与按钮。</summary>
