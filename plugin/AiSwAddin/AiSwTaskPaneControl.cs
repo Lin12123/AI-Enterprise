@@ -86,7 +86,7 @@ namespace AiSwAddin
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 62));   // 标题栏
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 52));   // 模式行(含标准徽章)
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 88));   // 功能卡片
-            root.RowStyles.Add(new RowStyle(SizeType.AutoSize));       // 执行计划面板(高度随步骤数自适应)
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 90));   // 执行计划面板(初始就绪态高度，之后由 AdjustRootHeight 动态改)
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 160));  // 日志区(最小高度, 随窗口拉伸见下)
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 180));  // 输入卡
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 40));   // 任务中心栏
@@ -109,26 +109,27 @@ namespace AiSwAddin
 
         /// <summary>
         /// 根据当前可视高度动态调整 root 高度：
-        /// - 可视区足够高：root 撑满可视区，日志区(第4行)吃掉多余空间；
-        /// - 可视区不够高：root 保持内容最小高度，触发外层 AutoScroll 滚动。
+        /// - 计划面板(第 3 行)按其自身 Height 占用固定高度；
+        /// - 日志区(第 4 行)吃掉剩余空间，最小压缩到 100 保证仍可见；
+        /// - 空间实在不够时由外层 AutoScroll 兜底出现滚动条。
         /// </summary>
         private void AdjustRootHeight(TableLayoutPanel root)
         {
             if (root.RowStyles.Count < 5) return;
 
-            // 除日志区外的行(0,1,2,3=执行计划,5,6)当前实际占用高度总和
-            int[] heights = root.GetRowHeights();
-            int fixedOthers = 0;
-            for (int i = 0; i < heights.Length; i++)
-            {
-                if (i == 4) continue;   // 第 4 行 = 日志区，跳过
-                fixedOthers += heights[i];
-            }
+            // 计划面板行改为按其实际高度取 Absolute（避免 AutoSize 行在混合行样式下变形）
+            int planH = _planPanel != null ? _planPanel.Height : 90;
+            if (planH < 60) planH = 60;
+            root.RowStyles[3].SizeType = SizeType.Absolute;
+            root.RowStyles[3].Height = planH;
 
-            const int logMin = 160;
+            // 其他固定行之和
+            const int fixedOthers = 62 + 52 + 88 + 180 + 40;   // 标题+模式+功能卡+输入卡+任务栏
+            const int logMin = 100;
+
             int avail = ClientSize.Height;
-
-            int logHeight = Math.Max(logMin, avail - fixedOthers);
+            int logHeight = avail - fixedOthers - planH;
+            if (logHeight < logMin) logHeight = logMin;
             root.RowStyles[4].Height = logHeight;
         }
 
@@ -276,13 +277,23 @@ namespace AiSwAddin
         private Control BuildReadyCard()
         {
             var host = new Panel { Dock = DockStyle.Fill, BackColor = Theme.PageBg, Padding = new Padding(12, 0, 12, 6) };
-            _planPanel = new PlanReviewPanel { Dock = DockStyle.Top, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink };
+            _planPanel = new PlanReviewPanel { Dock = DockStyle.Top };
             _planPanel.ShowIdleState("✦  AI 助手就绪",
                 "请在上方选择功能模式或在下方输入框直接描述 CAD 建模、修改参数或工程图出图需求。");
             _planPanel.ModifyClicked += (s, e) => OnModifyPlan();
             _planPanel.ConfirmClicked += (s, e) => OnConfirmExecute();
+            // 面板高度变化时(展开步骤列表/切回就绪态)触发外层布局重算，压缩日志区腾出空间
+            _planPanel.SizeChanged += (s, e) => TriggerAdjust();
             host.Controls.Add(_planPanel);
             return host;
+        }
+
+        /// <summary>触发 AdjustRootHeight 重算（用于计划面板变化时）。</summary>
+        private void TriggerAdjust()
+        {
+            if (Controls.Count == 0) return;
+            var root = Controls[0] as TableLayoutPanel;
+            if (root != null) AdjustRootHeight(root);
         }
 
         /// <summary>「修改计划」按钮：把当前 prompt 保留在输入框，隐藏计划面板回到就绪态。</summary>

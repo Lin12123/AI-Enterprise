@@ -776,7 +776,12 @@ namespace AiSwAddin
             {
                 foreach (var step in steps)
                 {
-                    var row = new PlanStepRow(step) { Width = _stepsFlow.ClientSize.Width - 20, Margin = new Padding(0, 0, 0, 6) };
+                    var row = new PlanStepRow(step)
+                    {
+                        Width = Math.Max(100, _stepsFlow.ClientSize.Width - 20),
+                        Height = 44,
+                        Margin = new Padding(0, 0, 0, 6)
+                    };
                     _stepsFlow.Controls.Add(row);
                 }
             }
@@ -785,6 +790,9 @@ namespace AiSwAddin
             _stepsFlow.Visible = true;
             _footerBox.Visible = true;
             _stepsHeader.Invalidate();
+
+            // 依据当前状态显式设定整个面板高度，避免依赖不稳定的 AutoSize 传播
+            RecalcHeight();
         }
 
         /// <summary>切换回初始占位态：显示"AI 助手就绪"提示，隐藏步骤列表与按钮。</summary>
@@ -797,6 +805,22 @@ namespace AiSwAddin
             _footerBox.Visible = false;
             _stepsFlow.Controls.Clear();
             _stepCount = 0;
+            RecalcHeight();
+        }
+
+        /// <summary>根据当前状态(是否显示步骤/按钮)显式计算并设置整体高度。</summary>
+        private void RecalcHeight()
+        {
+            // Header 固定 68；Steps Header 固定 26；每步条目高 44+间距 6=50；Footer 固定 52
+            int h = _headerBox.Height + 2;
+            if (_stepsFlow.Visible)
+            {
+                h += _stepsHeader.Height;
+                h += _stepsFlow.Padding.Top + _stepsFlow.Padding.Bottom;
+                h += _stepCount * 50;
+            }
+            if (_footerBox.Visible) h += _footerBox.Height;
+            Height = h;
         }
 
         private int _stepCount;
