@@ -37,8 +37,15 @@ namespace AiSwAddin
         private RoundButton _sendBtn;
         private ComboBox _targetBox;   // 目标：新建零件 / 当前文档
 
+        /// <summary>累积的技术日志文本(隐藏), 通过底部「📄日志」按钮弹窗查看。</summary>
+        private readonly System.Text.StringBuilder _logBuffer = new System.Text.StringBuilder();
+
         /// <summary>3D 建模执行计划面板；生成/校验/预演通过后填充并显示，用户点"确认并执行"才真正建模。</summary>
         private PlanReviewPanel _planPanel;
+
+        /// <summary>规则合规与几何质量诊断清单面板；建模成功后展示，与 _planPanel 共享容器位置。</summary>
+        private DiagnosticPanel _diagPanel;
+        private Panel _reviewHost;   // 承载 _planPanel 与 _diagPanel 的公共容器
 
         // 运行模式：0=企业协同, 1=离线本地
         private ModePillButton _modePill;
@@ -118,19 +125,17 @@ namespace AiSwAddin
             if (root.RowStyles.Count < 5) return;
 
             // 计划面板行改为按其实际高度取 Absolute（避免 AutoSize 行在混合行样式下变形）
-            int planH = _planPanel != null ? _planPanel.Height : 90;
+            int planH = 90;
+            if (_diagPanel != null && _diagPanel.Visible) planH = _diagPanel.Height;
+            else if (_planPanel != null) planH = _planPanel.Height;
             if (planH < 60) planH = 60;
             root.RowStyles[3].SizeType = SizeType.Absolute;
             root.RowStyles[3].Height = planH;
 
-            // 其他固定行之和
-            const int fixedOthers = 62 + 52 + 88 + 180 + 40;   // 标题+模式+功能卡+输入卡+任务栏
-            const int logMin = 100;
-
-            int avail = ClientSize.Height;
-            int logHeight = avail - fixedOthers - planH;
-            if (logHeight < logMin) logHeight = logMin;
-            root.RowStyles[4].Height = logHeight;
+            // 日志区行(第4行)在 UI 中已隐藏：主界面不再直接展示技术日志，
+            // 用户可通过底部任务栏「📄日志」按钮弹窗查看。这里把该行高度置 0 收起。
+            root.RowStyles[4].SizeType = SizeType.Absolute;
+            root.RowStyles[4].Height = 0;
         }
 
         // ---- 顶部渐变标题栏（全自绘，无白底）----
@@ -277,15 +282,48 @@ namespace AiSwAddin
         private Control BuildReadyCard()
         {
             var host = new Panel { Dock = DockStyle.Fill, BackColor = Theme.PageBg, Padding = new Padding(12, 0, 12, 6) };
+            _reviewHost = host;
+
             _planPanel = new PlanReviewPanel { Dock = DockStyle.Top };
             _planPanel.ShowIdleState("✦  AI 助手就绪",
                 "请在上方选择功能模式或在下方输入框直接描述 CAD 建模、修改参数或工程图出图需求。");
             _planPanel.ModifyClicked += (s, e) => OnModifyPlan();
             _planPanel.ConfirmClicked += (s, e) => OnConfirmExecute();
-            // 面板高度变化时(展开步骤列表/切回就绪态)触发外层布局重算，压缩日志区腾出空间
             _planPanel.SizeChanged += (s, e) => TriggerAdjust();
+
+            // 诊断面板默认不可见，建模成功后才显示
+            _diagPanel = new DiagnosticPanel { Dock = DockStyle.Top, Visible = false };
+            _diagPanel.SubmitClicked += (s, e) => OnSubmitResult();
+            _diagPanel.LocateItem += (it) => AppendLog("[定位] " + it.Feature + "：" + it.Title);
+            _diagPanel.FixItem += (it) => AppendLog("[一键修] " + it.Code + " → " + it.FixHint);
+            _diagPanel.SizeChanged += (s, e) => TriggerAdjust();
+
+            // 添加顺序：Dock=Top 逆序生效 —— 先加的 _diagPanel 在下、后加的 _planPanel 在上
+            host.Controls.Add(_diagPanel);
             host.Controls.Add(_planPanel);
             return host;
+        }
+
+        /// <summary>提交按钮：目前只写日志，后续可对接"保存/上传"流程。</summary>
+        private void OnSubmitResult()
+        {
+            AppendLog("[提交] 已确认本次建模成果，进入后续保存/上传流程。");
+        }
+
+        /// <summary>切换到"执行计划审阅"视图（发送后展示）。</summary>
+        private void ShowPlanReview()
+        {
+            if (_diagPanel != null) _diagPanel.Visible = false;
+            if (_planPanel != null) _planPanel.Visible = true;
+            TriggerAdjust();
+        }
+
+        /// <summary>切换到"诊断清单"视图（建模成功后展示）。</summary>
+        private void ShowDiagnostics()
+        {
+            if (_planPanel != null) _planPanel.Visible = false;
+            if (_diagPanel != null) _diagPanel.Visible = true;
+            TriggerAdjust();
         }
 
         /// <summary>触发 AdjustRootHeight 重算（用于计划面板变化时）。</summary>
@@ -301,6 +339,7 @@ namespace AiSwAddin
         {
             _planPanel.ShowIdleState("✦  AI 助手就绪",
                 "已放弃当前计划，请在下方修改需求后重新发送。");
+            ShowPlanReview();   // 若之前在诊断视图，也切回计划视图
             _currentPlanJson = null;
             if (_inputBox != null) _inputBox.Focus();
             AppendLog("[提示] 用户放弃当前计划，等待修改后重新发送。");
@@ -317,14 +356,36 @@ namespace AiSwAddin
             SetBusy(true);
             try
             {
-                await ExecuteAsync();
-                _planPanel.ShowIdleState("✦  执行完成",
-                    "本次 3D 建模已完成，可继续在下方输入下一条需求。");
+                bool ok = await ExecuteAsync();
+                if (ok)
+                {
+                    // 建模成功 → 拉取诊断清单并切换视图，让用户审阅规则合规与几何质量
+                    await LoadDiagnosticsAsync();
+                }
                 _currentPlanJson = null;
             }
             finally
             {
                 SetBusy(false);
+            }
+        }
+
+        /// <summary>建模成功后，调用 /api/diagnose 拉取诊断清单并展示。</summary>
+        private async System.Threading.Tasks.Task LoadDiagnosticsAsync()
+        {
+            AppendLog("[诊断] 正在获取规则合规与几何质量诊断清单...");
+            try
+            {
+                string resp = await _client.DiagnoseAsync(_currentPlanJson ?? "{}");
+                var items = ExtractDiagnostics(resp, out int warningCount);
+                _diagPanel.SetItems(items, warningCount);
+                ShowDiagnostics();
+                AppendLog("[诊断] 完成，共 " + items.Count + " 条("
+                    + warningCount + " 警告)。");
+            }
+            catch (Exception ex)
+            {
+                AppendLog("[诊断异常] " + ex.Message);
             }
         }
 
@@ -412,6 +473,19 @@ namespace AiSwAddin
                 Location = new Point(12, 11),
                 BackColor = Color.Transparent
             };
+            // 「📄 日志」小按钮：点击弹出 LogPopupForm 展示累积的技术日志
+            var logBtn = new Label
+            {
+                Text = "📄 日志",
+                Font = Theme.Body(9, FontStyle.Bold),
+                ForeColor = Theme.Primary,
+                AutoSize = true,
+                Cursor = Cursors.Hand,
+                Anchor = AnchorStyles.Top | AnchorStyles.Right,
+                Location = new Point(220, 11),
+                BackColor = Color.Transparent
+            };
+            logBtn.Click += (s, e) => OpenLogPopup();
             var right = new Label
             {
                 Text = "SolidWorks 写入锁  ⌃",
@@ -419,26 +493,42 @@ namespace AiSwAddin
                 ForeColor = Theme.TextSub,
                 AutoSize = true,
                 Anchor = AnchorStyles.Top | AnchorStyles.Right,
-                Location = new Point(250, 11),
+                Location = new Point(290, 11),
                 BackColor = Color.Transparent
             };
             bar.Controls.Add(left);
+            bar.Controls.Add(logBtn);
             bar.Controls.Add(right);
             return bar;
+        }
+
+        /// <summary>弹出「📄 日志」窗口显示累积的技术日志。每次都新建实例，简单干净。</summary>
+        private void OpenLogPopup()
+        {
+            using (var dlg = new LogPopupForm())
+            {
+                dlg.SetLog(_logBuffer.ToString());
+                dlg.ShowDialog(FindForm());
+            }
         }
 
         // ==== 通用工具 ====
 
         private void AppendLog(string message)
         {
+            // 先把日志追加到内存 buffer，供「📄日志」弹窗读取
+            string line = string.Format("[{0:HH:mm:ss}] {1}",
+                DateTime.Now, message);
+            _logBuffer.AppendLine(line);
+
+            // 如果主 UI 还留着 _logBox（阶段一保留兼容, 但已 Visible=false 隐藏），也同步写入
             if (_logBox == null) return;
             if (_logBox.InvokeRequired)
             {
                 _logBox.BeginInvoke(new Action<string>(AppendLog), message);
                 return;
             }
-            _logBox.AppendText(string.Format("[{0:HH:mm:ss}] {1}{2}",
-                DateTime.Now, message, System.Environment.NewLine));
+            _logBox.AppendText(line + System.Environment.NewLine);
         }
 
         private void SetBusy(bool busy)
@@ -469,11 +559,12 @@ namespace AiSwAddin
                 // 生成/校验/预演通过：解析步骤 → 填充 PlanReviewPanel，等用户点"确认并执行"
                 var steps = ExtractSteps(_currentPlanJson);
                 string partName = ExtractStringField(_currentPlanJson, "part_name") ?? "AI-Part";
-                _planPanel.PlanTitle = "◎  3D 建模执行计划";
+                _planPanel.PlanTitle = "◎  执行面板";
                 _planPanel.PlanDescription = string.Format(
-                    "为当前 {0} 模型生成 3D 参数建树与工程图关联控制，共 {1} 步。",
+                    "已把自然语言需求解析为 {0} 的 3D 参数化结构化建模步骤，共 {1} 步。",
                     partName, steps.Count);
                 _planPanel.SetSteps(steps);
+                ShowPlanReview();   // 若之前在诊断视图,切回计划视图
                 AppendLog("[待确认] 计划已就绪，请在计划面板中点击「确认并执行」。");
             }
             finally
@@ -546,7 +637,7 @@ namespace AiSwAddin
             }
         }
 
-        private async System.Threading.Tasks.Task ExecuteAsync()
+        private async System.Threading.Tasks.Task<bool> ExecuteAsync()
         {
             // 默认让服务端"智能选择目标窗口"：若 SolidWorks 当前活动文档是空零件则复用它，
             // 若已有实际零件则自动新建一个窗口生成，避免叠加到用户已有零件上。
@@ -557,10 +648,12 @@ namespace AiSwAddin
                 string resp = await _client.ExecuteAsync(_currentPlanJson, useActiveDoc);
                 bool ok = resp.Contains("\"ok\": true") || resp.Contains("\"ok\":true");
                 AppendLog(ok ? "[执行完成] SolidWorks 建模成功。" : "[执行失败] " + Truncate(resp));
+                return ok;
             }
             catch (Exception ex)
             {
                 AppendLog("[执行异常] " + ex.Message);
+                return false;
             }
         }
 
@@ -711,6 +804,61 @@ namespace AiSwAddin
                 default:
                     return "执行 " + op + " 操作";
             }
+        }
+
+        /// <summary>从 /api/diagnose 的响应中解析出诊断项列表与警告总数。</summary>
+        private static System.Collections.Generic.List<DiagnosticItem> ExtractDiagnostics(string resp, out int warningCount)
+        {
+            var list = new System.Collections.Generic.List<DiagnosticItem>();
+            warningCount = 0;
+            if (string.IsNullOrEmpty(resp)) return list;
+
+            // warning_count
+            string wc = ExtractNumberField(resp, "warning_count");
+            if (!string.IsNullOrEmpty(wc))
+            {
+                int v;
+                if (int.TryParse(wc, out v)) warningCount = v;
+            }
+
+            // items: 逐个提取顶层 { } 对象
+            int itemsIdx = resp.IndexOf("\"items\"", StringComparison.Ordinal);
+            if (itemsIdx < 0) return list;
+            int arrStart = resp.IndexOf('[', itemsIdx);
+            if (arrStart < 0) return list;
+            int depth = 0;
+            int objStart = -1;
+            for (int i = arrStart; i < resp.Length; i++)
+            {
+                char c = resp[i];
+                if (c == '[') { depth++; continue; }
+                if (c == ']') { depth--; if (depth == 0) break; continue; }
+                if (c == '{')
+                {
+                    if (depth == 1) objStart = i;
+                    depth++;
+                }
+                else if (c == '}')
+                {
+                    depth--;
+                    if (depth == 1 && objStart >= 0)
+                    {
+                        string obj = resp.Substring(objStart, i - objStart + 1);
+                        list.Add(new DiagnosticItem
+                        {
+                            Level = ExtractStringField(obj, "level") ?? "warning",
+                            Code = ExtractStringField(obj, "code") ?? "",
+                            Title = ExtractStringField(obj, "title") ?? "",
+                            Feature = ExtractStringField(obj, "feature") ?? "",
+                            Body = ExtractStringField(obj, "body") ?? "",
+                            Reference = ExtractStringField(obj, "reference") ?? "",
+                            FixHint = ExtractStringField(obj, "fix_hint") ?? "",
+                        });
+                        objStart = -1;
+                    }
+                }
+            }
+            return list;
         }
 
         /// <summary>从 JSON 文本中读取顶层字符串字段（简易，不支持转义嵌套）。</summary>

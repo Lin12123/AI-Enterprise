@@ -65,6 +65,7 @@
     <Compile Include="Program.cs" />
     <Compile Include="ServiceClient.cs" />
     <Compile Include="UiHelpers.cs" />
+    <Compile Include="LogPopupForm.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>

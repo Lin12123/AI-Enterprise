@@ -117,12 +117,15 @@ ValidateAsync       → POST /validate       → Policy 规则校验
     ↓
 DryRunAsync         → POST /dry_run        → 生成执行计划(不改模型)
     ↓
-MessageBox 确认
-    ↓
-ExecuteAsync        → POST /execute        → Python 通过 pywin32 驱动 SolidWorks 真建模
+【PlanReviewPanel 展示步骤 + 等用户审阅】
+    ├─ 点「✎ 修改计划」 → 回到就绪态,允许用户改 prompt 后重发
+    └─ 点「▶ 确认并执行」 → ↓
+ExecuteAsync        → POST /execute        → 通过 pywin32 驱动 SolidWorks 真建模
 ```
 
 每一步失败即中断并写入日志区。SetBusy 期间禁用发送按钮和 3D 建模卡，避免重复点击。
+
+**PlanReviewPanel（[`UiHelpers.cs`](../../plugin/AiSwAddin/UiHelpers.cs)）** 是可视化审阅面板：预演通过后 UI 从"就绪态"切到"步骤态"，从 FeaturePlan 的 `operations` 数组中提取每步的中文名、SolidWorks API 名、参数描述，让用户在真正调 SolidWorks API 前先确认。此设计替代了早期"MessageBox 是/否"的简陋确认方式。
 
 ---
 
@@ -175,6 +178,27 @@ ExecuteAsync        → POST /execute        → Python 通过 pywin32 驱动 So
 
 **代码修改后重新加载**：SW 里先取消勾选（释放 DLL 占用）→ VS Rebuild → SW 里重新勾选。
 
+### ⚠️ 排查易踩坑（改动后为何"看起来没生效"）
+
+C# 插件和 Python 服务是两个独立进程，修改后各自需要**独立的刷新动作**。任一环节忘做，都会跑旧代码：
+
+| 修改了哪些文件 | 必须做什么才生效 |
+|---|---|
+| `plugin/AiSwAddin/**/*.cs`、`*.csproj` | ① SW 里取消勾选本插件 ② VS Rebuild ③ SW 里重新勾选 |
+| `service/**`、`app/**`、`src/**`（Python 侧） | 关闭 `start_service.bat` 窗口 → 重新双击运行 |
+| 两侧都改了 | 两条都要做 |
+
+**判断"是哪边没刷新"的小技巧**：
+- 报错文案是**新版本的**（比如你刚改的错误信息） → C# 已生效
+- 报错文案是**旧版本的**（代码里 grep 找不到那句话） → Python 服务没重启
+- 反之亦然
+
+**其它常见坑**：
+- SW 里勾选插件后**没反应/没弹任务窗格** → `ConnectToSW` 抛异常被 SW 静默吞掉；本插件已加 `try/catch + MessageBox` 兜底，会弹错误框显示具体异常
+- 建模第一次成功、第二次报"未检测到 SolidWorks" → COM 多线程问题；参见 §12
+- 建模成功但 SolidWorks 完成后闪退 → 同 §12，工作线程未串行化 COM 调用
+
+
 ---
 
 ## 10. 后续扩展点
@@ -200,3 +224,39 @@ ExecuteAsync        → POST /execute        → Python 通过 pywin32 驱动 So
 - **任务窗格宽度固定约 400px**：UI 中大量元素按 400 宽设计（如标题栏 Logo 位置），拉宽窗体后仍能正确渲染（已在自绘中处理），但视觉上会显得空
 - **预览 EXE 里点关闭 ✕ 无效**：因为没有宿主订阅 `CloseRequested` 事件，行为符合预期
 - **SW 版本升级**（如换到 2022）：需要在 VS 里重新指定三个 `SolidWorks.Interop.*` 引用到新版 `api\redist` 目录，然后以管理员 Rebuild 重新注册 COM。代码本身无需改
+
+---
+
+## 12. COM 线程模型与 SW 闪退防护
+
+**踩过的两个坑（都由多线程 COM 引起）：**
+
+1. **第一次执行成功、第二次报"未检测到 SolidWorks"** — HTTP 服务是 `ThreadingHTTPServer`，每次请求可能被分到不同线程。Python 的 pywin32 在使用 COM 前需要在**每个线程**先调 `pythoncom.CoInitialize()`，否则新线程里 `GetActiveObject("SldWorks.Application")` 会失败。
+2. **建模成功后 SolidWorks 主进程闪退** — 更严重的问题：COM 对象绑定在**创建它的线程的 apartment**，跨线程使用会引起状态紊乱，甚至把宿主 SW 一并搞崩。
+
+**根治方案（[`service/sw_worker.py`](../../service/sw_worker.py)）：** `SolidWorksWorker` 单例——一个 daemon 线程，启动时 `pythoncom.CoInitialize()` 一次；所有 SW 相关请求(`/api/execute`)都通过 `queue.Queue` 提交给它串行处理。这样：
+- 所有 SW COM 调用永远在同一个 STA 线程里
+- HTTP 请求线程只是 `worker.submit(fn)` 阻塞等结果，不接触任何 COM
+- `SolidWorksSession` 单例(`_shared_session`) 只在 worker 线程访问，避免每次请求重连
+
+**部署后的表现：** 连续多次执行建模不再失败、SW 不再闪退。
+
+---
+
+## 13. 智能选择目标窗口
+
+**需求：** 用户连续多次调「新建 3D 零件」时，第一次可以复用 SW 里的空零件窗口，之后每次应新开一个窗口，不要在已有零件上叠加特征。
+
+**实现（[`ModelBuilder`](../../src/solidworks_api/model_builder.py)）：**
+- `_pick_target_doc(sw_app, use_active_doc)`：`use_active_doc=True` 时优先看 `sw_app.ActiveDoc`——若是"空零件"则复用，否则返回 None 让流程走新建
+- `_is_empty_part(doc)`：判定条件 = 文档类型为 `swDocPART` **且** 顶层 Feature 遍历后仅含默认基准面/原点（同时兼容中英文名："Front Plane" / "前视基准面" 等）
+- C# 侧 [`ExecuteAsync`](../../plugin/AiSwAddin/AiSwTaskPaneControl.cs) 固定传 `useActiveDoc=true`，让服务端自动决策
+
+**行为矩阵：**
+
+| SW 当前状态 | 结果 |
+|---|---|
+| 无活动文档 | 新建零件窗口 |
+| 空零件（只有基准面/原点） | 复用当前窗口 |
+| 已有实际零件（有用户特征） | 自动新开窗口，不叠加 |
+| 打开的是装配/工程图 | 视为"非零件"，新开零件窗口 |

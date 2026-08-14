@@ -74,6 +74,12 @@ namespace AiSwAddin
                 "{\"plan\":" + planJson + ",\"use_active_doc\":" + flag + "}");
         }
 
+        /// <summary>获取 FeaturePlan 的软性诊断清单(规则合规与几何质量, 不阻断执行)。</summary>
+        public Task<string> DiagnoseAsync(string planJson)
+        {
+            return PostAsync("/api/diagnose", "{\"plan\":" + planJson + "}");
+        }
+
         /// <summary>统一的 POST 请求，返回响应体字符串；失败抛出可读异常。</summary>
         private async Task<string> PostAsync(string path, string jsonBody)
         {

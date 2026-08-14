@@ -109,6 +109,7 @@ class AiSwRequestHandler(BaseHTTPRequestHandler):
             "/api/validate": _handle_validate,
             "/api/dry_run": _handle_dry_run,
             "/api/execute": _handle_execute,
+            "/api/diagnose": _handle_diagnose,
         }
         handler = handlers.get(route)
         if handler is None:
@@ -250,6 +251,21 @@ def _handle_execute(payload: dict) -> dict:
     # 建模可能耗时较久，给一个宽松的超时(10 分钟)
     result = worker.submit(_do_execute, timeout=600)
     return _execution_result_to_dict(result)
+
+
+def _handle_diagnose(payload: dict) -> dict:
+    """FeaturePlan → 规则合规与几何质量诊断清单(软性诊断, 不阻断执行)。
+
+    请求体: {"plan": {...}}
+    返回:   {"ok": True, "warning_count": N, "suggestion_count": M, "items": [...]}
+    每个 item: {level, code, title, feature, body, reference, fix_hint}
+    """
+    plan = payload.get("plan")
+    if plan is not None and not isinstance(plan, dict):
+        return {"ok": False, "error": "plan 字段格式错误"}
+
+    from policy.diagnostics import diagnose_to_response
+    return diagnose_to_response(plan)
 
 
 def _execution_result_to_dict(result) -> dict:

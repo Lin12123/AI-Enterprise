@@ -702,7 +702,7 @@ namespace AiSwAddin
             };
             _titleLine = new Label
             {
-                Text = "◎  3D 建模执行计划",
+                Text = "◎  执行面板",
                 Font = Theme.Body(10, FontStyle.Bold),
                 ForeColor = Theme.Primary,
                 Dock = DockStyle.Top,
@@ -871,7 +871,7 @@ namespace AiSwAddin
                     new Rectangle(rightX, 4, rSize.Width + 2, 20), Theme.TextSub,
                     TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
 
-                string leftText = "解析后的 3D 建模树步骤(共 " + _stepCount + " 步)";
+                string leftText = "自然语言 → 结构化建模步骤(共 " + _stepCount + " 步)";
                 int leftW = rightX - 14 - 8;
                 if (leftW < 20) leftW = 20;
                 TextRenderer.DrawText(g, leftText, Theme.Body(9, FontStyle.Bold),
@@ -940,6 +940,367 @@ namespace AiSwAddin
                 TextRenderer.DrawText(g, _step.Description, descFont,
                     new Rectangle(leftPad, 22, contentW, Height - 24), Theme.TextSub,
                     TextFormatFlags.Left | TextFormatFlags.Top | TextFormatFlags.NoPadding | TextFormatFlags.WordBreak);
+        }
+    }
+
+    /// <summary>规则合规与几何质量诊断清单中的一条诊断项数据。</summary>
+    internal class DiagnosticItem
+    {
+        public string Level;      // "warning" | "suggestion"
+        public string Code;       // 规则代码
+        public string Title;      // 简短标题
+        public string Feature;    // 受影响的特征标识，如 "特征：切除-拉伸 1"
+        public string Body;       // 正文描述
+        public string Reference;  // 依据/标准
+        public string FixHint;    // 一键修的提示动作(非空即启用按钮)
+    }
+
+    /// <summary>
+    /// 单条诊断项的自绘卡片：警告=黄色系，建议=浅蓝色系。
+    /// 顶部图标 + 标题 + 右侧特征标签；中部正文；底部依据行 + 定位/一键修按钮。
+    /// </summary>
+    internal class DiagnosticCard : Control
+    {
+        private readonly DiagnosticItem _item;
+        private readonly RoundButton _locateBtn;
+        private readonly RoundButton _fixBtn;
+
+        public event EventHandler LocateClicked;
+        public event EventHandler FixClicked;
+
+        public DiagnosticCard(DiagnosticItem item)
+        {
+            _item = item;
+            SetStyle(ControlStyles.UserPaint
+                     | ControlStyles.AllPaintingInWmPaint
+                     | ControlStyles.OptimizedDoubleBuffer
+                     | ControlStyles.ResizeRedraw
+                     | ControlStyles.SupportsTransparentBackColor, true);
+            BackColor = Color.Transparent;
+
+            // 底部两个小按钮：定位 / 一键修
+            _locateBtn = new RoundButton
+            {
+                Text = "◎ 定位",
+                Filled = false,
+                Accent = Theme.TextSub,
+                Size = new Size(72, 26),
+                Font = Theme.Body(8.5f, FontStyle.Bold)
+            };
+            _locateBtn.Click += (s, e) => LocateClicked?.Invoke(this, EventArgs.Empty);
+
+            _fixBtn = new RoundButton
+            {
+                Text = "🔧 一键修",
+                Filled = true,
+                Accent = Theme.Primary,
+                Size = new Size(86, 26),
+                Font = Theme.Body(8.5f, FontStyle.Bold),
+                Enabled = !string.IsNullOrEmpty(item.FixHint)
+            };
+            _fixBtn.Click += (s, e) => FixClicked?.Invoke(this, EventArgs.Empty);
+
+            Controls.Add(_locateBtn);
+            Controls.Add(_fixBtn);
+
+            Resize += (s, e) => LayoutButtons();
+        }
+
+        private void LayoutButtons()
+        {
+            // 按钮固定在卡片右上角(feature 标签下方)与底部
+            int rightPad = 10;
+            _fixBtn.Location = new Point(Width - _fixBtn.Width - rightPad, Height - _fixBtn.Height - 8);
+            _locateBtn.Location = new Point(_fixBtn.Left - _locateBtn.Width - 6, _fixBtn.Top);
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            var g = e.Graphics;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            g.PixelOffsetMode = PixelOffsetMode.Half;
+
+            bool isWarning = _item.Level == "warning";
+            Color fillColor = isWarning
+                ? Color.FromArgb(255, 249, 231)   // 浅黄
+                : Color.FromArgb(238, 246, 255);  // 浅蓝
+            Color borderColor = isWarning
+                ? Color.FromArgb(230, 190, 90)
+                : Color.FromArgb(150, 190, 240);
+            Color iconColor = isWarning ? Theme.Amber : Theme.Primary;
+            string glyph = isWarning ? "⚠" : "💡";
+
+            // 卡片圆角背景
+            var rf = new RectangleF(0.5f, 0.5f, Width - 2, Height - 2);
+            using (var path = RoundedRectF(rf, 10))
+            using (var fill = new SolidBrush(fillColor))
+            using (var pen = new Pen(borderColor, 1))
+            {
+                g.FillPath(fill, path);
+                g.DrawPath(pen, path);
+            }
+
+            // 左上图标
+            using (var gf = Theme.Title(13))
+                TextRenderer.DrawText(g, glyph, gf,
+                    new Rectangle(10, 10, 22, 22), iconColor,
+                    TextFormatFlags.Left | TextFormatFlags.Top | TextFormatFlags.NoPadding);
+
+            // 右上「特征」标签：白底灰边圆角
+            int tagPad = 8;
+            using (var tagFont = Theme.Body(8.5f))
+            {
+                string feat = _item.Feature ?? "";
+                Size fSize = TextRenderer.MeasureText(g, feat, tagFont);
+                int tagW = Math.Min(fSize.Width + tagPad * 2, Math.Max(60, Width / 2));
+                int tagH = 22;
+                var tagRect = new Rectangle(Width - tagW - 10, 10, tagW, tagH);
+                using (var tagPath = RoundedRectF(new RectangleF(tagRect.X, tagRect.Y, tagRect.Width - 1, tagRect.Height - 1), 6))
+                using (var tagFill = new SolidBrush(Color.White))
+                using (var tagPen = new Pen(Color.FromArgb(220, 224, 232), 1))
+                {
+                    g.FillPath(tagFill, tagPath);
+                    g.DrawPath(tagPen, tagPath);
+                }
+                TextRenderer.DrawText(g, feat, tagFont, tagRect, Theme.TextSub,
+                    TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPadding);
+            }
+
+            // 标题：图标右侧、feature 标签下方之间
+            using (var titleFont = Theme.Body(10, FontStyle.Bold))
+            {
+                var titleRect = new Rectangle(36, 8, Width - 36 - 100, 26);
+                TextRenderer.DrawText(g, _item.Title ?? "", titleFont, titleRect, Theme.TextMain,
+                    TextFormatFlags.Left | TextFormatFlags.Top | TextFormatFlags.NoPadding | TextFormatFlags.WordBreak);
+            }
+
+            // 正文
+            int bodyTop = 38;
+            using (var bodyFont = Theme.Body(9))
+            {
+                var bodyRect = new Rectangle(12, bodyTop, Width - 24, Height - bodyTop - 62);
+                TextRenderer.DrawText(g, _item.Body ?? "", bodyFont, bodyRect, Theme.TextMain,
+                    TextFormatFlags.Left | TextFormatFlags.Top | TextFormatFlags.NoPadding | TextFormatFlags.WordBreak);
+            }
+
+            // 依据行
+            using (var refFont = Theme.Body(8.5f))
+            {
+                string refText = "依据：" + (_item.Reference ?? "");
+                var refRect = new Rectangle(12, Height - 52, Width - 24, 20);
+                TextRenderer.DrawText(g, refText, refFont, refRect, Theme.TextSub,
+                    TextFormatFlags.Left | TextFormatFlags.Top | TextFormatFlags.NoPadding | TextFormatFlags.EndEllipsis);
+            }
+        }
+
+        private static GraphicsPath RoundedRectF(RectangleF r, float radius)
+        {
+            float d = radius * 2;
+            var path = new GraphicsPath();
+            if (radius <= 0) { path.AddRectangle(r); path.CloseFigure(); return path; }
+            path.AddArc(r.X, r.Y, d, d, 180, 90);
+            path.AddArc(r.Right - d, r.Y, d, d, 270, 90);
+            path.AddArc(r.Right - d, r.Bottom - d, d, d, 0, 90);
+            path.AddArc(r.X, r.Bottom - d, d, d, 90, 90);
+            path.CloseFigure();
+            return path;
+        }
+    }
+
+    /// <summary>
+    /// 规则合规与几何质量诊断清单面板：顶部标题+警告徽章 / 中部诊断卡列表 / 底部提示+提交按钮。
+    /// 结构与 PlanReviewPanel 类似：TableLayoutPanel 3 行控制视觉顺序。
+    /// </summary>
+    internal class DiagnosticPanel : CardPanel
+    {
+        private readonly TableLayoutPanel _root;
+        private readonly Panel _headerBox;
+        private readonly Panel _bodyBox;
+        private readonly FlowLayoutPanel _cardsFlow;
+        private readonly Panel _footerBox;
+        private readonly Label _footerHint;
+        private readonly RoundButton _submitBtn;
+
+        /// <summary>用户点击「查看成果与提交 →」时触发。</summary>
+        public event EventHandler SubmitClicked;
+        /// <summary>用户点击某条诊断的「定位」按钮时触发，参数为诊断项。</summary>
+        public event Action<DiagnosticItem> LocateItem;
+        /// <summary>用户点击某条诊断的「一键修」按钮时触发，参数为诊断项。</summary>
+        public event Action<DiagnosticItem> FixItem;
+
+        private int _warningCount;
+        private int _cardCount;
+
+        public DiagnosticPanel()
+        {
+            BorderColor = Theme.CardBorder;
+            BorderWidth = 1;
+            Radius = 10;
+            Padding = new Padding(1);
+
+            _root = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 1,
+                RowCount = 3,
+                BackColor = Color.White,
+                Padding = new Padding(0),
+                Margin = new Padding(0)
+            };
+            _root.RowStyles.Add(new RowStyle(SizeType.Absolute, 44));
+            _root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            _root.RowStyles.Add(new RowStyle(SizeType.Absolute, 52));
+
+            // === Header (标题 + 警告数徽章)，自绘 ===
+            _headerBox = new Panel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = Color.White,
+                Margin = new Padding(0),
+                Padding = new Padding(0)
+            };
+            _headerBox.Paint += Header_Paint;
+
+            // === Body: 诊断卡片纵向流式 ===
+            _bodyBox = new Panel
+            {
+                Dock = DockStyle.Fill,
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                BackColor = Color.White,
+                Margin = new Padding(0),
+                Padding = new Padding(0)
+            };
+            _cardsFlow = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Top,
+                FlowDirection = FlowDirection.TopDown,
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                WrapContents = false,
+                BackColor = Color.White,
+                Padding = new Padding(10, 4, 10, 8)
+            };
+            _bodyBox.Controls.Add(_cardsFlow);
+
+            // === Footer (左侧提示 + 右侧提交按钮) ===
+            _footerBox = new Panel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = Color.White,
+                Padding = new Padding(10, 6, 10, 6),
+                Margin = new Padding(0)
+            };
+            _footerHint = new Label
+            {
+                Text = "阻断项需处理后方可提交与保存",
+                Font = Theme.Body(8.5f),
+                ForeColor = Theme.TextSub,
+                Dock = DockStyle.Left,
+                AutoSize = false,
+                TextAlign = ContentAlignment.MiddleLeft,
+                Width = 180,
+                BackColor = Color.Transparent
+            };
+            _submitBtn = new RoundButton
+            {
+                Text = "查看成果与提交 →",
+                Filled = true,
+                Accent = Theme.Green,
+                Size = new Size(150, 34),
+                Dock = DockStyle.Right
+            };
+            _submitBtn.Click += (s, e) => SubmitClicked?.Invoke(this, EventArgs.Empty);
+            _footerBox.Controls.Add(_submitBtn);
+            _footerBox.Controls.Add(_footerHint);
+
+            _root.Controls.Add(_headerBox, 0, 0);
+            _root.Controls.Add(_bodyBox, 0, 1);
+            _root.Controls.Add(_footerBox, 0, 2);
+            Controls.Add(_root);
+        }
+
+        /// <summary>设置诊断项列表并显示。</summary>
+        public void SetItems(System.Collections.Generic.IList<DiagnosticItem> items, int warningCount)
+        {
+            _warningCount = warningCount;
+            _cardsFlow.SuspendLayout();
+            _cardsFlow.Controls.Clear();
+            _cardCount = items != null ? items.Count : 0;
+            if (items != null)
+            {
+                foreach (var item in items)
+                {
+                    var card = new DiagnosticCard(item)
+                    {
+                        Width = Math.Max(200, ClientSize.Width - 40),
+                        Height = EstimateCardHeight(item),
+                        Margin = new Padding(0, 0, 0, 8)
+                    };
+                    var captured = item;   // 捕获用于事件回调
+                    card.LocateClicked += (s, e) => LocateItem?.Invoke(captured);
+                    card.FixClicked += (s, e) => FixItem?.Invoke(captured);
+                    _cardsFlow.Controls.Add(card);
+                }
+            }
+            _cardsFlow.ResumeLayout();
+            _headerBox.Invalidate();
+            RecalcHeight();
+        }
+
+        /// <summary>估算一张诊断卡的高度：标题行 + 正文按字符估行 + 依据行 + 按钮行。</summary>
+        private int EstimateCardHeight(DiagnosticItem item)
+        {
+            int titleLines = 1;
+            if (!string.IsNullOrEmpty(item.Title) && item.Title.Length > 16) titleLines = 2;
+            int bodyLen = item.Body != null ? item.Body.Length : 0;
+            int bodyLines = Math.Max(1, (bodyLen + 22) / 22);  // 粗略估计：22 中文字符一行
+            return 12 + 22 * titleLines + 4 + 18 * bodyLines + 22 + 32;
+        }
+
+        private void RecalcHeight()
+        {
+            int h = _headerBox.Height + 2;
+            h += _cardsFlow.Padding.Top + _cardsFlow.Padding.Bottom;
+            foreach (Control c in _cardsFlow.Controls)
+                h += c.Height + c.Margin.Vertical;
+            h += 56;   // footer + 呼吸
+            Height = h;
+        }
+
+        private void Header_Paint(object sender, PaintEventArgs e)
+        {
+            var g = e.Graphics;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+
+            const string title = "⊘  规则合规与几何质量诊断清单";
+            using (var titleFont = Theme.Body(10, FontStyle.Bold))
+            {
+                var titleRect = new Rectangle(14, 0, _headerBox.Width - 100, _headerBox.Height);
+                TextRenderer.DrawText(g, title, titleFont, titleRect, Theme.TextMain,
+                    TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding | TextFormatFlags.EndEllipsis);
+            }
+
+            // 右侧警告徽章：琥珀色描边 + amber 文字 "N 警告"
+            if (_warningCount > 0)
+            {
+                string txt = _warningCount + " 警告";
+                using (var bFont = Theme.Body(8.5f, FontStyle.Bold))
+                {
+                    Size bSize = TextRenderer.MeasureText(g, txt, bFont);
+                    int bw = bSize.Width + 16, bh = 22;
+                    var brect = new Rectangle(_headerBox.Width - bw - 12, (_headerBox.Height - bh) / 2, bw, bh);
+                    using (var path = GfxUtil.RoundedRect(brect, 6))
+                    using (var fill = new SolidBrush(Color.FromArgb(255, 249, 231)))
+                    using (var pen = new Pen(Color.FromArgb(230, 190, 90), 1))
+                    {
+                        g.FillPath(fill, path);
+                        g.DrawPath(pen, path);
+                    }
+                    TextRenderer.DrawText(g, txt, bFont, brect, Theme.Amber,
+                        TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
+                }
+            }
         }
     }
 }
