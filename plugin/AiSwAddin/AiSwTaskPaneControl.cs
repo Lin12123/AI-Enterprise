@@ -42,7 +42,6 @@ namespace AiSwAddin
         private TextBox _logBox;
         private FeatureCard _cardNew3d, _card3dTo2d, _cardUpload;
         private RoundButton _sendBtn;
-        private ComboBox _targetBox;   // 目标：新建零件 / 当前文档
 
         // 输入框提示文字（placeholder）状态
         private const string InputPlaceholderText = "请描述建模需求，例如：做一个长100宽80厚10的底板，四角各开一个直径6的通孔";
@@ -59,7 +58,6 @@ namespace AiSwAddin
 
         /// <summary>规则合规与几何质量诊断清单面板；建模成功后展示，与 _planPanel 共享容器位置。</summary>
         private DiagnosticPanel _diagPanel;
-        private Panel _reviewHost;   // 承载 _planPanel 与 _diagPanel 的公共容器
 
         // 运行模式：0=企业协同, 1=离线本地
         private ModePillButton _modePill;
@@ -566,7 +564,7 @@ namespace AiSwAddin
             catch (Exception ex)
             {
                 text = "拉取历史会话失败：" + ex.Message
-                    + Environment.NewLine + "请确认 service/start_service.bat 已启动。";
+                    + System.Environment.NewLine + "请确认 service/start_service.bat 已启动。";
             }
             using (var dlg = new LogPopupForm())
             {

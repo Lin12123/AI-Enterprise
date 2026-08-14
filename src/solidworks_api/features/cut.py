@@ -63,6 +63,15 @@ def cut_rectangle_pocket(sw_model: object, params: dict, state: dict) -> None:
     )
 
 
+def _slot_error_context(plane, host, x, y, sketch_length, sketch_width, depth, direction) -> str:
+    """拼接 slot 切除失败时的排查上下文，便于从技术日志定位参数问题。"""
+    return (
+        f" [plane={plane}, host={host}, center=({x:.3f},{y:.3f}), "
+        f"sketch_length={sketch_length:.3f}, sketch_width={sketch_width:.3f}, "
+        f"depth={depth:.3f}, direction={direction}]"
+    )
+
+
 def cut_slot(sw_model: object, params: dict, state: dict) -> None:
     from solidworks_api.features.extrude import _close_active_sketch
     from solidworks_api.features.hole import _blind_cut
@@ -110,11 +119,23 @@ def cut_slot(sw_model: object, params: dict, state: dict) -> None:
 
         feature = _through_all_cut(sw_model)
         if feature is None:
-            raise RuntimeError("cut_slot through_all failed: FeatureCut3 returned None")
+            raise RuntimeError(
+                "cut_slot through_all failed: FeatureCut3 returned None"
+                + _slot_error_context(plane, host, x, y, sketch_length, sketch_width, depth, direction)
+            )
     else:
         feature = _blind_cut(sw_model, depth)
         if feature is None:
-            raise RuntimeError("cut_slot failed: FeatureCut3 returned None")
+            # blind 两个方向都失败：开边槽/贯通槽本应通切，自动回退 through_all 再试一次。
+            # (SW2019 对某些开放到侧边的轮廓做 blind cut 会返回 None，但 through-all 可成功)
+            from solidworks_api.features.hole import _through_all_cut
+
+            feature = _through_all_cut(sw_model)
+        if feature is None:
+            raise RuntimeError(
+                "cut_slot failed: FeatureCut3 returned None (blind 与 through_all 均失败)"
+                + _slot_error_context(plane, host, x, y, sketch_length, sketch_width, depth, direction)
+            )
     _record_pattern_seed_feature(
         state,
         feature,
