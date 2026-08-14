@@ -17,8 +17,8 @@ namespace AiSwAddin
         public LogPopupForm()
         {
             Text = "技术日志";
-            Width = 640;
-            Height = 480;
+            Width = 900;
+            Height = 600;
             StartPosition = FormStartPosition.CenterParent;
             MinimizeBox = false;
             ShowInTaskbar = false;

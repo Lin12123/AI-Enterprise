@@ -295,6 +295,10 @@ namespace AiSwAddin
                 return;
             }
             AppendChat(ChatRole.User, "确认并执行");
+
+            // 点击后立即禁用面板确认按钮，避免用户重复触发同一计划
+            if (_planPanel != null) _planPanel.SetConfirmEnabled(false);
+
             SetBusy(true);
             try
             {
@@ -308,6 +312,8 @@ namespace AiSwAddin
                 else
                 {
                     AppendChat(ChatRole.Ai, "执行失败，请查看底部「📄 日志」了解详细错误。");
+                    // 执行失败允许用户再次尝试同一计划
+                    if (_planPanel != null) _planPanel.SetConfirmEnabled(true);
                 }
                 _currentPlanJson = null;
             }

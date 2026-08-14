@@ -802,7 +802,7 @@ namespace AiSwAddin
                 {
                     var row = new PlanStepRow(step)
                     {
-                        Width = Math.Max(100, ClientSize.Width - 40),
+                        Width = Math.Max(240, ClientSize.Width - 40),
                         Height = 44,
                         Margin = new Padding(0, 0, 0, 6)
                     };
@@ -811,10 +811,32 @@ namespace AiSwAddin
             }
             _stepsFlow.ResumeLayout();
             _stepsBox.Visible = true;
-       _footerBox.Visible = true;
+            _footerBox.Visible = true;
             SetRowVisibility();
             _stepsHeader.Invalidate();
             RecalcHeight();
+        }
+
+        /// <summary>宽度变化后，让内部步骤行也拉伸到新宽度，避免文字重叠。</summary>
+        protected override void OnResize(EventArgs eventargs)
+        {
+            base.OnResize(eventargs);
+            if (_stepsFlow == null) return;
+            int rowWidth = Math.Max(240, ClientSize.Width - 40);
+            foreach (Control c in _stepsFlow.Controls)
+            {
+                var row = c as PlanStepRow;
+                if (row != null) row.Width = rowWidth;
+            }
+            if (_stepsHeader != null) _stepsHeader.Invalidate();
+        }
+
+        /// <summary>禁用/启用「确认并执行」按钮（点击后应禁用避免重复触发）。</summary>
+        public void SetConfirmEnabled(bool enabled)
+        {
+            if (_confirmBtn == null) return;
+            _confirmBtn.Enabled = enabled;
+            _confirmBtn.Text = enabled ? "▶ 确认并执行" : "✓ 已执行";
         }
 
         /// <summary>切换回初始占位态：显示"AI 助手就绪"提示，隐藏步骤列表与按钮。</summary>
@@ -1234,7 +1256,7 @@ namespace AiSwAddin
                 {
                     var card = new DiagnosticCard(item)
                     {
-                        Width = Math.Max(200, ClientSize.Width - 40),
+                        Width = Math.Max(240, ClientSize.Width - 40),
                         Height = EstimateCardHeight(item),
                         Margin = new Padding(0, 0, 0, 8)
                     };
@@ -1267,6 +1289,19 @@ namespace AiSwAddin
                 h += c.Height + c.Margin.Vertical;
             h += 56;   // footer + 呼吸
             Height = h;
+        }
+
+        /// <summary>宽度变化时，让内部诊断卡片跟随拉伸(否则子卡片保持构造时的初始宽度，造成文字截断)。</summary>
+        protected override void OnResize(EventArgs eventargs)
+        {
+            base.OnResize(eventargs);
+            if (_cardsFlow == null) return;
+            int cardW = Math.Max(240, ClientSize.Width - 40);
+            foreach (Control c in _cardsFlow.Controls)
+            {
+                if (c is DiagnosticCard) c.Width = cardW;
+            }
+            if (_headerBox != null) _headerBox.Invalidate();
         }
 
         private void Header_Paint(object sender, PaintEventArgs e)
