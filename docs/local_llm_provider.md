@@ -32,6 +32,34 @@ http://localhost:11434/v1
 
 The local provider does not require `OPENAI_API_KEY` and does not read it.
 
+## Offline / Air-Gapped Implementation (No Third-Party Packages)
+
+The local provider talks to Ollama using **only the Python standard library** (`urllib.request`). It does **not** import `openai` or `httpx`, so it works in fully offline / air-gapped customer intranets where no extra Python package can be installed. Only Ollama itself needs to be installed on the local machine.
+
+### How it works
+
+- A built-in `OllamaClient` ([`local_provider.py`](../app/providers/local_provider.py)) posts JSON to Ollama's native chat endpoint `POST http://localhost:11434/api/chat`.
+- It exposes an OpenAI-compatible surface — `client.chat.completions.create(**kwargs)` returning an object with `.choices[0].message.content` — so the parsing, JSON extraction, Policy validation, and repair-retry logic are unchanged.
+- `AI_SW_LOCAL_LLM_BASE_URL` may keep the `/v1` suffix for backward compatibility; the client automatically normalizes `/v1` (or `/api`) to the native `/api/chat` path.
+
+### Request mapping (OpenAI kwargs -> Ollama native)
+
+| OpenAI-style kwarg | Ollama native field |
+| --- | --- |
+| `messages` | `messages` |
+| `temperature` | `options.temperature` |
+| `extra_body.num_predict` | `options.num_predict` |
+| `extra_body.keep_alive` | top-level `keep_alive` |
+| `response_format={"type":"json_object"}` | `format: "json"` |
+| (fixed) | `stream: false` |
+| `AI_SW_LOCAL_LLM_API_KEY` | `Authorization: Bearer <key>` header |
+
+### Constraints
+
+- `base_url` must point to `localhost` or `127.0.0.1`.
+- Request timeout comes from `_request_timeout_seconds(stage)` and is passed directly to `urllib`.
+- No `openai` / `httpx` install is required or performed anywhere in the local path.
+
 ## CMD Configuration
 
 ```cmd
@@ -62,7 +90,7 @@ python app/main.py "Create a 120x80x12 mm base plate"
 | --- | --- | --- | --- |
 | `rule_based` | Default local parser and safety fallback | none | No LLM call |
 | `openai` | Cloud OpenAI structured parsing | `OPENAI_API_KEY` | Falls back to `rule_based` on quota, billing, auth, timeout, network, or JSON errors |
-| `local` | Local Ollama semantic parsing | local Ollama service | Falls back to `rule_based` on connection, model, SDK, or JSON errors |
+| `local` | Local Ollama semantic parsing | local Ollama service (no `openai`/`httpx` package needed) | Falls back to `rule_based` on connection, model, or JSON errors |
 
 ## How To Confirm Local Mode
 
