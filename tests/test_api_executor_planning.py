@@ -1423,6 +1423,141 @@ class TestApiExecutorPlanning(unittest.TestCase):
         self.assertNotIn("output_dir", text)
 
 
+class _ClearFeature:
+    """可被删除的假特征，用于 _clear_all_features 测试。"""
+
+    def __init__(self, name, doc):
+        self.Name = name
+        self._doc = doc
+        self._next = None
+
+    def GetNextFeature(self):
+        return self._next
+
+    def Select2(self, append, mark):
+        self._doc.selected = self
+        return True
+
+
+class _ClearDoc:
+    """带特征链表、支持 EditDelete 的假零件文档。"""
+
+    def __init__(self, feature_names, doc_type=1):
+        self._doc_type = doc_type
+        self.selected = None
+        self.clear_calls = 0
+        self.delete_calls = 0
+        self._names = list(feature_names)
+
+    def GetType(self):
+        return self._doc_type
+
+    def ClearSelection2(self, value):
+        self.clear_calls += 1
+        self.selected = None
+
+    def _rebuild_chain(self):
+        feats = [_ClearFeature(n, self) for n in self._names]
+        for i in range(len(feats) - 1):
+            feats[i]._next = feats[i + 1]
+        self._first = feats[0] if feats else None
+
+    def FirstFeature(self):
+        self._rebuild_chain()
+        return self._first
+
+    def EditDelete(self):
+        self.delete_calls += 1
+        if self.selected is not None and self.selected.Name in self._names:
+            self._names.remove(self.selected.Name)
+            self.selected = None
+            return True
+        return False
+
+
+class TestClearAndModifyRedraw(unittest.TestCase):
+    """针对「二次修改在同一模型文件里清空重绘」的目标窗口选择逻辑。"""
+
+    def test_clear_all_features_removes_only_user_features(self):
+        doc = _ClearDoc([
+            "前视基准面", "上视基准面", "右视基准面", "原点",
+            "Boss-Extrude1", "Cut-Extrude1", "Fillet1",
+        ])
+        deleted = ModelBuilder()._clear_all_features(doc)
+        self.assertEqual(deleted, 3)
+        # 默认基准面/原点保留
+        self.assertEqual(
+            doc._names,
+            ["前视基准面", "上视基准面", "右视基准面", "原点"],
+        )
+
+    def test_clear_all_features_noop_on_empty_part(self):
+        doc = _ClearDoc(["Front Plane", "Top Plane", "Right Plane", "Origin"])
+        deleted = ModelBuilder()._clear_all_features(doc)
+        self.assertEqual(deleted, 0)
+        self.assertEqual(doc.delete_calls, 0)
+
+    def test_classify_intent_modify_and_new(self):
+        classify = ModelBuilder._classify_intent
+        self.assertEqual(classify("将安装板尺寸修改为120mm*80mm*20mm"), "modify")
+        self.assertEqual(classify("在此基础上加个圆角"), "modify")
+        self.assertEqual(classify("再画一个新的零件"), "new")
+        self.assertEqual(classify("画一个120*80*15的安装板"), "new")
+        self.assertEqual(classify(""), "new")
+
+    def test_pick_target_doc_new_when_no_active(self):
+        class App:
+            ActiveDoc = None
+
+        doc, needs_clear = ModelBuilder()._pick_target_doc(App(), True, "改为20mm")
+        self.assertIsNone(doc)
+        self.assertFalse(needs_clear)
+
+    def test_pick_target_doc_reuse_empty_without_clear(self):
+        empty = _ClearDoc(["Front Plane", "Top Plane", "Right Plane", "Origin"])
+
+        class App:
+            ActiveDoc = empty
+
+        doc, needs_clear = ModelBuilder()._pick_target_doc(App(), True, "改为20mm")
+        self.assertIs(doc, empty)
+        self.assertFalse(needs_clear)
+
+    def test_pick_target_doc_modify_reuses_with_clear_flag(self):
+        used = _ClearDoc(["Front Plane", "Boss-Extrude1"])
+
+        class App:
+            ActiveDoc = used
+
+        doc, needs_clear = ModelBuilder()._pick_target_doc(
+            App(), True, "将安装板尺寸修改为120mm*80mm*20mm"
+        )
+        self.assertIs(doc, used)
+        self.assertTrue(needs_clear)
+
+    def test_pick_target_doc_new_intent_opens_new_window(self):
+        used = _ClearDoc(["Front Plane", "Boss-Extrude1"])
+
+        class App:
+            ActiveDoc = used
+
+        doc, needs_clear = ModelBuilder()._pick_target_doc(
+            App(), True, "再画一个新的零件"
+        )
+        self.assertIsNone(doc)
+        self.assertFalse(needs_clear)
+
+    def test_pick_target_doc_disabled_active_doc(self):
+        used = _ClearDoc(["Front Plane", "Boss-Extrude1"])
+
+        class App:
+            ActiveDoc = used
+
+        doc, needs_clear = ModelBuilder()._pick_target_doc(App(), False, "改为20mm")
+        self.assertIsNone(doc)
+        self.assertFalse(needs_clear)
+
+
 if __name__ == "__main__":
     unittest.main()
 

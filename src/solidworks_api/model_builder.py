@@ -91,7 +91,11 @@ class ModelBuilder:
         #       * 新增类意图(新建/再画一个...)或意图不明 → 新建窗口，避免破坏已有零件。
         # use_active_doc=False 时保持原有行为：始终新建零件文档。
         plan = plan_operations(plan)
-        sw_model = self._pick_target_doc(sw_app, use_active_doc, prompt)
+        sw_model, needs_clear = self._pick_target_doc(sw_app, use_active_doc, prompt)
+        if sw_model is not None and needs_clear:
+            # 修改/重绘意图：在同一个 3D 模型文件里从零重绘完整零件，
+            # 先清空旧特征，避免新特征叠加到旧零件上（越堆越多）。
+            self._clear_all_features(sw_model)
         create_new_needed = sw_model is None
         state = {"base": {}, "boss": {}, "sketches": {}, "saved_outputs": [], "sw_app": sw_app}
         explicit_output = False
@@ -147,28 +151,31 @@ class ModelBuilder:
             raise RuntimeError(f"保存输出失败: {exc}") from exc
 
     def _pick_target_doc(self, sw_app: object, use_active_doc: bool,
-                         prompt: str = "") -> object | None:
-        """按需选择目标文档：
-        - use_active_doc=False → 始终返回 None(新建)；
-        - use_active_doc=True 且当前活动文档是"空零件" → 复用它；
+                         prompt: str = "") -> tuple[object | None, bool]:
+        """按需选择目标文档，返回 (目标文档, 是否需要先清空)：
+        - use_active_doc=False → (None, False)，始终新建；
+        - use_active_doc=True 且当前活动文档是"空零件" → (它, False)，直接复用；
         - use_active_doc=True 且当前活动文档已有零件 →
-            * prompt 判定为"修改当前"意图 → 复用当前文档；
-            * prompt 判定为"新增零件"意图或意图不明 → 返回 None(新建窗口)。
+            * prompt 判定为"修改当前"意图 → (它, True)，复用当前文件但先清空
+              旧特征后完整重绘（符合用户"在同一模型文件里清空重绘"的期望，
+              而非把新特征叠加到旧零件上）；
+            * prompt 判定为"新增零件"意图或意图不明 → (None, False)，新建窗口。
         （返回 None 时会在遇到首个建模 op 前调 _create_new_part）
         """
         if not use_active_doc:
-            return None
+            return None, False
         active_doc = getattr(sw_app, "ActiveDoc", None)
         if active_doc is None:
-            return None
+            return None, False
         if self._is_empty_part(active_doc):
-            # 空零件，直接复用
-            return active_doc
+            # 空零件，直接复用，无需清空
+            return active_doc, False
         # 活动文档已有实际零件：按用户自然语言意图决定复用还是新建
         if self._classify_intent(prompt) == "modify":
-            return active_doc
+            # 修改意图：复用当前文件，但先清空旧特征再完整重绘
+            return active_doc, True
         # 新增意图 or 意图不明 → 新窗口，保护已有零件
-        return None
+        return None, False
 
     @staticmethod
     def _classify_intent(prompt: str) -> str:
@@ -217,6 +224,76 @@ class ModelBuilder:
             except Exception:
                 break
         return True
+
+    def _clear_all_features(self, sw_model: object) -> int:
+        """清空零件文档里的所有用户特征，只保留默认基准面/原点。
+
+        用于「修改/重绘」场景：用户希望在同一个 3D 模型文件里得到一个
+        从零重绘的完整零件，而不是把新特征叠加到旧零件上。
+        遍历顶层 Feature，把非默认特征逐个 Select 后调用 EditDelete 删除。
+        返回删除的特征数量。
+        """
+        default_names = {"Front Plane", "Top Plane", "Right Plane", "Origin",
+                         "前视基准面", "上视基准面", "右视基准面", "原点"}
+        deleted = 0
+        try:
+            model_ext = getattr(sw_model, "Extension", None)
+        except Exception:
+            model_ext = None
+        # 反复扫描直到没有可删除的用户特征为止（删除会改变链表结构，
+        # 单次遍历+边删边走可能漏删，改为多轮全量扫描更稳）
+        for _ in range(1000):
+            target = None
+            try:
+                feature = sw_model.FirstFeature()
+            except Exception:
+                break
+            while feature is not None:
+                try:
+                    name = feature.Name
+                except Exception:
+                    name = ""
+                if name and name not in default_names:
+                    target = feature
+                    break
+                try:
+                    feature = feature.GetNextFeature()
+                except Exception:
+                    break
+            if target is None:
+                break
+            try:
+                sw_model.ClearSelection2(True)
+            except Exception:
+                pass
+            try:
+                selected = target.Select2(False, 0)
+            except Exception:
+                selected = False
+            if not selected:
+                # 无法选中，避免死循环
+                break
+            deleted_ok = False
+            # 优先用 ModelDocExtension.DeleteSelection2（可携带子特征）
+            if model_ext is not None:
+                try:
+                    deleted_ok = bool(model_ext.DeleteSelection2(0))
+                except Exception:
+                    deleted_ok = False
+            if not deleted_ok:
+                try:
+                    deleted_ok = bool(sw_model.EditDelete())
+                except Exception:
+                    deleted_ok = False
+            if not deleted_ok:
+                # 删除失败，停止以免死循环
+                break
+            deleted += 1
+        try:
+            sw_model.ClearSelection2(True)
+        except Exception:
+            pass
+        return deleted
 
     def _create_new_part(self, sw_app: object) -> object:
         errors: list[str] = []

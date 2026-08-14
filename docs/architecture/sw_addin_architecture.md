@@ -324,20 +324,30 @@ workspace/sessions/
 
 ---
 
-## 14. 智能选择目标窗口
+## 14. 智能选择目标窗口与「修改重绘」
 
-**需求：** 用户连续多次调「新建 3D 零件」时，第一次可以复用 SW 里的空零件窗口，之后每次应新开一个窗口，不要在已有零件上叠加特征。
+**需求：**
+1. 用户连续多次「新建 3D 零件」时，第一次可复用 SW 里的空零件窗口，之后每次应新开窗口，不在已有零件上叠加特征。
+2. 用户对上一次结果做自然语言修改（如「将安装板尺寸改为 120×80×20」）时，期望在**同一个 3D 模型文件**里得到一个**从零重绘的完整零件**，而不是把新特征叠加到旧零件上（否则 FeatureTree 里凸台/切除/圆角会越堆越多）。
 
 **实现（[`ModelBuilder`](../../src/solidworks_api/model_builder.py)）：**
-- `_pick_target_doc(sw_app, use_active_doc)`：`use_active_doc=True` 时优先看 `sw_app.ActiveDoc`——若是"空零件"则复用，否则返回 None 让流程走新建
-- `_is_empty_part(doc)`：判定条件 = 文档类型为 `swDocPART` **且** 顶层 Feature 遍历后仅含默认基准面/原点（同时兼容中英文名："Front Plane" / "前视基准面" 等）
-- C# 侧 [`ExecuteAsync`](../../plugin/AiSwAddin/AiSwTaskPaneControl.cs) 固定传 `useActiveDoc=true`，让服务端自动决策
+- `_pick_target_doc(sw_app, use_active_doc, prompt)`：返回 `(目标文档, 是否需要先清空)`。`use_active_doc=True` 时看 `sw_app.ActiveDoc`：
+  - 空零件 → `(它, False)` 直接复用；
+  - 已有零件且 `_classify_intent(prompt) == "modify"` → `(它, True)`，复用当前文件但先清空旧特征再完整重绘；
+  - 已有零件且为「新增」意图或意图不明 → `(None, False)`，新开窗口保护旧零件。
+- `_classify_intent(prompt)`：命中新增类关键词（新建/再画一个/new part…）→ `"new"`；命中修改类关键词（修改/改为/在此基础/调整/update…）→ `"modify"`；都未命中或空 → `"new"`（安全默认，不破坏旧零件）。
+- `_clear_all_features(doc)`：多轮全量扫描顶层 Feature，跳过默认基准面/原点，把用户特征逐个 `Select2` 后用 `Extension.DeleteSelection2` / `EditDelete` 删除；返回删除数量。删除会改变链表，故每轮重新 `FirstFeature()` 直到无可删项，避免漏删/死循环。
+- `_is_empty_part(doc)`：判定 = 文档类型 `swDocPART` **且** 顶层 Feature 仅含默认基准面/原点（兼容中英文名）。
+- C# 侧 [`ExecuteAsync`](../../plugin/AiSwAddin/AiSwTaskPaneControl.cs) 传 `useActiveDoc=true`，服务端自动决策。
 
 **行为矩阵：**
 
-| SW 当前状态 | 结果 |
-|---|---|
-| 无活动文档 | 新建零件窗口 |
-| 空零件（只有基准面/原点） | 复用当前窗口 |
-| 已有实际零件（有用户特征） | 自动新开窗口，不叠加 |
-| 打开的是装配/工程图 | 视为"非零件"，新开零件窗口 |
+| SW 当前状态 | 用户意图 | 结果 |
+|---|---|---|
+| 无活动文档 | 任意 | 新建零件窗口 |
+| 空零件（只有基准面/原点） | 任意 | 复用当前窗口，直接建模 |
+| 已有实际零件 | 修改（修改/改为/在此基础…） | 复用当前文件，**先清空旧特征再按完整计划重绘** |
+| 已有实际零件 | 新增（新建/再画一个…）或意图不明 | 新开窗口，不叠加、不破坏旧零件 |
+| 打开的是装配/工程图 | 任意 | 视为"非零件"，新开零件窗口 |
+
+**与会话上下文的配合：** 二次修改要让 AI 理解「改的是上一次的零件」，需插件端在 `generate_plan` 时携带 `session_id`，服务端 `_build_prompt_with_history`（见 §10）把上一次计划/对话作为上下文，让模型基于上次结果重新输出**完整**计划；再由本节的「修改意图 → 清空重绘」在同一模型文件里落地更新。整体表现为：**AI 输出完整解析结果 → 人确认 → SW 在同一文件里清空重绘**，而非在当前模型上做增量调整。
