@@ -123,11 +123,36 @@ def _try_select_slot_face_by_center(
     if top_z_m is None:
         return False
 
-    # 首选策略：与成功的孔特征走同一条路——直接选 base 挤出特征的完整顶面。
-    # 前序孔洞虽会在顶面挖洞，但顶面主面片仍是同一张平面，SW 可在其上正确
-    # 放置 slot/pocket 草图轮廓。按坐标点选面(select_face_by_point_candidates)
-    # 在顶面被切碎时容易命中错误面片或选空，导致 InsertSketch 未进入草图态
-    # (表现为 sketch_diag "无法获取活动草图对象")，故仅作为兜底。
+    # 首选策略：按 slot/pocket 自己的 center 坐标点选顶面。
+    # 关键教训(与成功的孔特征对齐)：SW2019 上「重读之前的 base COM 特征对象再取
+    # GetFaces」并不稳定——base 经过多次孔/slot 切除后，原始顶面 face 对象会失效或
+    # 被替换，Select4 选中的是过期面，InsertSketch 便进不了草图态(sketch_diag
+    # 报「无法获取活动草图对象」)。cut_corner_holes / cut_center_hole 都明确优先用
+    # 坐标选面(select_face_by_z / 点选)，特征顶面仅兜底。slot 中心通常偏离原点，
+    # 故先用 center 坐标点选，再退 (0,0,z) 顶面，最后才退特征顶面。
+    try:
+        from solidworks_api.selectors import select_face_by_point_candidates
+        from solidworks_api.units import mm_to_m
+
+        offsets_mm = [(0.0, 0.0), (2.0, 0.0), (-2.0, 0.0), (0.0, 2.0), (0.0, -2.0)]
+        candidates = [
+            (mm_to_m(x_mm + dx), mm_to_m(y_mm + dy), top_z_m) for dx, dy in offsets_mm
+        ]
+        select_face_by_point_candidates(sw_model, candidates)
+        return True
+    except Exception:
+        pass
+
+    # 兜底一：选 (0,0,z) 顶面主面片(与孔特征同路径)。
+    try:
+        from solidworks_api.selectors import select_face_by_z
+
+        select_face_by_z(sw_model, top_z_m)
+        return True
+    except Exception:
+        pass
+
+    # 兜底二：重读 base 特征取其顶面(最不稳定，仅作最后手段)。
     base_feature = state.get("base", {}).get("feature")
     if base_feature is not None:
         try:
@@ -138,19 +163,7 @@ def _try_select_slot_face_by_center(
         except Exception:
             pass
 
-    try:
-        from solidworks_api.selectors import select_face_by_point_candidates
-        from solidworks_api.units import mm_to_m
-
-        # 兜底：以 slot/pocket 中心为核心构造候选点选面。
-        offsets_mm = [(0.0, 0.0), (2.0, 0.0), (-2.0, 0.0), (0.0, 2.0), (0.0, -2.0)]
-        candidates = [
-            (mm_to_m(x_mm + dx), mm_to_m(y_mm + dy), top_z_m) for dx, dy in offsets_mm
-        ]
-        select_face_by_point_candidates(sw_model, candidates)
-        return True
-    except Exception:
-        return False
+    return False
 
 
 def _describe_active_sketch(sw_model: object) -> str:
