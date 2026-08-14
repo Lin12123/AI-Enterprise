@@ -97,11 +97,11 @@ namespace AiSwAddin
                 BackColor = Theme.PageBg,
                 Padding = new Padding(0),
                 // 保证整体不小于内容所需的最小高度（各固定行之和 + 会话最小高）
-                MinimumSize = new Size(0, 62 + 52 + 88 + 200 + 180 + 40)
+                MinimumSize = new Size(0, 62 + 52 + 104 + 200 + 180 + 40)
             };
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 62));   // 标题栏
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 52));   // 模式行(含标准徽章)
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 88));   // 功能卡片
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 104));  // 功能卡片
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 200));  // AI 会话区(ChatView)，含执行面板/诊断清单卡片消息
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 180));  // 输入卡
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 40));   // 任务中心栏(单行：标题 + 日志按钮)

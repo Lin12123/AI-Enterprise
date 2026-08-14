@@ -287,10 +287,10 @@ namespace AiSwAddin
                 g.DrawPath(pen, path);
             }
 
-            int iconH = 32;
-            const int iconTop = 8;    // 顶部留白
-            const int gap = 4;        // 图标与文字的垂直间距
-            const int bottomPad = 6;  // 底部留白
+            int iconH = 30;
+            const int iconTop = 10;   // 顶部留白
+            const int gap = 6;        // 图标与文字的垂直间距
+            const int bottomPad = 8;  // 底部留白
 
             if (DrawCubeIcon)
             {
@@ -310,7 +310,7 @@ namespace AiSwAddin
                     new Rectangle(0, iconTop + iconH + gap, Width,
                                   Height - (iconTop + iconH + gap) - bottomPad),
                     Theme.TextMain,
-                    TextFormatFlags.HorizontalCenter | TextFormatFlags.Top | TextFormatFlags.NoPadding);
+                    TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
         }
 
         private static Color TintColor(Color c)
