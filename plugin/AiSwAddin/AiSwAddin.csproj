@@ -9,7 +9,7 @@
     <OutputType>Library</OutputType>
     <!-- 【临时预览 UI 时用】WinExe：让 Program.cs 的 Main() 能 F5 直接运行查看界面。
          预览完毕、要发布插件前，请改回上面的 Library 并注释掉本行与 StartupObject。 -->
-<!--     <OutputType>WinExe</OutputType> -->
+    <!--     <OutputType>WinExe</OutputType> -->
     <StartupObject>AiSwAddin.Program</StartupObject>
     <RootNamespace>AiSwAddin</RootNamespace>
     <AssemblyName>AiSwAddin</AssemblyName>
@@ -65,7 +65,9 @@
     <Compile Include="Program.cs" />
     <Compile Include="ServiceClient.cs" />
     <Compile Include="UiHelpers.cs" />
-    <Compile Include="LogPopupForm.cs" />
+    <Compile Include="LogPopupForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="ChatView.cs" />
     <Compile Include="HistorySessionForm.cs" />
     <Compile Include="ResultBoardPanel.cs" />
