@@ -40,26 +40,45 @@ def cut_rectangle_pocket(sw_model: object, params: dict, state: dict) -> None:
     depth = float(params["depth"])
     plane = str(params.get("plane", "top_face"))
     host = str(params.get("host", "base"))
+    x = float(center[0])
+    y = float(center[1])
     _close_active_sketch(sw_model, state)
-    _select_sketch_plane(sw_model, plane, state, host=host)
+    # 与 slot 同理：前序 slot/孔操作会把顶面切成多片，若沿用通用 top_face 选面
+    # (取 (0,0,z) 那片)，当口袋中心偏离原点(如 center=(0,-35))时可能选到不覆盖
+    # 口袋区域的面片，草图画错面 → FeatureCut3 找不到实体 → 返回 None。这里优先
+    # 用口袋自己的 center 坐标命中所在面，命中失败再回退通用 top_face 选面。
+    if not _try_select_slot_face_by_center(sw_model, plane, host, state, x, y):
+        _select_sketch_plane(sw_model, plane, state, host=host)
     sw_model.SketchManager.InsertSketch(True)
     sw_model.SketchManager.CreateCenterRectangle(
-        mm_to_m(float(center[0])),
-        mm_to_m(float(center[1])),
+        mm_to_m(x),
+        mm_to_m(y),
         0,
-        mm_to_m(float(center[0]) + length / 2),
-        mm_to_m(float(center[1]) + width / 2),
+        mm_to_m(x + length / 2),
+        mm_to_m(y + width / 2),
         0,
     )
+    sketch_diag = _describe_active_sketch(sw_model)
     sw_model.SketchManager.InsertSketch(True)
     feature = _blind_cut(sw_model, depth)
     if feature is None:
-        raise RuntimeError("cut_rectangle_pocket failed: FeatureCut3 returned None")
+        #blind 两个方向都失败，再尝试贯通(正/反/双向)兜底——靠边口袋在 SW2019
+        # 上偶尔会因 blind 方向判定失败而返回 None。
+        from solidworks_api.features.hole import _through_all_cut_any
+
+        feature = _through_all_cut_any(sw_model)
+    if feature is None:
+        raise RuntimeError(
+            "cut_rectangle_pocket failed: FeatureCut3 returned None"
+            + f" [plane={plane}, host={host}, center=({x:.3f},{y:.3f}), "
+            + f"length={length:.3f}, width={width:.3f}, depth={depth:.3f}]"
+            + sketch_diag
+        )
     _record_pattern_seed_feature(
         state,
         feature,
         feature_type="rectangle_pocket",
-        params={"plane": plane, "host": host, "center": [float(center[0]), float(center[1])], "length": length, "width": width, "depth": depth},
+        params={"plane": plane, "host": host, "center": [x, y], "length": length, "width": width, "depth": depth},
     )
 
 
