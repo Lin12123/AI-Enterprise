@@ -67,6 +67,7 @@
     <Compile Include="UiHelpers.cs" />
     <Compile Include="LogPopupForm.cs" />
     <Compile Include="ChatView.cs" />
+    <Compile Include="HistorySessionForm.cs" />
     <Compile Include="ResultBoardPanel.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
