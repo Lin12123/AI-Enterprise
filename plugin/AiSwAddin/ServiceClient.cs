@@ -136,6 +136,22 @@ namespace AiSwAddin
             }
         }
 
+        /// <summary>按会话 ID 加载完整会话(含 messages), 用于点击历史会话后恢复对话。返回响应体字符串。</summary>
+        public async Task<string> LoadSessionAsync(string sessionId)
+        {
+            try
+            {
+                HttpResponseMessage resp = await _http.GetAsync(_baseUrl + "/api/sessions/" + Uri.EscapeDataString(sessionId ?? ""));
+                return await resp.Content.ReadAsStringAsync();
+            }
+            catch (Exception ex)
+            {
+                throw new Exception(
+                    "无法连接本地 AI 服务(" + _baseUrl + ")。请先运行 service/start_service.bat 启动服务。详情: "
+                    + ex.Message);
+            }
+        }
+
         /// <summary>统一的 POST 请求，返回响应体字符串；失败抛出可读异常。</summary>
         private async Task<string> PostAsync(string path, string jsonBody)
         {

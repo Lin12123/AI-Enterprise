@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
@@ -551,64 +552,103 @@ namespace AiSwAddin
             }
         }
 
-        /// <summary>点击底部「历史会话」时触发：向服务端拉取最近会话列表并在弹窗中展示。
-        /// 复用 LogPopupForm 作为只读文本弹窗，避免新增窗体类。</summary>
+        /// <summary>点击底部「历史会话」时触发：拉取最近会话列表，弹出可点击卡片窗口。
+        /// 点击某条会话即加载其消息并渲染到当前会话流，可继续对话。</summary>
         private async void OpenHistorySessions()
         {
-            string text;
+            List<HistorySessionForm.SessionItem> sessions;
             try
             {
                 string resp = await _client.GetRecentSessionsAsync(20);
-                text = FormatSessionList(resp);
+                sessions = HistorySessionForm.ParseSessions(resp);
             }
             catch (Exception ex)
             {
-                text = "拉取历史会话失败：" + ex.Message
-                    + System.Environment.NewLine + "请确认 service/start_service.bat 已启动。";
+                MessageBox.Show(FindForm(),
+                    "拉取历史会话失败：" + ex.Message
+                        + System.Environment.NewLine + "请确认 service/start_service.bat 已启动。",
+                    "历史会话", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
             }
-            using (var dlg = new LogPopupForm())
-            {
-                dlg.Text = "历史会话";
-                dlg.SetLog(text);
-                dlg.ShowDialog(FindForm());
-            }
+
+            // 非模态窗口：点击回调中加载并渲染对应会话
+            var form = new HistorySessionForm(sessions, id => LoadAndRenderSession(id));
+            form.Show(FindForm());
         }
 
-        /// <summary>把 /api/sessions/recent 的响应体格式化为可读的会话列表文本。</summary>
-        private static string FormatSessionList(string resp)
+        /// <summary>加载指定会话并把其历史消息渲染到会话流(async void 供回调调用)。</summary>
+        private async void LoadAndRenderSession(string sessionId)
         {
-            if (string.IsNullOrEmpty(resp)) return "(无响应)";
-            int arrStart = resp.IndexOf("\"sessions\"", StringComparison.Ordinal);
-            if (arrStart < 0) return "暂无历史会话。";
-            int lb = resp.IndexOf('[', arrStart);
-            int rb = (lb >= 0) ? resp.IndexOf(']', lb) : -1;
-            if (lb < 0 || rb < 0 || rb <= lb) return "暂无历史会话。";
-            string inner = resp.Substring(lb + 1, rb - lb - 1).Trim();
-            if (inner.Length == 0) return "暂无历史会话。";
+            if (string.IsNullOrEmpty(sessionId)) return;
+            string resp;
+            try
+            {
+                resp = await _client.LoadSessionAsync(sessionId);
+            }
+            catch (Exception ex)
+            {
+                AppendLog("[会话] 加载失败: " + ex.Message);
+                MessageBox.Show(FindForm(), "加载会话失败：" + ex.Message,
+                    "历史会话", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
 
-            var sb = new System.Text.StringBuilder();
-            int idx = 1;
+            // 清空当前会话流并逐条渲染历史消息
+            if (_chatView != null) _chatView.Clear();
+            int count = RenderSessionMessages(resp);
+            _sessionId = sessionId;
+            AppendLog("[会话] 已加载历史会话: " + sessionId + " (" + count + " 条消息)");
+        }
+
+        /// <summary>解析 /api/sessions/&lt;id&gt; 响应中的 messages 数组并渲染到 ChatView，返回渲染条数。
+        /// 每条消息形如 {"role":"user|ai","text":"...","ts":...}。</summary>
+        private int RenderSessionMessages(string resp)
+        {
+            if (_chatView == null || string.IsNullOrEmpty(resp)) return 0;
+            int arrStart = resp.IndexOf("\"messages\"", StringComparison.Ordinal);
+            if (arrStart < 0) return 0;
+            int lb = resp.IndexOf('[', arrStart);
+            if (lb < 0) return 0;
+            // 找到与 '[' 配对的 ']'(messages 数组可能嵌套对象，需按括号计数)
+            int depth = 0;
+            int rb = -1;
+            for (int k = lb; k < resp.Length; k++)
+            {
+                if (resp[k] == '[') depth++;
+                else if (resp[k] == ']') { depth--; if (depth == 0) { rb = k; break; } }
+            }
+            if (rb < 0 || rb <= lb) return 0;
+            string inner = resp.Substring(lb + 1, rb - lb - 1);
+
+            int rendered = 0;
             int p = 0;
             while (p < inner.Length)
             {
                 int objStart = inner.IndexOf('{', p);
                 if (objStart < 0) break;
-                int objEnd = inner.IndexOf('}', objStart);
+                // 按括号计数找到本消息对象的结束 '}'
+                int od = 0;
+                int objEnd = -1;
+                for (int k = objStart; k < inner.Length; k++)
+                {
+                    if (inner[k] == '{') od++;
+                    else if (inner[k] == '}') { od--; if (od == 0) { objEnd = k; break; } }
+                }
                 if (objEnd < 0) break;
                 string obj = inner.Substring(objStart, objEnd - objStart + 1);
-                string title = ExtractStringField(obj, "title") ?? "未命名会话";
-                string status = ExtractStringField(obj, "status") ?? "";
-                string updated = ExtractStringField(obj, "updated_at") ?? "";
-                string id = ExtractStringField(obj, "id") ?? "";
-                sb.AppendLine(idx + ". " + title
-                    + (string.IsNullOrEmpty(status) ? "" : "  [" + status + "]"));
-                if (!string.IsNullOrEmpty(updated)) sb.AppendLine("   更新时间: " + updated);
-                if (!string.IsNullOrEmpty(id)) sb.AppendLine("   会话ID: " + id);
-                sb.AppendLine();
-                idx++;
+
+                string role = ExtractStringField(obj, "role") ?? "ai";
+                string text = ExtractStringField(obj, "text");
+                if (!string.IsNullOrEmpty(text))
+                {
+                    ChatRole r = string.Equals(role, "user", StringComparison.OrdinalIgnoreCase)
+                        ? ChatRole.User : ChatRole.Ai;
+                    _chatView.Append(r, text);
+                    rendered++;
+                }
                 p = objEnd + 1;
             }
-            return sb.Length == 0 ? "暂无历史会话。" : sb.ToString();
+            return rendered;
         }
 
         // ==== 通用工具 ====

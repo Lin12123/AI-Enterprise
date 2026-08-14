@@ -69,9 +69,8 @@
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="ChatView.cs" />
-    <Compile Include="ResultBoardPanel.cs">
-      <SubType>Component</SubType>
-    </Compile>
+    <Compile Include="HistorySessionForm.cs" />
+    <Compile Include="ResultBoardPanel.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
