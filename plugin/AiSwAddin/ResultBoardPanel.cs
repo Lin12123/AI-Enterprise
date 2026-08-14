@@ -77,32 +77,32 @@ namespace AiSwAddin
                 AutoSize = true,
                 AutoSizeMode = AutoSizeMode.GrowAndShrink,
                 BackColor = Color.Transparent,
-                Padding = new Padding(10, 4, 10, 8),
+                Padding = new Padding(12, 8, 12, 12),
                 Margin = new Padding(0)
             };
             _drawBtn = new RoundButton
             {
-                Text = "📄 3D转2D出图",
+                Text = "📄  3D 转 2D 出图",
                 Filled = true,
                 Accent = Theme.Purple,
-                Size = new Size(126, 34),
-                Margin = new Padding(2, 4, 4, 4)
+                Size = new Size(150, 40),
+                Margin = new Padding(6, 6, 6, 6)
             };
             _uploadBtn = new RoundButton
             {
-                Text = "☁ 上传企业云平台",
+                Text = "☁  上传企业云平台",
                 Filled = true,
                 Accent = Theme.Green,
-                Size = new Size(140, 34),
-                Margin = new Padding(2, 4, 4, 4)
+                Size = new Size(162, 40),
+                Margin = new Padding(6, 6, 6, 6)
             };
             _undoBtn = new RoundButton
             {
-                Text = "↩ 撤销本次修改",
+                Text = "↩  撤销本次修改",
                 Filled = false,
                 Accent = Color.FromArgb(214, 90, 90),
-                Size = new Size(120, 34),
-                Margin = new Padding(2, 4, 4, 4)
+                Size = new Size(146, 40),
+                Margin = new Padding(6, 6, 6, 6)
             };
             _drawBtn.Click += (s, e) => DrawClicked?.Invoke(this, EventArgs.Empty);
             _uploadBtn.Click += (s, e) => UploadClicked?.Invoke(this, EventArgs.Empty);

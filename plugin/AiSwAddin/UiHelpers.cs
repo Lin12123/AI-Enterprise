@@ -287,10 +287,10 @@ namespace AiSwAddin
                 g.DrawPath(pen, path);
             }
 
-            int iconH = 26;
-            const int iconTop = 4;    // 顶部留白减少，把空间让给下方文字
-            const int gap = 1;        // 图标与文字的垂直间距
-            const int bottomPad = 4;  // 底部留白
+            int iconH = 32;
+            const int iconTop = 8;    // 顶部留白
+            const int gap = 4;        // 图标与文字的垂直间距
+            const int bottomPad = 6;  // 底部留白
 
             if (DrawCubeIcon)
             {
@@ -302,7 +302,7 @@ namespace AiSwAddin
                 using (var iconFont = Theme.Title(15))
                     TextRenderer.DrawText(g, Glyph, iconFont,
                         new Rectangle(0, iconTop, Width, iconH), Accent,
-                        TextFormatFlags.HorizontalCenter | TextFormatFlags.Bottom | TextFormatFlags.NoPadding);
+                        TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
             }
 
             using (var textFont = Theme.Body(9, FontStyle.Bold))
