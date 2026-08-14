@@ -41,6 +41,10 @@ namespace AiSwAddin
         private RoundButton _sendBtn;
         private ComboBox _targetBox;   // 目标：新建零件 / 当前文档
 
+        // 输入框提示文字（placeholder）状态
+        private const string InputPlaceholderText = "请描述建模需求，例如：做一个长100宽80厚10的底板，四角各开一个直径6的通孔";
+        private bool _showingPlaceholder;
+
         /// <summary>累积的技术日志文本(隐藏), 通过底部「📄日志」按钮弹窗查看。</summary>
         private readonly System.Text.StringBuilder _logBuffer = new System.Text.StringBuilder();
 
@@ -419,9 +423,12 @@ namespace AiSwAddin
                 ScrollBars = ScrollBars.Vertical,
                 WordWrap = true,
                 Font = Theme.Body(9.5f),
-                ForeColor = Theme.TextMain,
-                Text = "请描述建模需求，例如：做一个长100宽80厚10的底板，四角各开一个直径6的通孔"
+                ForeColor = Theme.TextMain
             };
+            // 提示文字（placeholder）：灰色显示，聚焦即清空、失焦为空时恢复。
+            _inputBox.GotFocus += OnInputGotFocus;
+            _inputBox.LostFocus += OnInputLostFocus;
+            ShowInputPlaceholder();
 
             var bottomBar = new Panel { Dock = DockStyle.Bottom, Height = 46, BackColor = Color.Transparent, Padding = new Padding(0, 4, 0, 4) };
 
@@ -453,6 +460,42 @@ namespace AiSwAddin
             card.Controls.Add(_inputBox);
             host.Controls.Add(card);
             return host;
+        }
+
+        // ---- 输入框 placeholder（灰色提示文字）逻辑 ----
+        // 显示灰色提示文字（占位态）。
+        private void ShowInputPlaceholder()
+        {
+            if (_inputBox == null) return;
+            _showingPlaceholder = true;
+            _inputBox.ForeColor = Theme.TextSub;   // 灰色
+            _inputBox.Text = InputPlaceholderText;
+        }
+
+        // 用户聚焦输入框：若当前是占位提示，清空并切回正常黑色文字。
+        private void OnInputGotFocus(object sender, EventArgs e)
+        {
+            if (!_showingPlaceholder) return;
+            _showingPlaceholder = false;
+            _inputBox.Text = string.Empty;
+            _inputBox.ForeColor = Theme.TextMain;
+        }
+
+        // 失焦时：内容为空则恢复灰色占位提示。
+        private void OnInputLostFocus(object sender, EventArgs e)
+        {
+            if (_showingPlaceholder) return;
+            if (string.IsNullOrEmpty(_inputBox.Text))
+            {
+                ShowInputPlaceholder();
+            }
+        }
+
+        // 读取用户真实输入（占位态视为空）。
+        private string GetUserInput()
+        {
+            if (_showingPlaceholder) return string.Empty;
+            return (_inputBox.Text ?? string.Empty).Trim();
         }
 
         // ---- 底部任务中心栏 ----
@@ -550,7 +593,7 @@ namespace AiSwAddin
         /// <summary>"发送"按钮：解析→校验→预演，通过后把计划展示到面板中，等用户确认执行。</summary>
         private async void OnSendClick(object sender, EventArgs e)
         {
-            string prompt = _inputBox.Text.Trim();
+            string prompt = GetUserInput();
             if (string.IsNullOrEmpty(prompt))
             {
                 AppendLog("[错误] 请先输入建模需求。");
@@ -561,6 +604,14 @@ namespace AiSwAddin
             // 用户消息进会话流
             AppendChat(ChatRole.User, prompt);
             _lastPrompt = prompt;   // 记录原始需求，执行阶段用于窗口复用/新增的意图判断
+
+            // 发送后清空输入框，恢复灰色提示文字
+            _showingPlaceholder = false;
+            _inputBox.Text = string.Empty;
+            if (!_inputBox.Focused)
+            {
+                ShowInputPlaceholder();
+            }
 
             SetBusy(true);
             try
