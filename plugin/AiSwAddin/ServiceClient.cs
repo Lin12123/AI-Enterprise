@@ -43,13 +43,23 @@ namespace AiSwAddin
             }
         }
 
-        /// <summary>自然语言 → FeaturePlan(JSON 字符串原样返回)。</summary>
-        public Task<string> GeneratePlanAsync(string naturalLanguage, string provider)
+        /// <summary>创建一个新会话，返回服务端响应(含 session_id)。</summary>
+        public Task<string> CreateSessionAsync()
+        {
+            return PostAsync("/api/sessions/create", "{}");
+        }
+
+        /// <summary>自然语言 → FeaturePlan(JSON 字符串原样返回)。
+        /// 传入非空 sessionId 时，服务端会把该会话历史拼进 prompt 实现上下文连续，
+        /// 并把本轮用户需求/助手结果追加到该会话。</summary>
+        public Task<string> GeneratePlanAsync(string naturalLanguage, string provider, string sessionId = "")
         {
             string body = "{"
                 + "\"natural_language\":" + JsonString(naturalLanguage) + ","
-                + "\"provider\":" + JsonString(provider)
-                + "}";
+                + "\"provider\":" + JsonString(provider);
+            if (!string.IsNullOrEmpty(sessionId))
+                body += ",\"session_id\":" + JsonString(sessionId);
+            body += "}";
             return PostAsync("/api/generate_plan", body);
         }
 

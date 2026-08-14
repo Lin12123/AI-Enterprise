@@ -33,6 +33,9 @@ namespace AiSwAddin
         private string _lastPrompt = "";
         /// <summary>最近一次成功建模所写入的几何特征数量，供成果看板卡片展示。</summary>
         private int _lastFeatureCount = 0;
+        /// <summary>当前会话 ID。首次生成时向服务端创建会话获取，后续解析请求带上它，
+        /// 使服务端把历史上下文拼进 prompt，实现"基于上次结果继续修改"的连续对话。</summary>
+        private string _sessionId = "";
 
         // 需要在事件中访问的控件
         private TextBox _inputBox;
@@ -659,20 +662,52 @@ namespace AiSwAddin
             AppendLog("[生成] 正在调用本地 AI 服务解析需求...");
             try
             {
-                string resp = await _client.GeneratePlanAsync(prompt, "local");
+                // 确保会话已建立：首次生成时向服务端创建会话，取回 session_id 保存。
+                // 后续每次解析都带上它，服务端会把历史对话拼进 prompt，实现"基于上次结果继续修改"。
+                await EnsureSessionAsync();
+                string resp = await _client.GeneratePlanAsync(prompt, "local", _sessionId);
                 _currentPlanJson = ExtractPlanJson(resp);
                 if (_currentPlanJson == null)
                 {
                     AppendLog("[生成失败] 服务返回未包含有效 plan：" + Truncate(resp));
                     return false;
                 }
-                AppendLog("[生成成功] 已生成 FeaturePlan。");
+                // 服务端可能回传 session_id(首次或续期)，回写以保持一致
+                string sid = ExtractStringField(resp, "session_id");
+                if (!string.IsNullOrEmpty(sid)) _sessionId = sid;
+                AppendLog("[生成成功] 已生成 FeaturePlan。" +
+                    (string.IsNullOrEmpty(_sessionId) ? "" : " (会话: " + _sessionId + ")"));
                 return true;
             }
             catch (Exception ex)
             {
                 AppendLog("[生成异常] " + ex.Message);
                 return false;
+            }
+        }
+
+        /// <summary>确保 _sessionId 有效：为空时向服务端创建一个新会话并保存返回的 session_id。
+        /// 创建失败不阻断主流程(降级为无上下文的单轮解析)。</summary>
+        private async System.Threading.Tasks.Task EnsureSessionAsync()
+        {
+            if (!string.IsNullOrEmpty(_sessionId)) return;
+            try
+            {
+                string resp = await _client.CreateSessionAsync();
+                string sid = ExtractStringField(resp, "session_id");
+                if (!string.IsNullOrEmpty(sid))
+                {
+                    _sessionId = sid;
+                    AppendLog("[会话] 已创建新会话: " + _sessionId);
+                }
+                else
+                {
+                    AppendLog("[会话] 创建会话未返回 session_id，本轮将按无上下文解析。");
+                }
+            }
+            catch (Exception ex)
+            {
+                AppendLog("[会话] 创建会话失败(降级为单轮): " + ex.Message);
             }
         }
 
