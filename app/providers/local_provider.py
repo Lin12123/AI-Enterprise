@@ -149,6 +149,7 @@ def _local_system_prompt(prompt: str = "") -> str:
         "If the request says the slot runs along the plate width, across the width, vertically on the top view, or 濞屽灝顔旀惔锔芥煙閸?濞屾寧婢樼€硅姤鏌熼崥? use cut_slot direction='y'.",
         "If the request says the slot runs along the plate length, across the length, horizontally on the top view, or 濞屽潡鏆辨惔锔芥煙閸?濞屾寧婢橀梹鎸庢煙閸? use cut_slot direction='x'.",
         "For add_fillet, when the user requests a generic edge round/round-over and no narrower target is explicit, use params.target=outer_edges. Do not invent custom target names.",
+        "Every add_fillet operation must include a numeric params.radius greater than 0. If the user gives an R value such as R2 or R3, use that number; otherwise recommend a conservative radius (R2 to R3, smaller than the base thickness) and mark it inferred. Never omit radius and never output it as a string.",
         "When the user requests a 闁碍蝎 / through-slot and does not explicitly give the slot span, infer the slot span from the base size along the requested direction so the slot traverses that axis.",
         "Do not set cut_slot through_all=true unless the user explicitly asks to cut through the plate thickness, through the base, 鐠愵垳鈹涚€瑰顥婇弶? 鐠愵垳鈹涙惔鏇熸緲, or 鐠愵垳鈹涢弶鍨袱.",
         "If a slot depth is required but the user did not specify it, recommend a conservative blind depth that stays within the base thickness and mark that depth as inferred.",
@@ -1084,6 +1085,9 @@ def _repair_messages(prompt: str, rejected_data: dict, policy_errors: str) -> li
         semantic_repair_hints.append("The original request explicitly includes a rectangular pocket. Add the missing cut_rectangle_pocket operations instead of omitting them.")
     if "missing requested add_fillet operation" in policy_errors_text:
         semantic_repair_hints.append("The original request explicitly includes rounded edges. Add add_fillet instead of omitting edge rounding.")
+    if "add_fillet" in policy_errors_text and ("radius" in policy_errors_text or "半径" in policy_errors_text):
+        semantic_repair_hints.append("Every add_fillet operation must include a numeric params.radius greater than 0. If radius is missing, empty, zero, or non-numeric, recommend a conservative fillet radius in mm from the base thickness and feature size (a safe default is R2 to R3, and the radius must be smaller than the base thickness), then add the exact <operation_id>.params.radius path to metadata.inferred_parameters.")
+        semantic_repair_hints.append("Do not omit params.radius from add_fillet and do not output radius as a string; output a positive number such as 2 or 3.")
     if semantic_repair_hints:
         extra_lines = [f"- {hint}" for hint in semantic_repair_hints]
         repair_checklist = "\n".join([line for line in [repair_checklist, *extra_lines] if line])
