@@ -22,7 +22,7 @@ namespace AiSwAddin
     {
         private readonly TableLayoutPanel _root;
         private readonly Panel _headerBox;
-        private readonly FlowLayoutPanel _footerBox;
+        private readonly TableLayoutPanel _footerBox;
         private readonly RoundButton _drawBtn;    // 3D 转 2D 出图
         private readonly RoundButton _uploadBtn;  // 上传企业云平台
         private readonly RoundButton _undoBtn;    // 撤销本次修改
@@ -58,7 +58,7 @@ namespace AiSwAddin
                 Padding = new Padding(0),
                 Margin = new Padding(0)
             };
-            _root.RowStyles.Add(new RowStyle(SizeType.Absolute, 62));  // header
+            _root.RowStyles.Add(new RowStyle(SizeType.Absolute, 68));  // header
             _root.RowStyles.Add(new RowStyle(SizeType.AutoSize));      // footer 按钮行(可换行)
 
             // === Header：自绘 ✓圆标 + 标题 + 副标题 + 状态徽章 ===
@@ -71,48 +71,52 @@ namespace AiSwAddin
             };
             _headerBox.Paint += Header_Paint;
 
-            // === Footer：三个操作按钮(FlowLayoutPanel 自动换行，窄窗格不截断) ===
-            _footerBox = new FlowLayoutPanel
+            // === Footer：三个操作按钮，等宽铺满卡片 ===
+            _footerBox = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
-                FlowDirection = FlowDirection.LeftToRight,
-                WrapContents = true,
+                ColumnCount = 3,
+                RowCount = 1,
                 AutoSize = true,
                 AutoSizeMode = AutoSizeMode.GrowAndShrink,
                 BackColor = Color.Transparent,
-                Padding = new Padding(12, 8, 12, 12),
+                Padding = new Padding(10, 4, 10, 12),
                 Margin = new Padding(0)
             };
+            _footerBox.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.34f));
+            _footerBox.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.33f));
+            _footerBox.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.33f));
+            _footerBox.RowStyles.Add(new RowStyle(SizeType.Absolute, 46));
             _drawBtn = new RoundButton
             {
-                Text = "📄  3D 转 2D 出图",
+                Text = "3D转2D出图",
                 Filled = true,
                 Accent = Theme.Purple,
-                Size = new Size(150, 40),
-                Margin = new Padding(6, 6, 6, 6)
+                Dock = DockStyle.Fill,
+                Margin = new Padding(4, 3, 4, 3)
             };
             _uploadBtn = new RoundButton
             {
-                Text = "☁  上传企业云平台",
+                Text = "上传企业云",
                 Filled = true,
                 Accent = Theme.Green,
-                Size = new Size(162, 40),
-                Margin = new Padding(6, 6, 6, 6)
+                Dock = DockStyle.Fill,
+                Margin = new Padding(4, 3, 4, 3)
             };
             _undoBtn = new RoundButton
             {
-                Text = "↩  撤销本次修改",
+                Text = "撤销修改",
                 Filled = false,
                 Accent = Color.FromArgb(214, 90, 90),
-                Size = new Size(146, 40),
-                Margin = new Padding(6, 6, 6, 6)
+                Dock = DockStyle.Fill,
+                Margin = new Padding(4, 3, 4, 3)
             };
             _drawBtn.Click += (s, e) => DrawClicked?.Invoke(this, EventArgs.Empty);
             _uploadBtn.Click += (s, e) => UploadClicked?.Invoke(this, EventArgs.Empty);
             _undoBtn.Click += (s, e) => UndoClicked?.Invoke(this, EventArgs.Empty);
-            _footerBox.Controls.Add(_drawBtn);
-            _footerBox.Controls.Add(_uploadBtn);
-            _footerBox.Controls.Add(_undoBtn);
+            _footerBox.Controls.Add(_drawBtn, 0, 0);
+            _footerBox.Controls.Add(_uploadBtn, 1, 0);
+            _footerBox.Controls.Add(_undoBtn, 2, 0);
 
             _root.Controls.Add(_headerBox, 0, 0);
             _root.Controls.Add(_footerBox, 0, 1);
@@ -167,12 +171,14 @@ namespace AiSwAddin
             int textLeft = cx + r + 10;
 
             // 状态徽章（右上）：浅绿底 + 绿字
+            int badgeLeft = _headerBox.Width;   // 记录徽章左边界，供标题裁剪宽度使用
             using (var badgeFont = Theme.Body(8.5f, FontStyle.Bold))
             {
                 string badge = "状态：" + _statusText;
                 Size bs = TextRenderer.MeasureText(g, badge, badgeFont);
                 int bw = bs.Width + 18, bh = 22;
-                var bRect = new Rectangle(_headerBox.Width - bw - pad, (_headerBox.Height - bh) / 2, bw, bh);
+                badgeLeft = _headerBox.Width - bw - pad;
+                var bRect = new Rectangle(badgeLeft, (_headerBox.Height - bh) / 2, bw, bh);
                 using (var path = GfxUtil.RoundedRect(bRect, 11))
                 using (var bfill = new SolidBrush(Theme.GreenPillBg))
                 using (var bpen = new Pen(Theme.GreenPillBorder, 1))
@@ -188,11 +194,12 @@ namespace AiSwAddin
             using (var titleFont = Theme.Body(10.5f, FontStyle.Bold))
             using (var subFont = Theme.Body(9f))
             {
-                var titleRect = new Rectangle(textLeft, 10, _headerBox.Width - textLeft - 110, 22);
+                int titleW = Math.Max(80, badgeLeft - 8 - textLeft);
+                var titleRect = new Rectangle(textLeft, 12, titleW, 22);
                 TextRenderer.DrawText(g, _title, titleFont, titleRect, Theme.TextMain,
-                    TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
+                    TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
 
-                var subRect = new Rectangle(textLeft, 32, _headerBox.Width - textLeft - pad, 22);
+                var subRect = new Rectangle(textLeft, 36, _headerBox.Width - textLeft - pad, 22);
                 TextRenderer.DrawText(g, _subtitle, subFont, subRect, Theme.TextSub,
                     TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
             }

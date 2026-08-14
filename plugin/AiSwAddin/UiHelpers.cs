@@ -299,10 +299,11 @@ namespace AiSwAddin
             }
             else
             {
-                using (var iconFont = Theme.Title(15))
+                using (var iconFont = Theme.Title(14))
                     TextRenderer.DrawText(g, Glyph, iconFont,
                         new Rectangle(0, iconTop, Width, iconH), Accent,
-                        TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
+                        TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter
+                        | TextFormatFlags.NoPadding | TextFormatFlags.NoClipping);
             }
 
             using (var textFont = Theme.Body(9, FontStyle.Bold))

@@ -111,7 +111,20 @@ namespace AiSwAddin
             // 用最新的 content.Height 重新校正 row 高度，避免按钮被裁。
             row.Height = content.Height + row.Padding.Bottom;
 
-            AutoScrollPosition = new Point(0, row.Bottom);        }
+            // 内容总高度：最后一条 row 的底部即为全部内容高度
+            int contentBottom = row.Bottom;
+            int visible = ClientSize.Height - Padding.Vertical;
+            if (contentBottom > visible)
+            {
+                // 内容超过一屏：滚到底部，露出最新消息
+                AutoScrollPosition = new Point(0, contentBottom);
+            }
+            else
+            {
+                // 内容不足一屏：保持顶部，避免消息整体下沉、顶部留白
+                AutoScrollPosition = new Point(0, 0);
+            }
+        }
 
         /// <summary>清空所有会话。</summary>
         public void Clear()
@@ -161,6 +174,11 @@ namespace AiSwAddin
                 row.Width = ClientSize.Width - Padding.Horizontal;
                 y += row.Height;
             }
+
+            // 内容不足一屏时，强制滚动位置回到顶部，避免容器变高后消息整体下沉、顶部留大片空白
+            int visible = ClientSize.Height - Padding.Vertical;
+            if (y <= visible)
+                AutoScrollPosition = new Point(0, 0);
         }
     }
 
