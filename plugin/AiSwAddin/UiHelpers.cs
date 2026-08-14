@@ -642,14 +642,15 @@ namespace AiSwAddin
 
     /// <summary>
     /// 3D 建模执行计划面板：顶部标题区(蓝底) + 步骤列表 + 底部"修改计划"/"确认并执行"双按钮。
-    /// 用一个 Panel 承载 Header + FlowLayoutPanel(步骤) + Footer(按钮)，
-    /// 步骤条目每行都是自绘 Control(避免子控件覆盖边框问题)。
+    /// 用 TableLayoutPanel(3 行)精确控制视觉顺序，避免 Dock=Top 堆叠顺序踩坑。
     /// </summary>
     internal class PlanReviewPanel : CardPanel
     {
+        private readonly TableLayoutPanel _root;
         private readonly Panel _headerBox;
         private readonly Label _titleLine;
         private readonly Label _descLine;
+        private readonly Panel _stepsBox;
         private readonly Panel _stepsHeader;
         private readonly FlowLayoutPanel _stepsFlow;
         private readonly Panel _footerBox;
@@ -677,13 +678,27 @@ namespace AiSwAddin
             Radius = 10;
             Padding = new Padding(1);
 
-            // 顶部标题区：浅蓝底，两行文字("3D 建模执行计划" + 描述)
+            // === 主容器：TableLayoutPanel 3 行(顶部 header / 中部 steps / 底部 footer) ===
+            _root = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 1,
+                RowCount = 3,
+                BackColor = Color.White,
+                Padding = new Padding(0),
+                Margin = new Padding(0)
+            };
+            _root.RowStyles.Add(new RowStyle(SizeType.Absolute, 68));
+            _root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            _root.RowStyles.Add(new RowStyle(SizeType.Absolute, 52));
+
+            // === Header ===
             _headerBox = new Panel
             {
-                Dock = DockStyle.Top,
-                Height = 68,
+                Dock = DockStyle.Fill,
                 BackColor = Color.FromArgb(238, 243, 255),
-                Padding = new Padding(14, 8, 14, 8)
+                Padding = new Padding(14, 8, 14, 8),
+                Margin = new Padding(0)
             };
             _titleLine = new Label
             {
@@ -705,7 +720,16 @@ namespace AiSwAddin
             _headerBox.Controls.Add(_descLine);
             _headerBox.Controls.Add(_titleLine);
 
-            // 步骤列表小标题："解析后的 3D 建模树步骤(共 N 步)  SolidWorks FeatureTree"
+            // === Steps 区：内部 StepsHeader(顶) + StepsFlow(填充) ===
+            _stepsBox = new Panel
+            {
+                Dock = DockStyle.Fill,
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                BackColor = Color.White,
+                Margin = new Padding(0),
+                Padding = new Padding(0)
+            };
             _stepsHeader = new Panel
             {
                 Dock = DockStyle.Top,
@@ -714,8 +738,6 @@ namespace AiSwAddin
                 Padding = new Padding(14, 4, 14, 0)
             };
             _stepsHeader.Paint += StepsHeader_Paint;
-
-            // 步骤流式列表：随内容纵向堆叠
             _stepsFlow = new FlowLayoutPanel
             {
                 Dock = DockStyle.Top,
@@ -726,14 +748,17 @@ namespace AiSwAddin
                 BackColor = Color.White,
                 Padding = new Padding(10, 4, 10, 8)
             };
+            // Dock=Top 添加顺序：先加 Flow 后加 Header → Header 在上, Flow 在下
+            _stepsBox.Controls.Add(_stepsFlow);
+            _stepsBox.Controls.Add(_stepsHeader);
 
-            // 底部按钮区
+            // === Footer ===
             _footerBox = new Panel
             {
-                Dock = DockStyle.Top,
-                Height = 52,
+                Dock = DockStyle.Fill,
                 BackColor = Color.White,
-                Padding = new Padding(10, 6, 10, 6)
+                Padding = new Padding(10, 6, 10, 6),
+                Margin = new Padding(0)
             };
             _modifyBtn = new RoundButton
             {
@@ -744,7 +769,6 @@ namespace AiSwAddin
                 Dock = DockStyle.Left
             };
             _modifyBtn.Click += (s, e) => ModifyClicked?.Invoke(this, EventArgs.Empty);
-
             _confirmBtn = new RoundButton
             {
                 Text = "▶ 确认并执行",
@@ -754,16 +778,15 @@ namespace AiSwAddin
                 Dock = DockStyle.Right
             };
             _confirmBtn.Click += (s, e) => ConfirmClicked?.Invoke(this, EventArgs.Empty);
-
             _footerBox.Controls.Add(_confirmBtn);
             _footerBox.Controls.Add(_modifyBtn);
 
-            // 添加顺序：先 Footer(底部) → StepsFlow → StepsHeader → HeaderBox(顶部)
-            // 让顶部 Dock=Top 元素按视觉顺序自上而下堆叠
-            Controls.Add(_footerBox);
-            Controls.Add(_stepsFlow);
-            Controls.Add(_stepsHeader);
-            Controls.Add(_headerBox);
+            // === 按行号精确放入 TableLayoutPanel ===
+            _root.Controls.Add(_headerBox, 0, 0);
+            _root.Controls.Add(_stepsBox, 0, 1);
+            _root.Controls.Add(_footerBox, 0, 2);
+
+            Controls.Add(_root);
         }
 
         /// <summary>刷新步骤列表并显示。</summary>
@@ -778,7 +801,7 @@ namespace AiSwAddin
                 {
                     var row = new PlanStepRow(step)
                     {
-                        Width = Math.Max(100, _stepsFlow.ClientSize.Width - 20),
+                        Width = Math.Max(100, ClientSize.Width - 40),
                         Height = 44,
                         Margin = new Padding(0, 0, 0, 6)
                     };
@@ -786,12 +809,10 @@ namespace AiSwAddin
                 }
             }
             _stepsFlow.ResumeLayout();
-            _stepsHeader.Visible = true;
-            _stepsFlow.Visible = true;
-            _footerBox.Visible = true;
+            _stepsBox.Visible = true;
+       _footerBox.Visible = true;
+            SetRowVisibility();
             _stepsHeader.Invalidate();
-
-            // 依据当前状态显式设定整个面板高度，避免依赖不稳定的 AutoSize 传播
             RecalcHeight();
         }
 
@@ -800,26 +821,35 @@ namespace AiSwAddin
         {
             PlanTitle = title;
             PlanDescription = description;
-            _stepsHeader.Visible = false;
-            _stepsFlow.Visible = false;
+            _stepsBox.Visible = false;
             _footerBox.Visible = false;
             _stepsFlow.Controls.Clear();
             _stepCount = 0;
+            SetRowVisibility();
             RecalcHeight();
         }
 
-        /// <summary>根据当前状态(是否显示步骤/按钮)显式计算并设置整体高度。</summary>
+        /// <summary>按各行是否可见调整对应 RowStyle，隐藏时把行高置 0。</summary>
+        private void SetRowVisibility()
+        {
+            _root.RowStyles[1].SizeType = _stepsBox.Visible ? SizeType.AutoSize : SizeType.Absolute;
+            if (!_stepsBox.Visible) _root.RowStyles[1].Height = 0;
+
+            _root.RowStyles[2].SizeType = SizeType.Absolute;
+            _root.RowStyles[2].Height = _footerBox.Visible ? 52 : 0;
+        }
+
+        /// <summary>依据当前状态计算整体高度(header + steps + footer)并设置。</summary>
         private void RecalcHeight()
         {
-            // Header 固定 68；Steps Header 固定 26；每步条目高 44+间距 6=50；Footer 固定 52
-            int h = _headerBox.Height + 2;
-            if (_stepsFlow.Visible)
+            int h = 68 + 2;
+            if (_stepsBox.Visible)
             {
                 h += _stepsHeader.Height;
                 h += _stepsFlow.Padding.Top + _stepsFlow.Padding.Bottom;
                 h += _stepCount * 50;
             }
-            if (_footerBox.Visible) h += _footerBox.Height;
+            if (_footerBox.Visible) h += 52;
             Height = h;
         }
 
