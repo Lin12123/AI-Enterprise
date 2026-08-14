@@ -39,3 +39,24 @@ def byref_int(value: int = 0):
     except ImportError:
         return value
     return win32com.client.VARIANT(pythoncom.VT_BYREF | pythoncom.VT_I4, value)
+
+
+def get_doc_type(model: object):
+    """Read a SOLIDWORKS document type (swDocumentTypes_e) robustly.
+
+    Depending on the pywin32 dispatch mode, ``IModelDoc2.GetType`` can surface
+    either as a callable method or as an already-evaluated integer property.
+    Calling an int raises "'int' object is not callable"; treating a method as
+    an int fails too. This helper handles both, returning an int, or None when
+    the type cannot be determined.
+    """
+
+    getter = getattr(model, "GetType", None)
+    if getter is None:
+        return None
+    value = getter() if callable(getter) else getter
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+

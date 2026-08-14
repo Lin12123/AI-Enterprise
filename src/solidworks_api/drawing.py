@@ -77,16 +77,17 @@ def _fail(message: str) -> dict:
 
 def _get_active_part(app: object) -> object:
     """取当前活动零件文档；非零件(装配/工程图/空)一律拒绝。"""
+    from solidworks_api.com_types import get_doc_type
+
     try:
         model = app.ActiveDoc
     except Exception as exc:
         raise RuntimeError(f"无法获取活动文档: {exc}") from exc
     if model is None:
         raise RuntimeError("当前没有打开的文档，请先完成 3D 建模再出图。")
-    try:
-        doc_type = int(model.GetType())
-    except Exception as exc:
-        raise RuntimeError(f"无法判断文档类型: {exc}") from exc
+    doc_type = get_doc_type(model)
+    if doc_type is None:
+        raise RuntimeError("无法判断文档类型，请确认当前打开的是 3D 零件窗口。")
     if doc_type != _SW_DOC_PART:
         raise RuntimeError("当前活动文档不是 3D 零件，无法出图。请切换到本次生成的零件窗口。")
     return model
@@ -182,4 +183,5 @@ def _save_drawing(app: object, draw_model: object, part_model: object) -> str:
         draw_model.Extension.SaveAs(target, 0, 1, dispatch_none(), byref_int(), byref_int())
     except Exception as exc:
         raise RuntimeError(str(exc)) from exc
+    return target
     return target
