@@ -29,6 +29,8 @@ namespace AiSwAddin
         private ISldWorks _swApp;
         private readonly ServiceClient _client = new ServiceClient();
         private string _currentPlanJson = null;
+        /// <summary>最近一次成功建模所写入的几何特征数量，供成果看板卡片展示。</summary>
+        private int _lastFeatureCount = 0;
 
         // 需要在事件中访问的控件
         private TextBox _inputBox;
@@ -278,11 +280,32 @@ namespace AiSwAddin
 
         // ---- 执行计划面板 / 诊断清单面板：嵌入到 ChatView 作为消息卡片，不再占用主 UI 独立行 ----
 
-        /// <summary>「查看成果与提交」按钮回调：目前只写日志，后续可对接"保存/上传"流程。</summary>
+        /// <summary>「查看成果与提交」按钮回调：在会话流中插入成果看板卡片(含3D转2D/上传/撤销 操作)。</summary>
         private void OnSubmitResult()
         {
-            AppendLog("[提交] 已确认本次建模成果，进入后续保存/上传流程。");
-            AppendChat(ChatRole.Ai, "已确认本次建模成果，进入后续保存/上传流程。");
+            AppendLog("[提交] 已确认本次建模成果，展示成果看板。");
+            AppendChat(ChatRole.Ai, "已确认本次建模成果，请在下方成果看板中选择后续操作。");
+
+            var board = new ResultBoardPanel();
+            board.SetResult(_lastFeatureCount);
+            board.DrawClicked += (s, e) =>
+            {
+                AppendLog("[成果] 3D 转 2D 出图：占位功能，后续对接出图流程。");
+                AppendChat(ChatRole.Ai, "已收到「3D 转 2D 出图」请求，出图流程接入中。");
+            };
+            board.UploadClicked += (s, e) =>
+            {
+                AppendLog("[成果] 上传企业云平台：占位功能，后续对接云平台上传。");
+                AppendChat(ChatRole.Ai, "已收到「上传企业云平台」请求，云平台上传接入中。");
+            };
+            board.UndoClicked += (s, e) =>
+            {
+                AppendLog("[成果] 撤销本次修改：占位功能，后续对接撤销/回滚流程。");
+                AppendChat(ChatRole.Ai, "已收到「撤销本次修改」请求，回滚流程接入中。");
+            };
+
+            if (_chatView != null)
+                _chatView.AppendControl(ChatRole.Ai, board);
         }
 
         /// <summary>「确认并执行」按钮：走真实 SolidWorks 建模。</summary>
@@ -558,6 +581,7 @@ namespace AiSwAddin
                 // 生成/校验/预演通过：解析步骤 → 填充 PlanReviewPanel，等用户点"确认并执行"
                 var steps = ExtractSteps(_currentPlanJson);
                 string partName = ExtractStringField(_currentPlanJson, "part_name") ?? "AI-Part";
+                _lastFeatureCount = steps.Count;   // 记录特征数，供建模成功后的成果看板展示
 
                 // 每次都新建一个 PlanReviewPanel 实例, 作为 AI 侧的一条消息卡片挂到 ChatView
                 _planPanel = new PlanReviewPanel();
