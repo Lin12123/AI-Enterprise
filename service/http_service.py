@@ -138,6 +138,7 @@ class AiSwRequestHandler(BaseHTTPRequestHandler):
             "/api/dry_run": _handle_dry_run,
             "/api/execute": _handle_execute,
             "/api/diagnose": _handle_diagnose,
+            "/api/create_drawing": _handle_create_drawing,
             "/api/sessions/create": _handle_session_create,
             "/api/sessions/append": _handle_session_append,
             "/api/sessions/status": _handle_session_status,
@@ -357,6 +358,31 @@ def _handle_diagnose(payload: dict) -> dict:
 
     from policy.diagnostics import diagnose_to_response
     return diagnose_to_response(plan)
+
+
+def _handle_create_drawing(payload: dict) -> dict:
+    """把当前活动的 3D 零件转为三视图工程图并保存(3D 转 2D出图)。
+
+    请求体: {} (无需参数，直接对当前 SolidWorks 活动零件出图)
+    返回:   {"ok": bool, "status": str, "message": str, "outputs": [工程图路径, ...]}
+
+    与 /api/execute 一样，真正的 COM 调用必须在专用 STA 工作线程内执行，
+    否则跨线程使用 SolidWorks COM 可能导致闪退。
+    """
+
+    def _do_create_drawing():
+        from solidworks_api.drawing import create_drawing_from_active_part
+
+        session = _shared_session()
+        session.connect()
+        app = session.require_connected()
+        return create_drawing_from_active_part(app)
+
+    from service.sw_worker import SolidWorksWorker
+    worker = SolidWorksWorker()
+    worker.start()
+    # 出图涉及新建工程图 + 生成视图，给一个宽松超时(5 分钟)
+    return worker.submit(_do_create_drawing, timeout=300)
 
 
 def _handle_session_create(payload: dict) -> dict:

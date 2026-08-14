@@ -120,6 +120,12 @@ namespace AiSwAddin
             return PostAsync("/api/diagnose", "{\"plan\":" + planJson + "}");
         }
 
+        /// <summary>3D 转 2D 出图：把当前 SolidWorks 活动零件转成三视图工程图并保存。无需参数。返回响应体字符串。</summary>
+        public Task<string> CreateDrawingAsync()
+        {
+            return PostAsync("/api/create_drawing", "{}");
+        }
+
         /// <summary>获取最近会话列表(纯读, GET)。返回响应体字符串。</summary>
         public async Task<string> GetRecentSessionsAsync(int n = 20)
         {

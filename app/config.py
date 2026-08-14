@@ -8,6 +8,7 @@ OUTPUTS_DIR = WORKSPACE_DIR / "outputs"
 PARTS_DIR = OUTPUTS_DIR / "parts"
 EXPORTS_DIR = OUTPUTS_DIR / "exports"
 PREVIEWS_DIR = OUTPUTS_DIR / "previews"
+DRAWINGS_DIR = OUTPUTS_DIR / "drawings"
 LOGS_DIR = WORKSPACE_DIR / "logs"
 
 
@@ -20,6 +21,7 @@ def ensure_dirs() -> None:
         PARTS_DIR,
         EXPORTS_DIR,
         PREVIEWS_DIR,
+        DRAWINGS_DIR,
         LOGS_DIR,
     ):
         directory.mkdir(parents=True, exist_ok=True)

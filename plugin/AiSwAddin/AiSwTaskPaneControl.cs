@@ -296,10 +296,36 @@ namespace AiSwAddin
 
             var board = new ResultBoardPanel();
             board.SetResult(_lastFeatureCount);
-            board.DrawClicked += (s, e) =>
+            board.DrawClicked += async (s, e) =>
             {
-                AppendLog("[成果] 3D 转 2D 出图：占位功能，后续对接出图流程。");
-                AppendChat(ChatRole.Ai, "已收到「3D 转 2D 出图」请求，出图流程接入中。");
+                AppendLog("[成果] 3D 转 2D 出图：正在把当前活动零件转成三视图工程图...");
+                AppendChat(ChatRole.Ai, "正在把当前 3D 模型转为工程图(三视图)，请稍候...");
+                SetBusy(true);
+                try
+                {
+                    string resp = await _client.CreateDrawingAsync();
+                    bool ok = resp.Contains("\"ok\": true") || resp.Contains("\"ok\":true");
+                    string msg = ExtractMessage(resp);
+                    if (ok)
+                    {
+                        AppendLog("[出图完成] " + (msg ?? "工程图已生成。"));
+                        AppendChat(ChatRole.Ai, msg ?? "工程图已生成并保存。");
+                    }
+                    else
+                    {
+                        AppendLog("[出图失败] " + (msg ?? Truncate(resp)));
+                        AppendChat(ChatRole.Ai, "3D 转 2D 出图失败：" + (msg ?? "详情请查看底部「📄 日志」。"));
+                    }
+                }
+                catch (Exception ex)
+                {
+                    AppendLog("[出图异常] " + ex.Message);
+                    AppendChat(ChatRole.Ai, "出图过程出现异常，详情请查看底部「📄 日志」。");
+                }
+                finally
+                {
+                    SetBusy(false);
+                }
             };
             board.UploadClicked += (s, e) =>
             {
@@ -1114,6 +1140,37 @@ namespace AiSwAddin
         {
             if (string.IsNullOrEmpty(text)) return "";
             return text.Length > 300 ? text.Substring(0, 300) + " ..." : text;
+        }
+
+        /// <summary>从响应体 JSON 中轻量提取 "message" 字段的字符串值(处理常见转义)。找不到返回 null。</summary>
+        private static string ExtractMessage(string resp)
+        {
+            if (string.IsNullOrEmpty(resp)) return null;
+            int keyIndex = resp.IndexOf("\"message\"", StringComparison.Ordinal);
+            if (keyIndex < 0) return null;
+            int colon = resp.IndexOf(':', keyIndex);
+            if (colon < 0) return null;
+            int quoteStart = resp.IndexOf('"', colon);
+            if (quoteStart < 0) return null;
+            var sb = new System.Text.StringBuilder();
+            for (int i = quoteStart + 1; i < resp.Length; i++)
+            {
+                char c = resp[i];
+                if (c == '\\' && i + 1 < resp.Length)
+                {
+                    char n = resp[i + 1];
+                    if (n == '"') { sb.Append('"'); i++; continue; }
+                    if (n == '\\') { sb.Append('\\'); i++; continue; }
+                    if (n == 'n') { sb.Append('\n'); i++; continue; }
+                    if (n == 't') { sb.Append('\t'); i++; continue; }
+                    sb.Append(c);
+                    continue;
+                }
+                if (c == '"') break;
+                sb.Append(c);
+            }
+            string result = sb.ToString();
+            return string.IsNullOrEmpty(result) ? null : result;
         }
     }
 }
