@@ -198,9 +198,10 @@ class ModelBuilder:
     def _is_empty_part(self, sw_model: object) -> bool:
         """判断一个零件文档是否为"空"：只含默认基准面/原点，没有用户特征。"""
         # 1) 必须是零件类型(swDocPART=1)。装配/工程图/其它一律视为非空(不适合建模)
-        try:
-            doc_type = int(sw_model.GetType())
-        except Exception:
+        from solidworks_api.com_types import get_doc_type
+
+        doc_type = get_doc_type(sw_model)
+        if doc_type is None:
             return False
         if doc_type != SW_DOC_PART:
             return False
