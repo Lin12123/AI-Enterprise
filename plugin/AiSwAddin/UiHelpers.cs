@@ -622,4 +622,256 @@ namespace AiSwAddin
             }
         }
     }
+
+    /// <summary>3D 建模执行计划中的一个步骤条目。</summary>
+    internal class PlanStep
+    {
+        public int Index;              // 从 1 开始
+        public string NameCn;          // 中文步骤名，如 "草图1 (Sketch1)"
+        public string ApiName;         // 右侧 API 名，如 "Sketch.CreateRectangle"
+        public string Description;     // 灰色描述文字，如 "在前视基准面上绘制 120×80 mm 中心矩形草图"
+
+        public PlanStep(int index, string nameCn, string apiName, string description)
+        {
+            Index = index;
+            NameCn = nameCn ?? "";
+            ApiName = apiName ?? "";
+            Description = description ?? "";
+        }
+    }
+
+    /// <summary>
+    /// 3D 建模执行计划面板：顶部标题区(蓝底) + 步骤列表 + 底部"修改计划"/"确认并执行"双按钮。
+    /// 用一个 Panel 承载 Header + FlowLayoutPanel(步骤) + Footer(按钮)，
+    /// 步骤条目每行都是自绘 Control(避免子控件覆盖边框问题)。
+    /// </summary>
+    internal class PlanReviewPanel : CardPanel
+    {
+        private readonly Panel _headerBox;
+        private readonly Label _titleLine;
+        private readonly Label _descLine;
+        private readonly Panel _stepsHeader;
+        private readonly FlowLayoutPanel _stepsFlow;
+        private readonly Panel _footerBox;
+        private readonly RoundButton _modifyBtn;
+        private readonly RoundButton _confirmBtn;
+
+        public event EventHandler ModifyClicked;
+        public event EventHandler ConfirmClicked;
+
+        public string PlanTitle
+        {
+            get { return _titleLine.Text; }
+            set { _titleLine.Text = value; }
+        }
+        public string PlanDescription
+        {
+            get { return _descLine.Text; }
+            set { _descLine.Text = value; }
+        }
+
+        public PlanReviewPanel()
+        {
+            BorderColor = Theme.Primary;
+            BorderWidth = 1;
+            Radius = 10;
+            Padding = new Padding(1);
+
+            // 顶部标题区：浅蓝底，两行文字("3D 建模执行计划" + 描述)
+            _headerBox = new Panel
+            {
+                Dock = DockStyle.Top,
+                Height = 68,
+                BackColor = Color.FromArgb(238, 243, 255),
+                Padding = new Padding(14, 8, 14, 8)
+            };
+            _titleLine = new Label
+            {
+                Text = "◎  3D 建模执行计划",
+                Font = Theme.Body(10, FontStyle.Bold),
+                ForeColor = Theme.Primary,
+                Dock = DockStyle.Top,
+                Height = 22,
+                BackColor = Color.Transparent
+            };
+            _descLine = new Label
+            {
+                Text = "",
+                Font = Theme.Body(9),
+                ForeColor = Theme.TextMain,
+                Dock = DockStyle.Fill,
+                BackColor = Color.Transparent
+            };
+            _headerBox.Controls.Add(_descLine);
+            _headerBox.Controls.Add(_titleLine);
+
+            // 步骤列表小标题："解析后的 3D 建模树步骤(共 N 步)  SolidWorks FeatureTree"
+            _stepsHeader = new Panel
+            {
+                Dock = DockStyle.Top,
+                Height = 26,
+                BackColor = Color.White,
+                Padding = new Padding(14, 4, 14, 0)
+            };
+            _stepsHeader.Paint += StepsHeader_Paint;
+
+            // 步骤流式列表：随内容纵向堆叠
+            _stepsFlow = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Top,
+                FlowDirection = FlowDirection.TopDown,
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                WrapContents = false,
+                BackColor = Color.White,
+                Padding = new Padding(10, 4, 10, 8)
+            };
+
+            // 底部按钮区
+            _footerBox = new Panel
+            {
+                Dock = DockStyle.Top,
+                Height = 52,
+                BackColor = Color.White,
+                Padding = new Padding(10, 6, 10, 6)
+            };
+            _modifyBtn = new RoundButton
+            {
+                Text = "✎ 修改计划",
+                Filled = false,
+                Accent = Theme.TextSub,
+                Size = new Size(100, 34),
+                Dock = DockStyle.Left
+            };
+            _modifyBtn.Click += (s, e) => ModifyClicked?.Invoke(this, EventArgs.Empty);
+
+            _confirmBtn = new RoundButton
+            {
+                Text = "▶ 确认并执行",
+                Filled = true,
+                Accent = Theme.Green,
+                Size = new Size(130, 34),
+                Dock = DockStyle.Right
+            };
+            _confirmBtn.Click += (s, e) => ConfirmClicked?.Invoke(this, EventArgs.Empty);
+
+            _footerBox.Controls.Add(_confirmBtn);
+            _footerBox.Controls.Add(_modifyBtn);
+
+            // 添加顺序：先 Footer(底部) → StepsFlow → StepsHeader → HeaderBox(顶部)
+            // 让顶部 Dock=Top 元素按视觉顺序自上而下堆叠
+            Controls.Add(_footerBox);
+            Controls.Add(_stepsFlow);
+            Controls.Add(_stepsHeader);
+            Controls.Add(_headerBox);
+        }
+
+        /// <summary>刷新步骤列表并显示。</summary>
+        public void SetSteps(System.Collections.Generic.IList<PlanStep> steps)
+        {
+            _stepsFlow.SuspendLayout();
+            _stepsFlow.Controls.Clear();
+            _stepCount = steps != null ? steps.Count : 0;
+            if (steps != null)
+            {
+                foreach (var step in steps)
+                {
+                    var row = new PlanStepRow(step) { Width = _stepsFlow.ClientSize.Width - 20, Margin = new Padding(0, 0, 0, 6) };
+                    _stepsFlow.Controls.Add(row);
+                }
+            }
+            _stepsFlow.ResumeLayout();
+            _stepsHeader.Visible = true;
+            _stepsFlow.Visible = true;
+            _footerBox.Visible = true;
+            _stepsHeader.Invalidate();
+        }
+
+        /// <summary>切换回初始占位态：显示"AI 助手就绪"提示，隐藏步骤列表与按钮。</summary>
+        public void ShowIdleState(string title, string description)
+        {
+            PlanTitle = title;
+            PlanDescription = description;
+            _stepsHeader.Visible = false;
+            _stepsFlow.Visible = false;
+            _footerBox.Visible = false;
+            _stepsFlow.Controls.Clear();
+            _stepCount = 0;
+        }
+
+        private int _stepCount;
+        private void StepsHeader_Paint(object sender, PaintEventArgs e)
+        {
+            var g = e.Graphics;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            TextRenderer.DrawText(g, "解析后的 3D 建模树步骤(共 " + _stepCount + " 步)", Theme.Body(9, FontStyle.Bold),
+                new Rectangle(14, 4, _stepsHeader.Width - 200, 20), Theme.Primary,
+                TextFormatFlags.Left | TextFormatFlags.VerticalCenter);
+            TextRenderer.DrawText(g, "SolidWorks FeatureTree", Theme.Body(8.5f),
+                new Rectangle(_stepsHeader.Width - 180, 4, 170, 20), Theme.TextSub,
+                TextFormatFlags.Right | TextFormatFlags.VerticalCenter);
+        }
+    }
+
+    /// <summary>
+    /// PlanReviewPanel 中的一行步骤：左侧圆圈编号 + 右侧上行(中文名+API 名) + 右侧下行(灰色描述)。
+    /// 全自绘，避免子控件产生额外背景。
+    /// </summary>
+    internal class PlanStepRow : Control
+    {
+        private readonly PlanStep _step;
+
+        public PlanStepRow(PlanStep step)
+        {
+            _step = step;
+            SetStyle(ControlStyles.UserPaint
+                     | ControlStyles.AllPaintingInWmPaint
+                     | ControlStyles.OptimizedDoubleBuffer
+                     | ControlStyles.ResizeRedraw
+                     | ControlStyles.SupportsTransparentBackColor, true);
+            BackColor = Color.Transparent;
+            Height = 44;
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            var g = e.Graphics;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+
+            // 左侧编号圆圈
+            int circleD = 22;
+            int cx = 4, cy = (Height - circleD) / 2;
+            var circleRect = new Rectangle(cx, cy, circleD, circleD);
+            using (var bg = new SolidBrush(Color.FromArgb(238, 243, 255)))
+                g.FillEllipse(bg, circleRect);
+            TextRenderer.DrawText(g, _step.Index.ToString(), Theme.Body(9, FontStyle.Bold),
+                circleRect, Theme.Primary,
+                TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
+
+            int leftPad = cx + circleD + 8;
+            int rightPad = 6;
+            int contentW = Width - leftPad - rightPad;
+
+            // 上行右侧：API 名(灰色)
+            using (var apiFont = Theme.Body(8.5f))
+            {
+                Size apiSize = TextRenderer.MeasureText(g, _step.ApiName, apiFont);
+                var apiRect = new Rectangle(leftPad + contentW - apiSize.Width, 4, apiSize.Width, 18);
+                TextRenderer.DrawText(g, _step.ApiName, apiFont, apiRect, Theme.TextSub,
+                    TextFormatFlags.Right | TextFormatFlags.Top | TextFormatFlags.NoPadding);
+
+                // 上行左侧：中文步骤名(粗体)
+                var nameRect = new Rectangle(leftPad, 4, contentW - apiSize.Width - 6, 18);
+                using (var nameFont = Theme.Body(9, FontStyle.Bold))
+                    TextRenderer.DrawText(g, _step.NameCn, nameFont, nameRect, Theme.TextMain,
+                        TextFormatFlags.Left | TextFormatFlags.Top | TextFormatFlags.NoPadding | TextFormatFlags.EndEllipsis);
+            }
+
+            // 下行：描述(灰色, 可换行)
+            using (var descFont = Theme.Body(8.5f))
+                TextRenderer.DrawText(g, _step.Description, descFont,
+                    new Rectangle(leftPad, 22, contentW, Height - 24), Theme.TextSub,
+                    TextFormatFlags.Left | TextFormatFlags.Top | TextFormatFlags.NoPadding | TextFormatFlags.WordBreak);
+        }
+    }
 }

@@ -37,6 +37,9 @@ namespace AiSwAddin
         private RoundButton _sendBtn;
         private ComboBox _targetBox;   // 目标：新建零件 / 当前文档
 
+        /// <summary>3D 建模执行计划面板；生成/校验/预演通过后填充并显示，用户点"确认并执行"才真正建模。</summary>
+        private PlanReviewPanel _planPanel;
+
         // 运行模式：0=企业协同, 1=离线本地
         private ModePillButton _modePill;
         private int _modeIndex = 0;
@@ -83,7 +86,7 @@ namespace AiSwAddin
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 62));   // 标题栏
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 52));   // 模式行(含标准徽章)
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 88));   // 功能卡片
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 90));   // AI 就绪信息卡
+            root.RowStyles.Add(new RowStyle(SizeType.AutoSize));       // 执行计划面板(高度随步骤数自适应)
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 160));  // 日志区(最小高度, 随窗口拉伸见下)
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 180));  // 输入卡
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 40));   // 任务中心栏
@@ -113,13 +116,20 @@ namespace AiSwAddin
         {
             if (root.RowStyles.Count < 5) return;
 
-            int fixedOthers = 62 + 52 + 88 + 90 + 180 + 40;   // 除日志区外的固定行之和
-            const int logMin = 160;                            // 日志区最小高度
-            int avail = ClientSize.Height;                     // 当前可视高度
+            // 除日志区外的行(0,1,2,3=执行计划,5,6)当前实际占用高度总和
+            int[] heights = root.GetRowHeights();
+            int fixedOthers = 0;
+            for (int i = 0; i < heights.Length; i++)
+            {
+                if (i == 4) continue;   // 第 4 行 = 日志区，跳过
+                fixedOthers += heights[i];
+            }
 
-            // 日志区可用高度：可视高减去其它固定行；不足则用最小值
+            const int logMin = 160;
+            int avail = ClientSize.Height;
+
             int logHeight = Math.Max(logMin, avail - fixedOthers);
-            root.RowStyles[4].Height = logHeight;              // 第4行=日志区
+            root.RowStyles[4].Height = logHeight;
         }
 
         // ---- 顶部渐变标题栏（全自绘，无白底）----
@@ -262,35 +272,49 @@ namespace AiSwAddin
             }
         }
 
-        // ---- AI 助手就绪信息卡 ----
+        // ---- AI 助手就绪信息卡 / 执行计划面板（同一位置切换） ----
         private Control BuildReadyCard()
         {
             var host = new Panel { Dock = DockStyle.Fill, BackColor = Theme.PageBg, Padding = new Padding(12, 0, 12, 6) };
-            var card = new CardPanel { Dock = DockStyle.Fill };
-
-            var head = new Label
-            {
-                Text = "✦  AI 助手就绪",
-                Font = Theme.Title(10),
-                ForeColor = Theme.Primary,
-                Dock = DockStyle.Top,
-                Height = 34,
-                Padding = new Padding(14, 8, 0, 0),
-                BackColor = Color.Transparent
-            };
-            var body = new Label
-            {
-                Text = "请在上方选择功能模式或在下方输入框直接描述 CAD 建模、修改参数或工程图出图需求。",
-                Font = Theme.Body(9),
-                ForeColor = Theme.TextSub,
-                Dock = DockStyle.Fill,
-                Padding = new Padding(14, 0, 14, 8),
-                BackColor = Color.Transparent
-            };
-            card.Controls.Add(body);
-            card.Controls.Add(head);
-            host.Controls.Add(card);
+            _planPanel = new PlanReviewPanel { Dock = DockStyle.Top, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink };
+            _planPanel.ShowIdleState("✦  AI 助手就绪",
+                "请在上方选择功能模式或在下方输入框直接描述 CAD 建模、修改参数或工程图出图需求。");
+            _planPanel.ModifyClicked += (s, e) => OnModifyPlan();
+            _planPanel.ConfirmClicked += (s, e) => OnConfirmExecute();
+            host.Controls.Add(_planPanel);
             return host;
+        }
+
+        /// <summary>「修改计划」按钮：把当前 prompt 保留在输入框，隐藏计划面板回到就绪态。</summary>
+        private void OnModifyPlan()
+        {
+            _planPanel.ShowIdleState("✦  AI 助手就绪",
+                "已放弃当前计划，请在下方修改需求后重新发送。");
+            _currentPlanJson = null;
+            if (_inputBox != null) _inputBox.Focus();
+            AppendLog("[提示] 用户放弃当前计划，等待修改后重新发送。");
+        }
+
+        /// <summary>「确认并执行」按钮：走真实 SolidWorks 建模。</summary>
+        private async void OnConfirmExecute()
+        {
+            if (string.IsNullOrEmpty(_currentPlanJson))
+            {
+                AppendLog("[错误] 当前没有可执行的计划。");
+                return;
+            }
+            SetBusy(true);
+            try
+            {
+                await ExecuteAsync();
+                _planPanel.ShowIdleState("✦  执行完成",
+                    "本次 3D 建模已完成，可继续在下方输入下一条需求。");
+                _currentPlanJson = null;
+            }
+            finally
+            {
+                SetBusy(false);
+            }
         }
 
         // ---- 运行日志区 ----
@@ -414,7 +438,7 @@ namespace AiSwAddin
 
         // ==== 业务逻辑：发送 = 生成→校验→预演→执行(带确认) 的一体化流程 ====
 
-        /// <summary>“发送”按钮：串起完整流程。</summary>
+        /// <summary>"发送"按钮：解析→校验→预演，通过后把计划展示到面板中，等用户确认执行。</summary>
         private async void OnSendClick(object sender, EventArgs e)
         {
             string prompt = _inputBox.Text.Trim();
@@ -431,15 +455,15 @@ namespace AiSwAddin
                 if (!await ValidateAsync()) return;
                 if (!await DryRunAsync()) return;
 
-                var confirm = MessageBox.Show(
-                    "预演通过。是否在当前 SolidWorks 中真实执行建模？\n请确认已打开 SolidWorks。",
-                    "确认执行", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
-                if (confirm != DialogResult.Yes)
-                {
-                    AppendLog("[执行取消] 用户取消了真实建模。");
-                    return;
-                }
-                await ExecuteAsync();
+                // 生成/校验/预演通过：解析步骤 → 填充 PlanReviewPanel，等用户点"确认并执行"
+                var steps = ExtractSteps(_currentPlanJson);
+                string partName = ExtractStringField(_currentPlanJson, "part_name") ?? "AI-Part";
+                _planPanel.PlanTitle = "◎  3D 建模执行计划";
+                _planPanel.PlanDescription = string.Format(
+                    "为当前 {0} 模型生成 3D 参数建树与工程图关联控制，共 {1} 步。",
+                    partName, steps.Count);
+                _planPanel.SetSteps(steps);
+                AppendLog("[待确认] 计划已就绪，请在计划面板中点击「确认并执行」。");
             }
             finally
             {
@@ -549,6 +573,171 @@ namespace AiSwAddin
                 }
             }
             return null;
+        }
+
+        /// <summary>从 FeaturePlan JSON 的 operations 数组中提取用于 UI 展示的步骤列表。</summary>
+        private static System.Collections.Generic.List<PlanStep> ExtractSteps(string planJson)
+        {
+            var list = new System.Collections.Generic.List<PlanStep>();
+            if (string.IsNullOrEmpty(planJson)) return list;
+
+            int opsIdx = planJson.IndexOf("\"operations\"", StringComparison.Ordinal);
+            if (opsIdx < 0) return list;
+            int arrStart = planJson.IndexOf('[', opsIdx);
+            if (arrStart < 0) return list;
+
+            // 逐个提取顶层 { ... } 对象
+            int depth = 0;
+            int objStart = -1;
+            int index = 0;
+            for (int i = arrStart; i < planJson.Length; i++)
+            {
+                char c = planJson[i];
+                if (c == '[') { depth++; continue; }
+                if (c == ']') { depth--; if (depth == 0) break; continue; }
+                if (c == '{')
+                {
+                    if (depth == 1) objStart = i;
+                    depth++;
+                }
+                else if (c == '}')
+                {
+                    depth--;
+                    if (depth == 1 && objStart >= 0)
+                    {
+                        string obj = planJson.Substring(objStart, i - objStart + 1);
+                        index++;
+                        list.Add(BuildStepFromJsonObject(index, obj));
+                        objStart = -1;
+                    }
+                }
+            }
+            return list;
+        }
+
+        /// <summary>基于一个 operation 的 JSON 对象文本，产出用于 UI 展示的 PlanStep。</summary>
+        private static PlanStep BuildStepFromJsonObject(int index, string obj)
+        {
+            string op = ExtractStringField(obj, "op") ?? "unknown";
+            string id = ExtractStringField(obj, "id") ?? ("op" + index);
+
+            // 中文名 & API 名映射（覆盖常见 op；其余走通用兜底）
+            string nameCn, apiName;
+            switch (op)
+            {
+                case "sketch_rectangle":
+                    nameCn = "草图 (Sketch)"; apiName = "Sketch.CreateRectangle"; break;
+                case "sketch_circle":
+                    nameCn = "草图 (Sketch)"; apiName = "Sketch.CreateCircle"; break;
+                case "extrude_boss":
+                    nameCn = "凸台-拉伸 (Boss-Extrude)"; apiName = "FeatureExtrude.Boss"; break;
+                case "extrude_cut":
+                case "cut_extrude":
+                    nameCn = "切除-拉伸 (Cut-Extrude)"; apiName = "FeatureCut.Extrude"; break;
+                case "fillet":
+                    nameCn = "圆角 (Fillet)"; apiName = "FeatureFillet.Corner"; break;
+                case "chamfer":
+                    nameCn = "倒角 (Chamfer)"; apiName = "FeatureChamfer.Edge"; break;
+                case "hole":
+                case "hole_wizard":
+                    nameCn = "异型孔向导 (Hole)"; apiName = "HoleWizard.CutExtrude"; break;
+                case "revolve":
+                    nameCn = "旋转 (Revolve)"; apiName = "FeatureRevolve.Boss"; break;
+                case "pattern":
+                case "linear_pattern":
+                    nameCn = "线性阵列 (Linear Pattern)"; apiName = "FeaturePattern.Linear"; break;
+                case "circular_pattern":
+                    nameCn = "圆周阵列 (Circular Pattern)"; apiName = "FeaturePattern.Circular"; break;
+                case "mirror":
+                    nameCn = "镜像 (Mirror)"; apiName = "FeatureMirror.Body"; break;
+                case "shell":
+                    nameCn = "抽壳 (Shell)"; apiName = "FeatureShell.Thin"; break;
+                case "material_properties":
+                    nameCn = "材料属性 (Material)"; apiName = "PartDoc.SetMaterial"; break;
+                default:
+                    nameCn = op + " (" + id + ")"; apiName = "Feature." + op; break;
+            }
+
+            string desc = BuildStepDescription(op, obj);
+            return new PlanStep(index, nameCn, apiName, desc);
+        }
+
+        /// <summary>基于 operation 的关键参数生成一句简短描述（尽量像"绘制中心 Φ20 mm 通孔"这样的可读文本）。</summary>
+        private static string BuildStepDescription(string op, string obj)
+        {
+            string width = ExtractNumberField(obj, "width");
+            string length = ExtractNumberField(obj, "length");
+            string height = ExtractNumberField(obj, "height");
+            string depth = ExtractNumberField(obj, "depth");
+            string diameter = ExtractNumberField(obj, "diameter");
+            string radius = ExtractNumberField(obj, "radius");
+            string plane = ExtractStringField(obj, "plane") ?? ExtractStringField(obj, "sketch_plane");
+            string material = ExtractStringField(obj, "material");
+
+            switch (op)
+            {
+                case "sketch_rectangle":
+                    return string.Format("{0}绘制 {1}×{2} mm 矩形草图",
+                        plane != null ? "在" + plane + "上" : "", length ?? "?", width ?? "?");
+                case "sketch_circle":
+                    return string.Format("{0}绘制 Φ{1} mm 圆形草图",
+                        plane != null ? "在" + plane + "上" : "", diameter ?? "?");
+                case "extrude_boss":
+                    return "拉伸凸台生成实体" + (depth != null ? "，深 " + depth + " mm" : "")
+                        + (material != null ? "，赋予 " + material : "");
+                case "extrude_cut":
+                case "cut_extrude":
+                    return "拉伸切除移除材料" + (depth != null ? "，深 " + depth + " mm" : "");
+                case "fillet":
+                    return "添加圆角" + (radius != null ? " R" + radius + " mm" : "");
+                case "chamfer":
+                    return "添加倒角" + (radius != null ? " " + radius + " mm" : "");
+                case "hole":
+                case "hole_wizard":
+                    return "打孔" + (diameter != null ? " Φ" + diameter + " mm" : "");
+                case "material_properties":
+                    return material != null ? "设置材质：" + material : "设置材料属性";
+                default:
+                    return "执行 " + op + " 操作";
+            }
+        }
+
+        /// <summary>从 JSON 文本中读取顶层字符串字段（简易，不支持转义嵌套）。</summary>
+        private static string ExtractStringField(string json, string key)
+        {
+            if (string.IsNullOrEmpty(json) || string.IsNullOrEmpty(key)) return null;
+            string needle = "\"" + key + "\"";
+            int i = json.IndexOf(needle, StringComparison.Ordinal);
+            if (i < 0) return null;
+            i = json.IndexOf(':', i);
+            if (i < 0) return null;
+            // 跳过空白
+            while (++i < json.Length && (json[i] == ' ' || json[i] == '\t')) { }
+            if (i >= json.Length || json[i] != '"') return null;
+            int start = i + 1;
+            int end = json.IndexOf('"', start);
+            if (end < 0) return null;
+            return json.Substring(start, end - start);
+        }
+
+        /// <summary>从 JSON 文本中读取顶层数值字段（返回原始文本，保留精度/单位习惯）。</summary>
+        private static string ExtractNumberField(string json, string key)
+        {
+            if (string.IsNullOrEmpty(json) || string.IsNullOrEmpty(key)) return null;
+            string needle = "\"" + key + "\"";
+            int i = json.IndexOf(needle, StringComparison.Ordinal);
+            if (i < 0) return null;
+            i = json.IndexOf(':', i);
+            if (i < 0) return null;
+            while (++i < json.Length && (json[i] == ' ' || json[i] == '\t')) { }
+            if (i >= json.Length) return null;
+            int start = i;
+            int end = start;
+            while (end < json.Length && "0123456789.-eE".IndexOf(json[end]) >= 0) end++;
+            if (end == start) return null;
+            // 去除末尾的小数点
+            string s = json.Substring(start, end - start).TrimEnd('.');
+            return s;
         }
 
         private static string Truncate(string text)
