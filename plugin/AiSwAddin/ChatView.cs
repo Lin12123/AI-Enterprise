@@ -40,7 +40,9 @@ namespace AiSwAddin
             DoubleBuffered = true;
             BackColor = Color.FromArgb(247, 249, 252);
             AutoScroll = true;
-            Padding = new Padding(6, 6, 6, 6);
+            Padding = new Padding(6, 6, 6, 16);
+            // 底部固定留白：滚动到底时最后一张卡片与输入框之间保留空隙
+            AutoScrollMargin = new Size(0, 16);
         }
 
         /// <summary>追加一条新消息并滚动到底部。</summary>
@@ -105,8 +107,11 @@ namespace AiSwAddin
             // 添加到容器后触发一次布局，让面板内部子控件(TableLayoutPanel 等)按新宽度重排
             content.PerformLayout();
 
-            AutoScrollPosition = new Point(0, row.Bottom);
-        }
+            // 面板拉宽后其内部(如成果卡的换行按钮行)高度可能变化，
+            // 用最新的 content.Height 重新校正 row 高度，避免按钮被裁。
+            row.Height = content.Height + row.Padding.Bottom;
+
+            AutoScrollPosition = new Point(0, row.Bottom);        }
 
         /// <summary>清空所有会话。</summary>
         public void Clear()

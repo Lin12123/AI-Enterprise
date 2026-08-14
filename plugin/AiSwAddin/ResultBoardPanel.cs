@@ -45,10 +45,13 @@ namespace AiSwAddin
             Radius = 10;
             FillColor = Color.FromArgb(240, 250, 245);
             Padding = new Padding(1);
+            // 卡片高度随内容(header + 可换行的 footer 按钮)自适应，避免按钮被裁
 
             _root = new TableLayoutPanel
             {
-                Dock = DockStyle.Fill,
+                Dock = DockStyle.Top,
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
                 ColumnCount = 1,
                 RowCount = 2,
                 BackColor = Color.Transparent,
@@ -114,6 +117,26 @@ namespace AiSwAddin
             _root.Controls.Add(_headerBox, 0, 0);
             _root.Controls.Add(_footerBox, 0, 1);
             Controls.Add(_root);
+        }
+
+        // 卡片底部固定留白：与内容(_root)之间留出空隙，避免按钮紧贴卡片下边框
+        private const int CardBottomPad = 10;
+
+        // _root 高度随 footer 换行数变化时，同步调整卡片自身高度，
+        // 使 ChatView 能据 content.Height 分配足够行高，杜绝按钮被裁。
+        protected override void OnSizeChanged(EventArgs e)
+        {
+            base.OnSizeChanged(e);
+            SyncHeight();
+        }
+
+        /// <summary>把卡片高度设为内容首选高度 + 底部留白。</summary>
+        private void SyncHeight()
+        {
+            if (_root == null) return;
+            int contentH = _root.PreferredSize.Height;
+            int target = contentH + CardBottomPad + Padding.Vertical;
+            if (Height != target) Height = target;
         }
 
         /// <summary>设置成果卡文案。featureCount 为已写入的几何特征数量。</summary>
