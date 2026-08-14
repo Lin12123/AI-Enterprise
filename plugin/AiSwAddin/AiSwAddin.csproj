@@ -6,10 +6,10 @@
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ProjectGuid>{6F2E9C31-6C8A-4E7B-9E4E-9B0F2E1A7C10}</ProjectGuid>
     <!-- 【正常发布插件时用】Library：生成可被 SolidWorks 加载的 .dll。 -->
-    <!-- <OutputType>Library</OutputType> -->
+    <OutputType>Library</OutputType>
     <!-- 【临时预览 UI 时用】WinExe：让 Program.cs 的 Main() 能 F5 直接运行查看界面。
          预览完毕、要发布插件前，请改回上面的 Library 并注释掉本行与 StartupObject。 -->
-    <OutputType>WinExe</OutputType>
+<!--     <OutputType>WinExe</OutputType> -->
     <StartupObject>AiSwAddin.Program</StartupObject>
     <RootNamespace>AiSwAddin</RootNamespace>
     <AssemblyName>AiSwAddin</AssemblyName>
