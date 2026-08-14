@@ -115,9 +115,9 @@ def cut_slot(sw_model: object, params: dict, state: dict) -> None:
         _create_rectangular_slot_fallback(sw_model, x, y, sketch_length, sketch_width, angle_deg)
     sw_model.SketchManager.InsertSketch(True)
     if through_all:
-        from solidworks_api.features.hole import _through_all_cut
+        from solidworks_api.features.hole import _through_all_cut_any
 
-        feature = _through_all_cut(sw_model)
+        feature = _through_all_cut_any(sw_model)
         if feature is None:
             raise RuntimeError(
                 "cut_slot through_all failed: FeatureCut3 returned None"
@@ -126,11 +126,12 @@ def cut_slot(sw_model: object, params: dict, state: dict) -> None:
     else:
         feature = _blind_cut(sw_model, depth)
         if feature is None:
-            # blind 两个方向都失败：开边槽/贯通槽本应通切，自动回退 through_all 再试一次。
-            # (SW2019 对某些开放到侧边的轮廓做 blind cut 会返回 None，但 through-all 可成功)
-            from solidworks_api.features.hole import _through_all_cut
+            # blind 两个方向都失败：开边槽/贯通槽本应通切，自动回退 through_all 再试。
+            # 开边槽轮廓的切除侧向不确定，_through_all_cut_any 会尝试正向/反向/双向贯通,
+            # 直到 SW2019 找到有实体可切的方向为止。
+            from solidworks_api.features.hole import _through_all_cut_any
 
-            feature = _through_all_cut(sw_model)
+            feature = _through_all_cut_any(sw_model)
         if feature is None:
             raise RuntimeError(
                 "cut_slot failed: FeatureCut3 returned None (blind 与 through_all 均失败)"

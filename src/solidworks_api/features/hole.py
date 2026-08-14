@@ -25,6 +25,39 @@ def _through_all_cut(sw_model: object) -> object:
     )
 
 
+def _through_all_cut_reverse(sw_model: object) -> object:
+    # Reverse-direction through-all (flip the cut side). SOLIDWORKS 2019 picks a
+    # default extrude direction from the sketch normal; for open-edge slots that
+    # default can point away from the solid, so the forward through-all removes
+    # nothing and FeatureCut3 returns None. Flipping reverse=True cuts the other
+    # side and succeeds.
+    return sw_model.FeatureManager.FeatureCut3(
+        True, False, True, 1, 0, 0, 0,
+        False, False, False, False, 0, 0, False, False, False, False,
+        False, True, True, True, True, False, 0, 0, False,
+    )
+
+
+def _through_all_cut_both(sw_model: object) -> object:
+    # Through-all in BOTH directions (endCondition type 4 = ThroughAllBoth).
+    # This is the most robust fallback for open-edge slot contours where the
+    # cut side is ambiguous.
+    return sw_model.FeatureManager.FeatureCut3(
+        True, False, False, 4, 0, 0, 0,
+        False, False, False, False, 0, 0, False, False, False, False,
+        False, True, True, True, True, False, 0, 0, False,
+    )
+
+
+def _through_all_cut_any(sw_model: object) -> object:
+    """尝试 through-all 的多种方向，返回第一个成功的 feature；全失败返回 None。"""
+    for attempt in (_through_all_cut, _through_all_cut_reverse, _through_all_cut_both):
+        feature = attempt(sw_model)
+        if feature is not None:
+            return feature
+    return None
+
+
 def _blind_cut(sw_model: object, depth_mm: float) -> object:
     from solidworks_api.units import mm_to_m
 
