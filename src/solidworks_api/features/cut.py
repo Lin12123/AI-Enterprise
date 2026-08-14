@@ -122,12 +122,27 @@ def _try_select_slot_face_by_center(
     top_z_m = _slot_top_z_m(state)
     if top_z_m is None:
         return False
+
+    # 首选策略：与成功的孔特征走同一条路——直接选 base 挤出特征的完整顶面。
+    # 前序孔洞虽会在顶面挖洞，但顶面主面片仍是同一张平面，SW 可在其上正确
+    # 放置 slot/pocket 草图轮廓。按坐标点选面(select_face_by_point_candidates)
+    # 在顶面被切碎时容易命中错误面片或选空，导致 InsertSketch 未进入草图态
+    # (表现为 sketch_diag "无法获取活动草图对象")，故仅作为兜底。
+    base_feature = state.get("base", {}).get("feature")
+    if base_feature is not None:
+        try:
+            from solidworks_api.selectors import select_feature_top_face
+
+            select_feature_top_face(sw_model, base_feature, top_z_m)
+            return True
+        except Exception:
+            pass
+
     try:
         from solidworks_api.selectors import select_face_by_point_candidates
         from solidworks_api.units import mm_to_m
 
-        # 以 slot 中心为核心构造候选点：中心优先，再沿槽附近做小偏移兜底，
-        # 确保命中的是 slot 轮廓真正覆盖的那块面片。
+        # 兜底：以 slot/pocket 中心为核心构造候选点选面。
         offsets_mm = [(0.0, 0.0), (2.0, 0.0), (-2.0, 0.0), (0.0, 2.0), (0.0, -2.0)]
         candidates = [
             (mm_to_m(x_mm + dx), mm_to_m(y_mm + dy), top_z_m) for dx, dy in offsets_mm
