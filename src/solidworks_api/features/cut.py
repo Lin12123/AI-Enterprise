@@ -178,13 +178,16 @@ def cut_slot(sw_model: object, params: dict, state: dict) -> None:
     base_length = float(base.get("length", 0) or 0)
     base_width = float(base.get("width", 0) or 0)
     overshoot_mm = 0.2
+    is_open_edge = False
     if direction == "y" and base_width > 0 and abs(length - base_width) <= 1e-6:
         # Open-edge width-direction slots need a slight overshoot past the side edges;
         # otherwise SOLIDWORKS can treat the contour as an invalid closed cut and
         # FeatureCut3 returns None on SW2019.
         sketch_length = length + overshoot_mm
+        is_open_edge = True
     elif direction == "x" and base_length > 0 and abs(length - base_length) <= 1e-6:
         sketch_length = length + overshoot_mm
+        is_open_edge = True
 
     _close_active_sketch(sw_model, state)
     # 关键：slot 的草图基准面必须是 slot 轮廓覆盖区域的那块顶面。
@@ -196,7 +199,15 @@ def cut_slot(sw_model: object, params: dict, state: dict) -> None:
     if not _try_select_slot_face_by_center(sw_model, plane, host, state, x, y):
         _select_sketch_plane(sw_model, plane, state, host=host)
     sw_model.SketchManager.InsertSketch(True)
-    if _native_slot_api_enabled() and hasattr(sw_model.SketchManager, "CreateSketchSlot"):
+    # 开边贯通槽（轮廓要跨出板边）必须用矩形轮廓：native slot 的圆弧端头一旦
+    # 延伸超出板边缘，端头圆弧落在实体之外，SW2019 会认为这不是有效的贯穿切除
+    # 轮廓，FeatureCut3 返回 None。只有非开边的"内部盲槽"才允许用 native slot。
+    use_native = (
+        _native_slot_api_enabled()
+        and not is_open_edge
+        and hasattr(sw_model.SketchManager, "CreateSketchSlot")
+    )
+    if use_native:
         try:
             _create_native_slot(sw_model, x, y, sketch_length, sketch_width, angle_deg)
         except Exception:
