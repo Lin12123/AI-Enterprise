@@ -385,7 +385,7 @@ class TestLocalProvider(unittest.TestCase):
     def test_local_provider_uses_stage_specific_first_pass_timeout_and_num_predict(self):
         self._parse_local({"AI_SW_LOCAL_LLM_TIMEOUT_SECONDS_FIRST": "61", "AI_SW_LOCAL_LLM_NUM_PREDICT_FIRST": "333"})
 
-        self.assertEqual(FakeOpenAIClient.captured["client_kwargs"]["timeout"], 61.0)
+        self.assertEqual(FakeOpenAIClient.captured["client_kwargs"]["timeout_seconds"], 61.0)
         self.assertEqual(FakeOpenAIClient.captured["create_kwargs"]["extra_body"]["num_predict"], 333)
 
     def test_local_provider_uses_stage_specific_repair_timeout_and_num_predict(self):
@@ -406,7 +406,7 @@ class TestLocalProvider(unittest.TestCase):
             with patch.object(local_provider, "_openai_client_class", return_value=FakeOpenAIClient):
                 parse_featureplan_with_provider("120x80x12mm")
 
-        self.assertEqual(FakeOpenAIClient.captured["client_kwargs"]["timeout"], 17.0)
+        self.assertEqual(FakeOpenAIClient.captured["client_kwargs"]["timeout_seconds"], 17.0)
         self.assertEqual(FakeOpenAIClient.captured["create_kwargs"]["extra_body"]["num_predict"], 123)
     def test_local_system_prompt_distinguishes_chamfer_from_fillet(self):
         self._parse_local()
@@ -449,17 +449,13 @@ class TestLocalProvider(unittest.TestCase):
         self.assertIn("Use the Feature Registry as the source of truth for matching user intent to operations.", system_prompt)
         self.assertIn("For a hole in the center raised boss/platform, use cut_center_hole target='boss' after create_center_boss.", system_prompt)
         self.assertIn("Do not add corner-hole operations unless the user explicitly requests corner holes", system_prompt)
-    def test_local_provider_disables_environment_proxy_for_localhost(self):
-        self._parse_local()
-        http_client = FakeOpenAIClient.captured["client_kwargs"]["http_client"]
-
-        self.assertFalse(http_client.trust_env)
-
-    def test_local_provider_sets_request_timeout_and_disables_retries(self):
+    def test_local_provider_passes_timeout_to_ollama_client(self):
         self._parse_local({"AI_SW_LOCAL_LLM_TIMEOUT_SECONDS": "12"})
 
-        self.assertEqual(FakeOpenAIClient.captured["client_kwargs"]["timeout"], 12.0)
-        self.assertEqual(FakeOpenAIClient.captured["client_kwargs"]["max_retries"], 0)
+        self.assertEqual(FakeOpenAIClient.captured["client_kwargs"]["timeout_seconds"], 12.0)
+        # Standard-library Ollama client uses urllib directly: no http_client / max_retries kwargs.
+        self.assertNotIn("http_client", FakeOpenAIClient.captured["client_kwargs"])
+        self.assertNotIn("max_retries", FakeOpenAIClient.captured["client_kwargs"])
 
     def test_tc_local_005_pure_json_response_parses(self):
         FakeOpenAIClient.response_text = featureplan_json()

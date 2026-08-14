@@ -95,14 +95,14 @@ namespace AiSwAddin
                 BackColor = Theme.PageBg,
                 Padding = new Padding(0),
                 // 保证整体不小于内容所需的最小高度（各固定行之和 + 会话最小高）
-                MinimumSize = new Size(0, 62 + 52 + 88 + 200 + 180 + 62)
+                MinimumSize = new Size(0, 62 + 52 + 88 + 200 + 180 + 40)
             };
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 62));   // 标题栏
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 52));   // 模式行(含标准徽章)
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 88));   // 功能卡片
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 200));  // AI 会话区(ChatView)，含执行面板/诊断清单卡片消息
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 180));  // 输入卡
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 62));   // 任务中心栏(上下两行：标题 + 日志按钮)
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 40));   // 任务中心栏(单行：标题 + 日志按钮)
 
             root.Controls.Add(BuildHeader(), 0, 0);
             root.Controls.Add(BuildModeRow(), 0, 1);
@@ -129,7 +129,7 @@ namespace AiSwAddin
             if (root.RowStyles.Count < 4) return;
 
             // 第3行 = ChatView 会话区，剩余空间给它
-            const int fixedOthers = 62 + 52 + 88 + 180 + 62;   // 标题+模式+功能卡+输入卡+任务栏
+            const int fixedOthers = 62 + 52 + 88 + 180 + 40;   // 标题+模式+功能卡+输入卡+任务栏
             const int chatMin = 200;
             int avail = ClientSize.Height;
             int chatHeight = avail - fixedOthers;
@@ -413,8 +413,9 @@ namespace AiSwAddin
             {
                 Multiline = true,
                 BorderStyle = BorderStyle.None,
-                Dock = DockStyle.Top,
-                Height = 70,
+                Dock = DockStyle.Fill,
+                ScrollBars = ScrollBars.Vertical,
+                WordWrap = true,
                 Font = Theme.Body(9.5f),
                 ForeColor = Theme.TextMain,
                 Text = "请描述建模需求，例如：做一个长100宽80厚10的底板，四角各开一个直径6的通孔"
@@ -453,22 +454,11 @@ namespace AiSwAddin
         }
 
         // ---- 底部任务中心栏 ----
-        // 上下两行布局：
-        //   第 1 行：☰ 抽屉内任务中心(左对齐，超长自动省略)
-        //   第 2 行：📄 日志圆角胶囊按钮(右对齐)
+        // 单行布局：左侧「☰ 抽屉内任务中心」，右侧「📄 日志」纯文字按钮，两者垂直居中水平对齐。
         // 已移除原先的 "SolidWorks 写入锁 ⌃" 说明标签。
         private Control BuildTaskBar()
         {
-            var bar = new TableLayoutPanel
-            {
-                Dock = DockStyle.Fill,
-                BackColor = Color.FromArgb(237, 240, 245),
-                ColumnCount = 1,
-                RowCount = 2,
-                Padding = new Padding(0)
-            };
-            bar.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));   // 任务中心标题行
-            bar.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));   // 日志按钮行
+            var bar = new Panel { Dock = DockStyle.Fill, BackColor = Color.FromArgb(237, 240, 245) };
 
             var left = new Label
             {
@@ -478,37 +468,28 @@ namespace AiSwAddin
                 Dock = DockStyle.Fill,
                 TextAlign = ContentAlignment.MiddleLeft,
                 AutoEllipsis = true,
-                Padding = new Padding(12, 0, 12, 0),
+                Padding = new Padding(12, 0, 0, 0),
                 BackColor = Color.Transparent
             };
 
-            // 第 2 行用 FlowLayoutPanel(RightToLeft) 让日志按钮靠右
-            var btnRow = new FlowLayoutPanel
+            // 「日志」纯文字按钮：无 logo、无圆角，与左侧文字同一水平线
+            var logBtn = new Label
             {
-                Dock = DockStyle.Fill,
-                FlowDirection = FlowDirection.RightToLeft,
-                WrapContents = false,
-                Padding = new Padding(0, 0, 12, 4),
-                BackColor = Color.Transparent
-            };
-
-            // 「📄 日志」圆角胶囊按钮：描边态(白底+主题蓝边+蓝字)，点击弹出技术日志
-            var logBtn = new RoundButton
-            {
-                Text = "📄 日志",
-                Filled = false,
-                Accent = Theme.Primary,
-                Radius = 12,
-                Size = new Size(74, 26),
+                Text = "日志",
                 Font = Theme.Body(9, FontStyle.Bold),
+                ForeColor = Theme.Primary,
+                Dock = DockStyle.Right,
+                Width = 56,
+                TextAlign = ContentAlignment.MiddleRight,
+                Padding = new Padding(0, 0, 12, 0),
                 Cursor = Cursors.Hand,
-                Margin = new Padding(0)
+                BackColor = Color.Transparent
             };
             logBtn.Click += (s, e) => OpenLogPopup();
-            btnRow.Controls.Add(logBtn);
 
-            bar.Controls.Add(left, 0, 0);
-            bar.Controls.Add(btnRow, 0, 1);
+            // 先加 Right(日志) 再加 Fill(左侧标题)，保证日志靠右、标题吃剩余空间
+            bar.Controls.Add(logBtn);
+            bar.Controls.Add(left);
             return bar;
         }
 

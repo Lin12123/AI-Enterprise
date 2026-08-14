@@ -198,10 +198,124 @@ def _response_text(response) -> str:
     raise LocalProviderError("Local LLM response did not contain text")
 
 
-def _openai_client_class():
-    from openai import OpenAI
+class _OllamaMessage:
+    """Mimics openai response message: exposes .content."""
 
-    return OpenAI
+    def __init__(self, content: str):
+        self.content = content
+
+
+class _OllamaChoice:
+    """Mimics openai response choice: exposes .message.content."""
+
+    def __init__(self, content: str):
+        self.message = _OllamaMessage(content)
+
+
+class _OllamaResponse:
+    """Mimics openai ChatCompletion: exposes .choices[0].message.content."""
+
+    def __init__(self, content: str):
+        self.choices = [_OllamaChoice(content)]
+        self.output_text = None
+
+
+class _OllamaChatCompletions:
+    def __init__(self, client: "OllamaClient"):
+        self._client = client
+
+    def create(self, **kwargs) -> _OllamaResponse:
+        return self._client._chat_create(kwargs)
+
+
+class _OllamaChat:
+    def __init__(self, client: "OllamaClient"):
+        self.completions = _OllamaChatCompletions(client)
+
+
+class OllamaClient:
+    """Minimal Ollama native-API client using only the Python standard library.
+
+    Talks to Ollama's /api/chat endpoint over urllib so no third-party package
+    (openai / httpx) is required. Exposes an openai-compatible surface:
+    client.chat.completions.create(**kwargs) -> object with .choices[0].message.content
+    """
+
+    def __init__(self, base_url: str, api_key: str, timeout_seconds: float):
+        # base_url may end with /v1 (OpenAI-compatible) or /api; normalize to native /api/chat.
+        root = base_url.rstrip("/")
+        if root.endswith("/v1"):
+            root = root[: -len("/v1")]
+        if root.endswith("/api"):
+            root = root[: -len("/api")]
+        self._chat_url = root + "/api/chat"
+        self._api_key = api_key
+        self._timeout = timeout_seconds
+        self.chat = _OllamaChat(self)
+
+    def _chat_create(self, kwargs: dict) -> _OllamaResponse:
+        import urllib.request
+        import urllib.error
+
+        messages = kwargs.get("messages", [])
+        model = kwargs.get("model")
+
+        options: dict[str, object] = {}
+        temperature = kwargs.get("temperature")
+        if temperature is not None:
+            options["temperature"] = temperature
+
+        keep_alive = None
+        extra_body = kwargs.get("extra_body") or {}
+        if isinstance(extra_body, dict):
+            if "num_predict" in extra_body:
+                options["num_predict"] = extra_body["num_predict"]
+            keep_alive = extra_body.get("keep_alive")
+
+        payload: dict[str, object] = {
+            "model": model,
+            "messages": messages,
+            "stream": False,
+        }
+        if options:
+            payload["options"] = options
+        if keep_alive:
+            payload["keep_alive"] = keep_alive
+
+        response_format = kwargs.get("response_format")
+        if isinstance(response_format, dict) and response_format.get("type") == "json_object":
+            payload["format"] = "json"
+
+        body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        headers = {"Content-Type": "application/json"}
+        if self._api_key:
+            headers["Authorization"] = f"Bearer {self._api_key}"
+
+        request = urllib.request.Request(self._chat_url, data=body, headers=headers, method="POST")
+        try:
+            with urllib.request.urlopen(request, timeout=self._timeout) as resp:
+                raw = resp.read().decode("utf-8")
+        except urllib.error.HTTPError as exc:
+            detail = exc.read().decode("utf-8", errors="replace") if hasattr(exc, "read") else ""
+            raise LocalProviderError(f"Ollama HTTP {exc.code}: {detail}") from exc
+        except urllib.error.URLError as exc:
+            raise LocalProviderError(f"Ollama request failed: {exc.reason}") from exc
+
+        try:
+            data = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            raise LocalProviderError("Ollama response was not valid JSON") from exc
+
+        message = data.get("message") if isinstance(data, dict) else None
+        content = message.get("content") if isinstance(message, dict) else None
+        if not content:
+            raise LocalProviderError("Ollama response did not contain message.content")
+        return _OllamaResponse(content)
+
+
+def _openai_client_class():
+    # Return the standard-library Ollama client so no third-party package is needed.
+    return OllamaClient
 
 
 def _create_local_client(openai_client, base_url: str, api_key: str, stage: str = "first_pass"):
@@ -209,16 +323,8 @@ def _create_local_client(openai_client, base_url: str, api_key: str, stage: str 
     return openai_client(
         base_url=base_url,
         api_key=api_key,
-        http_client=_local_http_client(stage),
-        timeout=timeout_seconds,
-        max_retries=0,
+        timeout_seconds=timeout_seconds,
     )
-
-
-def _local_http_client(stage: str = "first_pass"):
-    import httpx
-
-    return httpx.Client(trust_env=False, timeout=_request_timeout_seconds(stage))
 
 
 def _request_timeout_seconds(stage: str = "first_pass") -> float:
