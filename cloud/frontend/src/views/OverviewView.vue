@@ -74,12 +74,19 @@ onMounted(load)
 </template>
 
 <style scoped>
-.stat-card { position: relative; overflow: hidden; }
+.stat-card {
+  position: relative;
+  overflow: hidden;
+  min-height: 132px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
 .stat-bar { position: absolute; left: 0; top: 0; width: 4px; height: 100%; }
 .stat-label { font-size: 13px; color: #64748b; }
 .stat-value { font-size: 30px; font-weight: 700; margin: 6px 0; }
 .stat-unit { font-size: 14px; color: #94a3b8; margin-left: 4px; }
-.stat-trend { font-size: 12px; color: #94a3b8; }
+.stat-trend { font-size: 12px; color: #94a3b8; min-height: 18px; }
 
 .section-title { font-size: 15px; font-weight: 600; margin-bottom: 16px; }
 

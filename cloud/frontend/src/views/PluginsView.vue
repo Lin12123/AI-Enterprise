@@ -141,7 +141,14 @@ onMounted(load)
 .plg-item-sub { display: flex; gap: 12px; font-size: 12px; color: #64748b; margin-top: 8px; }
 .signed { color: #10b981; }
 .plg-detail { flex: 1; min-width: 0; }
-.metric-card { text-align: center; }
+.metric-card {
+  text-align: center;
+  min-height: 108px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
 .metric-label { font-size: 13px; color: #64748b; }
 .metric-value { font-size: 26px; font-weight: 700; margin-top: 6px; }
 .sec-title { margin: 0 0 12px; font-size: 15px; color: #1e293b; }
