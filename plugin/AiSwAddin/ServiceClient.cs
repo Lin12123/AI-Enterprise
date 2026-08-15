@@ -120,10 +120,13 @@ namespace AiSwAddin
             return PostAsync("/api/diagnose", "{\"plan\":" + planJson + "}");
         }
 
-        /// <summary>3D 转 2D 出图：把当前 SolidWorks 活动零件转成三视图工程图并保存。无需参数。返回响应体字符串。</summary>
-        public Task<string> CreateDrawingAsync()
+        /// <summary>3D 转 2D 出图：把当前 SolidWorks 活动零件转成三视图工程图并保存。
+        /// 必须带上 sessionId，后端会把出图产物(part_path/drawing_path)写入 session.context.last_outputs，
+        /// 供后续「上传企业云平台」按钮读取。sessionId 为空时后端不会记录产物，会导致上传失败。</summary>
+        public Task<string> CreateDrawingAsync(string sessionId)
         {
-            return PostAsync("/api/create_drawing", "{}");
+            string body = "{\"session_id\":" + JsonString(sessionId ?? "") + "}";
+            return PostAsync("/api/create_drawing", body);
         }
 
         /// <summary>把指定会话的出图产物打包上传到企业云平台。

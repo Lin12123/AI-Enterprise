@@ -308,7 +308,7 @@ namespace AiSwAddin
                 {
                     AppendLog("[成果] 已获取企业标准，正在把当前活动零件转成三视图工程图...");
                     AppendChat(ChatRole.Ai, "标准已就绪，正在生成含尺寸与公差的工程图(三视图)...");
-                    string resp = await _client.CreateDrawingAsync();
+                    string resp = await _client.CreateDrawingAsync(_sessionId);
                     bool ok = resp.Contains("\"ok\": true") || resp.Contains("\"ok\":true");
                     string msg = ExtractMessage(resp);
                     int ruleCount = ExtractRuleCount(resp);
