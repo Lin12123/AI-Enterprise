@@ -145,6 +145,70 @@ def _prompt_mentions_any(prompt: str, lowered: str, hints: tuple[str, ...]) -> b
 
 
 
+def _sanitize_metadata_parameter_paths(
+    metadata: Any,
+    operations: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Repair or drop invalid provenance paths so Policy validation cannot 500.
+
+    Local 7B models frequently emit malformed provenance entries such as
+    ``create_base_plate.001.params.plane`` where the operation *name* and *id*
+    are joined with a dot, producing a 4-segment path the Policy Engine rejects
+    (it requires exactly ``<operation_id>.params.<parameter>``). They also emit
+    paths pointing at operations or parameters that do not exist. Rather than
+    letting these bubble up as fatal metadata violations, we deterministically
+    repair the ones we can map back to a real operation/parameter and silently
+    drop the rest.
+    """
+
+    if not isinstance(metadata, dict):
+        return metadata if isinstance(metadata, dict) else {}
+
+    # Build lookup of valid operation ids and their parameter names.
+    op_params: dict[str, set[str]] = {}
+    for operation in operations:
+        if not isinstance(operation, dict):
+            continue
+        op_id = str(operation.get("id", "")).strip()
+        if not op_id:
+            continue
+        params = operation.get("params")
+        op_params[op_id] = set(params.keys()) if isinstance(params, dict) else set()
+
+    def _repair_path(path: str) -> str | None:
+        text = str(path)
+        parts = text.split(".")
+        if "params" not in parts:
+            return None
+        p_index = parts.index("params")
+        # Parameter name is everything after the ``params`` segment joined back.
+        param_name = ".".join(parts[p_index + 1 :]).strip()
+        if not param_name:
+            return None
+        # The operation id is the segment immediately before ``params``; the LLM
+        # sometimes prefixes the op name, so also try the last pre-``params``
+        # segment and progressively shorter suffixes until one matches a real id.
+        head = parts[:p_index]
+        for start in range(len(head)):
+            candidate_id = ".".join(head[start:]).strip()
+            if candidate_id in op_params and param_name in op_params[candidate_id]:
+                return f"{candidate_id}.params.{param_name}"
+        return None
+
+    sanitized = dict(metadata)
+    for field in ("inferred_parameters", "explicit_parameters"):
+        value = sanitized.get(field)
+        if not isinstance(value, (list, tuple)):
+            continue
+        repaired: list[str] = []
+        for path in value:
+            fixed = _repair_path(path)
+            if fixed is not None and fixed not in repaired:
+                repaired.append(fixed)
+        sanitized[field] = repaired
+    return sanitized
+
+
 def _merge_inferred_parameters(metadata: Any, new_paths: list[str]) -> dict[str, Any]:
     """Add newly inferred parameter provenance paths into metadata.inferred_parameters.
 
@@ -255,6 +319,13 @@ def bind_featureplan_semantics(
     normalized["operations"] = bound_operations
     if inferred_center_paths:
         normalized["metadata"] = _merge_inferred_parameters(normalized.get("metadata"), inferred_center_paths)
+    # Repair/drop malformed provenance paths (e.g. op-name+id joined with a dot,
+    # or references to non-existent operations/params) so Policy validation does
+    # not reject an otherwise-valid plan with a fatal metadata violation.
+    if isinstance(normalized.get("metadata"), dict):
+        normalized["metadata"] = _sanitize_metadata_parameter_paths(
+            normalized.get("metadata"), bound_operations
+        )
     return canonicalize_featureplan_structure(normalized)
 
 
@@ -337,8 +408,13 @@ def _bind_operation_params(
 
     if op_name in {"create_sketch", "create_through_hole", "create_blind_hole", "create_counterbore_hole", "create_countersink_hole", "cut_rectangle_pocket", "cut_slot", "create_center_boss"}:
         inferred_host = _infer_operation_host(prompt, operation_id, op_name, normalized)
-        if inferred_host is not None and not str(normalized.get("host", "")).strip():
-            normalized["host"] = inferred_host
+        current_host = str(normalized.get("host", "")).strip()
+        # Only ``base``/``boss`` are valid hosts. The local model sometimes emits
+        # an invalid value (e.g. ``top_face``, ``plate``, a feature name); replace
+        # any missing OR invalid host with the deterministically inferred host so
+        # Policy does not reject the plan with "host must be base or boss".
+        if not current_host or current_host not in {"base", "boss"}:
+            normalized["host"] = inferred_host if inferred_host is not None else "base"
 
     if op_name == "extrude_boss":
         direction = _normalize_extrude_boss_direction(normalized.get("direction"))

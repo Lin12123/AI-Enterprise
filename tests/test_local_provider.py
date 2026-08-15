@@ -1337,6 +1337,67 @@ class TestLocalProvider(unittest.TestCase):
         self.assertEqual(slot_1["params"]["center"], [-50.0, 0.0])
         self.assertEqual(slot_2["params"]["center"], [50.0, 0.0])
 
+    def test_semantic_binding_repairs_malformed_provenance_paths(self):
+        from cad_dsl.semantic_binding import bind_featureplan_semantics
+
+        prompt = "Create a 120x80x12mm plate with a center boss."
+        plan = {
+            "version": "2.0",
+            "unit": "mm",
+            "document_type": "part",
+            "part_name": "malformed_provenance",
+            "metadata": {
+                "inferred_parameters": [
+                    # op-name + id joined by a dot => 4 segments, Policy rejects it
+                    "create_base_plate.001.params.plane",
+                    "create_center_boss.006.params.plane",
+                    # references a param that will be removed / never existed
+                    "cut_center_hole.007.params.depth",
+                    "cut_center_hole.007.params.plane",
+                ],
+                "explicit_parameters": [],
+            },
+            "operations": [
+                {"id": "001", "op": "create_base_plate", "params": {"length": 120, "width": 80, "thickness": 12, "plane": "Top"}},
+                {"id": "006", "op": "create_center_boss", "params": {"diameter": 30, "height": 10, "plane": "top_face"}},
+            ],
+            "outputs": {},
+        }
+
+        bound = bind_featureplan_semantics(prompt, plan)
+        inferred = bound["metadata"]["inferred_parameters"]
+        # Malformed op-name+id paths are repaired to the real <id>.params.<param>.
+        self.assertIn("001.params.plane", inferred)
+        self.assertIn("006.params.plane", inferred)
+        # Paths referencing non-existent operations/params are dropped.
+        self.assertNotIn("cut_center_hole.007.params.depth", inferred)
+        self.assertNotIn("cut_center_hole.007.params.plane", inferred)
+        for path in inferred:
+            parts = path.split(".")
+            self.assertEqual(len(parts), 3)
+            self.assertEqual(parts[1], "params")
+
+    def test_semantic_binding_normalizes_invalid_host_to_base(self):
+        from cad_dsl.semantic_binding import bind_featureplan_semantics
+
+        prompt = "Create a 120x80x12mm plate and cut a slot on the top face."
+        plan = {
+            "version": "2.0",
+            "unit": "mm",
+            "document_type": "part",
+            "part_name": "invalid_host",
+            "operations": [
+                {"id": "base_plate", "op": "create_base_plate", "params": {"length": 120, "width": 80, "thickness": 12, "plane": "Top"}},
+                # LLM emits an invalid host value that is not base/boss
+                {"id": "slot_1", "op": "cut_slot", "params": {"plane": "top_face", "length": 40, "width": 10, "center": [0, 0], "host": "top_face"}},
+            ],
+            "outputs": {},
+        }
+
+        bound = bind_featureplan_semantics(prompt, plan)
+        slot = next(op for op in bound["operations"] if op["id"] == "slot_1")
+        self.assertIn(slot["params"]["host"], {"base", "boss"})
+
 if __name__ == "__main__":
     unittest.main()
 
