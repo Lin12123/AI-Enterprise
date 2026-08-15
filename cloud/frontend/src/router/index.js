@@ -1,24 +1,36 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
 const routes = [
-  { path: '/', redirect: '/knowledge' },
+  { path: '/', redirect: '/overview' },
+  {
+    path: '/overview',
+    name: 'overview',
+    component: () => import('@/views/OverviewView.vue'),
+    meta: { title: '企业运营总览' },
+  },
+  {
+    path: '/projects',
+    name: 'projects',
+    component: () => import('@/views/ProjectsView.vue'),
+    meta: { title: '项目图纸管理' },
+  },
   {
     path: '/knowledge',
     name: 'knowledge',
     component: () => import('@/views/KnowledgeView.vue'),
-    meta: { title: '知识库管理' },
+    meta: { title: '知识库' },
   },
   {
-    path: '/basedata',
-    name: 'basedata',
-    component: () => import('@/views/BaseDataView.vue'),
-    meta: { title: '基础数据' },
+    path: '/models',
+    name: 'models',
+    component: () => import('@/views/ModelsView.vue'),
+    meta: { title: '模型管理' },
   },
   {
-    path: '/artifacts',
-    name: 'artifacts',
-    component: () => import('@/views/ArtifactsView.vue'),
-    meta: { title: '产物管理' },
+    path: '/plugins',
+    name: 'plugins',
+    component: () => import('@/views/PluginsView.vue'),
+    meta: { title: '插件管理' },
   },
 ]
 
@@ -28,7 +40,7 @@ const router = createRouter({
 })
 
 router.afterEach((to) => {
-  document.title = to.meta?.title ? `${to.meta.title} - AI-SW 云平台` : 'AI-SW 云平台'
+  document.title = to.meta?.title ? `${to.meta.title} - Think Form` : 'Think Form'
 })
 
 export default router

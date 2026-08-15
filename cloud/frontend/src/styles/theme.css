@@ -1,0 +1,65 @@
+/* Think Form 企业级公共样式：页面头、卡片、通用间距 */
+
+:root {
+  --tf-primary: #6366f1;
+  --tf-primary-deep: #4f46e5;
+  --tf-bg: #f1f5f9;
+  --tf-text: #1e293b;
+  --tf-muted: #64748b;
+}
+
+body {
+  margin: 0;
+  font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  color: var(--tf-text);
+}
+
+/* 页面头：标题 + 副标题 + 右侧操作 */
+.tf-page-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+.tf-page-title {
+  font-size: 22px;
+  font-weight: 700;
+  margin: 0;
+}
+.tf-page-desc {
+  font-size: 13px;
+  color: var(--tf-muted);
+  margin-top: 6px;
+}
+
+/* 通用卡片 */
+.tf-card {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+  padding: 20px;
+}
+.tf-card + .tf-card { margin-top: 16px; }
+
+/* 工具条 */
+.tf-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.tf-toolbar .tf-spacer { flex: 1; }
+
+/* 栅格 */
+.tf-grid {
+  display: grid;
+  gap: 16px;
+}
+.tf-grid-4 { grid-template-columns: repeat(4, 1fr); }
+.tf-grid-3 { grid-template-columns: repeat(3, 1fr); }
+
+@media (max-width: 1200px) {
+  .tf-grid-4 { grid-template-columns: repeat(2, 1fr); }
+  .tf-grid-3 { grid-template-columns: repeat(2, 1fr); }
+}

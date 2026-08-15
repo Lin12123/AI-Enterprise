@@ -1,10 +1,14 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { standardsApi, knowledgeApi } from '@/api'
+import { knowledgeCategories } from '@/api/mock'
 
+const categories = knowledgeCategories
+const activeCat = ref('industry')
 const loading = ref(false)
 const keyword = ref('')
+const statusFilter = ref('all')
 const standards = ref([])
 
 async function loadStandards() {
@@ -18,8 +22,41 @@ async function loadStandards() {
   }
 }
 
-// 导入表单
-const form = ref({ standard_no: '', type: '', title: '', version: '', source: '' })
+const filtered = computed(() =>
+  standards.value.filter((s) => {
+    // 按分类：优先用后端 category 字段，缺省时用 standard_type 兜底匹配
+    const cat = s.category || s.standard_type || ''
+    const matchCat =
+      activeCat.value === 'industry'
+        ? !cat || /国标|行业|GB|ISO|industry/i.test(cat)
+        : activeCat.value === 'enterprise'
+          ? /企标|企业|enterprise/i.test(cat)
+          : /标准件|parts/i.test(cat)
+    const matchStatus =
+      statusFilter.value === 'all' || s.status === statusFilter.value
+    return matchCat && matchStatus
+  }),
+)
+
+function statusTag(status) {
+  if (status === 'published') return { type: 'success', text: '已发布' }
+  if (status === 'archived') return { type: 'info', text: '历史发布' }
+  return { type: 'warning', text: '未发布' }
+}
+
+async function publish(row) {
+  try {
+    await standardsApi.update(row.id, { ...row, status: 'published' })
+    ElMessage.success('已发布')
+    await loadStandards()
+  } catch (e) {
+    ElMessage.error(e.message)
+  }
+}
+
+// 上传对话框
+const dialogVisible = ref(false)
+const form = ref({ standard_no: '', standard_type: '', title: '', version: '', source: '' })
 const fileRef = ref(null)
 const importing = ref(false)
 
@@ -39,6 +76,7 @@ async function doImport() {
   try {
     const res = await knowledgeApi.import(fd)
     ElMessage.success(`导入成功，入库规则 ${res.inserted ?? 0} 条`)
+    dialogVisible.value = false
     await loadStandards()
   } catch (e) {
     ElMessage.error(e.message)
@@ -51,52 +89,118 @@ onMounted(loadStandards)
 </script>
 
 <template>
-  <el-tabs>
-    <el-tab-pane label="标准列表">
-      <div class="toolbar">
-        <el-input v-model="keyword" placeholder="按标准号/标题搜索" clearable style="width: 240px" />
+  <div>
+    <div class="tf-page-head">
+      <div>
+        <h2 class="tf-page-title">知识库管理</h2>
+        <div class="tf-page-desc">管理行业/企业标准规则与标准件，支持发布状态与版本追踪</div>
+      </div>
+      <el-button type="primary" @click="dialogVisible = true">+ 上传知识/规则文件</el-button>
+    </div>
+
+    <div class="tf-card">
+      <div class="cat-tabs">
+        <div
+          v-for="c in categories"
+          :key="c.key"
+          class="cat-tab"
+          :class="{ active: activeCat === c.key }"
+          @click="activeCat = c.key"
+        >
+          <div class="cat-label">{{ c.label }}</div>
+          <div class="cat-desc">{{ c.desc }}</div>
+        </div>
+      </div>
+
+      <div class="tf-toolbar" style="margin-top: 16px">
+        <el-input
+          v-model="keyword"
+          placeholder="按标准号/标题搜索"
+          clearable
+          style="width: 240px"
+          @keyup.enter="loadStandards"
+        />
+        <el-select v-model="statusFilter" style="width: 140px">
+          <el-option label="全部状态" value="all" />
+          <el-option label="已发布" value="published" />
+          <el-option label="未发布" value="draft" />
+          <el-option label="历史发布" value="archived" />
+        </el-select>
         <el-button type="primary" @click="loadStandards">查询</el-button>
       </div>
-      <el-table :data="standards" v-loading="loading" border style="width: 100%">
-        <el-table-column prop="standard_no" label="标准号" width="180" />
-        <el-table-column prop="title" label="标题" />
-        <el-table-column prop="type" label="类型" width="120" />
-        <el-table-column prop="version" label="版本" width="120" />
-        <el-table-column prop="status" label="状态" width="120" />
-        <el-table-column prop="updated_at" label="更新时间" width="180" />
-      </el-table>
-    </el-tab-pane>
 
-    <el-tab-pane label="导入知识">
-      <el-form :model="form" label-width="90px" style="max-width: 520px">
+      <el-table :data="filtered" v-loading="loading" border style="width: 100%; margin-top: 12px">
+        <el-table-column prop="standard_no" label="标准号" width="170" />
+        <el-table-column prop="title" label="规则名称 / 说明" min-width="200" />
+        <el-table-column label="版本 / 格式" width="150">
+          <template #default="{ row }">
+            {{ row.version || '-' }}
+            <el-tag size="small" type="info" effect="plain">{{ row.source || 'PDF' }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="updated_at" label="创建时间" width="170" />
+        <el-table-column label="发布状态" width="110">
+          <template #default="{ row }">
+            <el-tag :type="statusTag(row.status).type" size="small">
+              {{ statusTag(row.status).text }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="180" fixed="right">
+          <template #default="{ row }">
+            <el-button
+              v-if="row.status !== 'published'"
+              size="small"
+              type="primary"
+              link
+              @click="publish(row)"
+            >发布</el-button>
+            <el-button size="small" link>下载</el-button>
+            <el-button size="small" type="danger" link>删除</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+    </div>
+
+    <el-dialog v-model="dialogVisible" title="上传知识 / 规则文件" width="560px">
+      <el-form :model="form" label-width="90px">
         <el-form-item label="标准号">
           <el-input v-model="form.standard_no" />
         </el-form-item>
         <el-form-item label="类型">
-          <el-input v-model="form.type" placeholder="如 国标/企标" />
+          <el-input v-model="form.standard_type" placeholder="如 国标 / 企标 / 标准件" />
         </el-form-item>
         <el-form-item label="标题">
           <el-input v-model="form.title" />
         </el-form-item>
         <el-form-item label="版本">
-          <el-input v-model="form.version" />
+          <el-input v-model="form.version" placeholder="如 v2026.1" />
         </el-form-item>
         <el-form-item label="来源">
-          <el-input v-model="form.source" />
+          <el-input v-model="form.source" placeholder="如 PDF / JSON / Word" />
         </el-form-item>
         <el-form-item label="文件">
           <el-upload :auto-upload="false" :limit="1" :on-change="onFileChange">
             <el-button>选择文件（Excel/JSON/Word/PDF/图片）</el-button>
           </el-upload>
         </el-form-item>
-        <el-form-item>
-          <el-button type="primary" :loading="importing" @click="doImport">开始导入</el-button>
-        </el-form-item>
       </el-form>
-    </el-tab-pane>
-  </el-tabs>
+      <template #footer>
+        <el-button @click="dialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="importing" @click="doImport">开始导入</el-button>
+      </template>
+    </el-dialog>
+  </div>
 </template>
 
 <style scoped>
-.toolbar { display: flex; gap: 8px; margin-bottom: 12px; }
+.cat-tabs { display: flex; gap: 12px; }
+.cat-tab {
+  flex: 1; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px 16px;
+  cursor: pointer; transition: all 0.2s;
+}
+.cat-tab:hover { border-color: #c7d2fe; }
+.cat-tab.active { border-color: #6366f1; background: #eef2ff; }
+.cat-label { font-size: 15px; font-weight: 600; color: #1e293b; }
+.cat-desc { font-size: 12px; color: #94a3b8; margin-top: 4px; }
 </style>

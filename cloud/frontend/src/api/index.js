@@ -56,3 +56,38 @@ export const filesApi = {
   list: (params) => get('/files', params),
   downloadUrl: (id) => `/api/files/${id}/download`,
 }
+
+// ---------- 假数据模块（暂未对接后端）----------
+import {
+  overviewStats,
+  approvalTasks,
+  coverageMetrics,
+  mockProjects,
+  mockPlugins,
+  pluginMetrics,
+  pluginManifest,
+  pluginSbom,
+} from './mock'
+
+const delay = (data, ms = 200) =>
+  new Promise((resolve) => setTimeout(() => resolve(data), ms))
+
+// 企业运营总览：假数据
+export const dashboardApi = {
+  stats: () => delay(overviewStats),
+  approvals: () => delay(approvalTasks),
+  coverage: () => delay(coverageMetrics),
+}
+
+// 项目图纸管理：前端 mock（后端暂无 projects 表）
+export const projectsApi = {
+  list: () => delay(mockProjects),
+}
+
+// 插件管理：假数据
+export const pluginsApi = {
+  list: () => delay(mockPlugins),
+  metrics: () => delay(pluginMetrics),
+  manifest: () => delay(pluginManifest),
+  sbom: () => delay(pluginSbom),
+}
