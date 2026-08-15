@@ -705,32 +705,91 @@ def _iter_model_views(draw_model: object) -> list:
       - 但 `draw_model.GetFirstView()` 在部分 win32com 早绑定/typelib 组合下会抛
         "com_error: (-2147352573, '找不到成员。')"——同一 IDispatch 上并不是所有
         DrawingDoc 方法都能通过 late-bind 到 IDispatch.Invoke。
-      - 而 **`GetCurrentSheet().GetViews()`** 是完全走 ISheet 接口拿视图 array，
-        典型模板下能一次性返回该 sheet 下所有模型视图(不含 sheet 自身)，规避
-        `GetFirstView` 的 late-bind 坑。
+      - 同样地，`GetCurrentSheet` / `GetSheetNames` / `Sheet(name)` 在某些
+        win32com typelib 缓存下也可能挂 late-bind (真机 v017 上路径1/路径2
+        全部静默失败，只留下路径3 的 GetFirstView 报错)。
 
-    因此本次遍历策略调整为「三段兜底」，任一成功即返回：
-      1. **首选**: `GetCurrentSheet().GetViews()` 直接拿当前活动 sheet 的视图元组；
+    因此本次遍历策略扩展为「五段兜底」，任一成功即返回：
+      0. **FeatureManager 优先**: 遍历 `IModelDoc2.FeatureManager` 里 typeName
+         为 `DrView` 的 feature，用 `Feature.GetSpecificFeature2()` 拿到 IView。
+         这条路径完全绕开 IDrawingDoc/ISheet 的 late-bind 坑，即使前面所有
+         IDrawingDoc 方法都挂了它也能通过 IFeature 接口拿到视图。
+      1. **首选(ISheet)**: `GetCurrentSheet().GetViews()` 直接拿当前活动 sheet 的视图元组；
       2. **多 sheet 兼容**: 遍历 `GetSheetNames()`, 用 `IDrawingDoc.Sheet(name)`
          逐个 sheet 拿 `GetViews()`, 若拿不到再降级 `ActivateSheet + GetCurrentSheet`；
-      3. **兜底**: 沿用原 `GetFirstView` 两层链遍历(Sheet 视图 → 模型视图子链)，
-         仅当前两步都拿不到任何视图时才走这条路径。
+      3. **GetFirstView 链**: 沿用原 `GetFirstView` 两层链遍历(Sheet 视图 → 模型视图子链)；
+      4. **命名视图回取**: `Create3rdAngleViews2` 会产生 `Drawing View1..4`
+         (中文模板可能是 "视图 1..4")，用 SelectionMgr SelectByID2 命中后
+         从 `SelectionMgr.GetSelectedObject6(i,-1)` 回取。
 
+    路径1/2/3 任一步的异常都会打 summary=True 日志, 保证真机诊断可见。
     任何异常都保守返回已收集到的部分，绝不阻断出图。
     """
     views: list = []
+
+    # --- 路径 0: FeatureManager 遍历 DrView feature ---
+    # 这是最抗 late-bind 的路径：Feature/FeatureManager 接口稳定，不吃 IDrawingDoc 的坑
+    try:
+        feat = draw_model.FirstFeature()
+    except Exception as exc:
+        _dbg(
+            f"iter_views: 路径0 FirstFeature 抛异常 {type(exc).__name__}:{exc}",
+            summary=True,
+        )
+        feat = None
+    seen_feat = 0
+    while feat is not None:
+        seen_feat += 1
+        try:
+            ftype = str(getattr(feat, "GetTypeName2", lambda: "")() or "")
+        except Exception:
+            try:
+                ftype = str(feat.GetTypeName() or "")
+            except Exception:
+                ftype = ""
+        if ftype == "DrView":
+            try:
+                spec = feat.GetSpecificFeature2()
+            except Exception:
+                spec = None
+            if spec is not None:
+                try:
+                    vt = int(getattr(spec, "Type", 0) or 0)
+                except Exception:
+                    vt = 0
+                if vt != _SW_DRAWING_SHEET_VIEW_TYPE:
+                    views.append(spec)
+        try:
+            feat = feat.GetNextFeature()
+        except Exception:
+            break
+        if seen_feat > 5000:  # 防御:极端情况避免死循环
+            break
+    if views:
+        _dbg(
+            f"iter_views: 路径0(FeatureManager DrView) 拿到 {len(views)} 个模型视图, "
+            f"扫描 feature 数={seen_feat}",
+            summary=True,
+        )
+        return views
 
     # --- 路径 1: GetCurrentSheet().GetViews() ---
     try:
         cur_sheet = draw_model.GetCurrentSheet()
     except Exception as exc:
-        _dbg(f"iter_views: GetCurrentSheet 抛异常 {type(exc).__name__}:{exc}")
+        _dbg(
+            f"iter_views: 路径1 GetCurrentSheet 抛异常 {type(exc).__name__}:{exc}",
+            summary=True,
+        )
         cur_sheet = None
     if cur_sheet is not None:
         try:
             raw = cur_sheet.GetViews()
         except Exception as exc:
-            _dbg(f"iter_views: cur_sheet.GetViews 抛异常 {type(exc).__name__}:{exc}")
+            _dbg(
+                f"iter_views: 路径1 cur_sheet.GetViews 抛异常 {type(exc).__name__}:{exc}",
+                summary=True,
+            )
             raw = None
         if raw:
             try:
@@ -750,12 +809,19 @@ def _iter_model_views(draw_model: object) -> list:
                     summary=True,
                 )
             except Exception as exc:
-                _dbg(f"iter_views: 展开 GetViews 结果异常 {type(exc).__name__}:{exc}")
+                _dbg(
+                    f"iter_views: 路径1 展开 GetViews 结果异常 {type(exc).__name__}:{exc}",
+                    summary=True,
+                )
 
     # --- 路径 2: 多 sheet 兼容 ---
     try:
         sheet_names = draw_model.GetSheetNames()
-    except Exception:
+    except Exception as exc:
+        _dbg(
+            f"iter_views: 路径2 GetSheetNames 抛异常 {type(exc).__name__}:{exc}",
+            summary=True,
+        )
         sheet_names = None
     if sheet_names and len(sheet_names) > 0:
         for sn in sheet_names:
@@ -808,6 +874,7 @@ def _iter_model_views(draw_model: object) -> list:
     # --- 路径 3: 兜底走 GetFirstView 两层链 ---
     sheet_count = 0
     raw_view_count = 0
+    skip_path3_loop = False
     try:
         top = draw_model.GetFirstView()
     except Exception as exc:
@@ -815,12 +882,13 @@ def _iter_model_views(draw_model: object) -> list:
             f"iter_views: 路径3 draw_model.GetFirstView 抛异常 {type(exc).__name__}:{exc}",
             summary=True,
         )
-        return views
-    if top is None:
+        top = None
+        skip_path3_loop = True
+    if top is None and not skip_path3_loop:
         _dbg("iter_views: 路径3 draw_model.GetFirstView 返回 None(工程图为空?)", summary=True)
-        return views
+        skip_path3_loop = True
 
-    while top is not None:
+    while (not skip_path3_loop) and top is not None:
         raw_view_count += 1
         try:
             top_type = int(getattr(top, "Type", 0) or 0)
@@ -866,6 +934,71 @@ def _iter_model_views(draw_model: object) -> list:
         f"model_view_count={len(views)}",
         summary=True,
     )
+    if views:
+        return views
+
+    # --- 路径 4: SelectByID2 命名视图回取 (最坏兜底) ---
+    # Create3rdAngleViews2 会产生固定命名的视图: 英文模板 "Drawing View1..4",
+    # 中文模板可能是 "视图 1..4" 或 "工程视图1..4"。逐个尝试选中后从 SelectionMgr
+    # 拿回 IView。这是完全绕开 IDrawingDoc 遍历接口的终极兜底。
+    try:
+        sel_mgr = draw_model.SelectionManager
+    except Exception as exc:
+        _dbg(
+            f"iter_views: 路径4 SelectionManager 取不到 {type(exc).__name__}:{exc}",
+            summary=True,
+        )
+        sel_mgr = None
+    if sel_mgr is not None:
+        # SelectByID2(name, "DRAWINGVIEW", x, y, z, append, mark, callout, selectOption)
+        candidates_by_lang = [
+            ["Drawing View1", "Drawing View2", "Drawing View3", "Drawing View4"],
+            ["视图 1", "视图 2", "视图 3", "视图 4"],
+            ["工程视图1", "工程视图2", "工程视图3", "工程视图4"],
+            ["视图1", "视图2", "视图3", "视图4"],
+        ]
+        try:
+            draw_model.ClearSelection2(True)
+        except Exception:
+            pass
+        picked = 0
+        for names in candidates_by_lang:
+            for nm in names:
+                try:
+                    ok = bool(
+                        draw_model.Extension.SelectByID2(
+                            nm, "DRAWINGVIEW", 0.0, 0.0, 0.0, False, 0, None, 0
+                        )
+                    )
+                except Exception:
+                    ok = False
+                if not ok:
+                    continue
+                try:
+                    sel = sel_mgr.GetSelectedObject6(1, -1)
+                except Exception:
+                    sel = None
+                if sel is None:
+                    continue
+                try:
+                    vt = int(getattr(sel, "Type", 0) or 0)
+                except Exception:
+                    vt = 0
+                if vt == _SW_DRAWING_SHEET_VIEW_TYPE:
+                    continue
+                if sel not in views:
+                    views.append(sel)
+                    picked += 1
+                try:
+                    draw_model.ClearSelection2(True)
+                except Exception:
+                    pass
+            if picked > 0:
+                break
+        _dbg(
+            f"iter_views: 路径4(SelectByID2 命名视图) 拿到 {picked} 个模型视图",
+            summary=True,
+        )
     return views
 
 
