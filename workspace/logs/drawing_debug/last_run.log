@@ -1,225 +1,227 @@
-[05:56:48] create_drawing: 入口
-[05:56:51] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[05:56:51] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[05:56:51] iter_views: 路径2 GetSheetNames 抛异常 TypeError:'tuple' object is not callable
-[05:56:51] iter_views: 路径3 draw_model.GetFirstView 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[05:56:51] iter_views: 路径3汇总 sheet_count=0 raw_top_view_count=0 model_view_count=0
-[05:56:51] iter_views: 路径5 读取 dump 抛异常 FileNotFoundError:[Errno 2] No such file or directory: 'C:/Users/LVBO_ZY/AppData/Local/Temp/aisw_view_dump_78aad458.json'
-[05:56:51] iter_views: 路径5(VBA 宏 dump) 拿到视图名 []
-[05:56:51] iter_views: 路径5(VBA 宏 dump) 拿到视图名 []
-[05:56:51] iter_views: 进入路径4 前, 尝试 draw_model.SelectionManager
-[05:56:51] iter_views: 路径4 SelectionManager=ok
-[05:56:54] iter_views: 路径4(SelectByID2 命名视图) 拿到 0 个模型视图
-[05:56:54] iter_views: 路径C SelectByID2(type only) 抛 com_error:(-2147352571, '类型不匹配。', None, 8)
-[05:56:55] iter_views: 路径C(SelectAll+SelMgr) 拿到 0 个模型视图
-[05:56:55] apply_dim: 逐视图导入前, 拿到模型视图数=0
-[05:56:55] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[05:56:55] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[05:56:55] iter_views: 路径2 GetSheetNames 抛异常 TypeError:'tuple' object is not callable
-[05:56:56] iter_views: 路径3 draw_model.GetFirstView 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[05:56:56] iter_views: 路径3汇总 sheet_count=0 raw_top_view_count=0 model_view_count=0
-[05:56:56] iter_views: 路径5 读取 dump 抛异常 FileNotFoundError:[Errno 2] No such file or directory: 'C:/Users/LVBO_ZY/AppData/Local/Temp/aisw_view_dump_21aa34c6.json'
-[05:56:56] iter_views: 路径5(VBA 宏 dump) 拿到视图名 []
-[05:56:56] iter_views: 路径5(VBA 宏 dump) 拿到视图名 []
-[05:56:56] iter_views: 进入路径4 前, 尝试 draw_model.SelectionManager
-[05:56:56] iter_views: 路径4 SelectionManager=ok
-[05:56:58] iter_views: 路径4(SelectByID2 命名视图) 拿到 0 个模型视图
-[05:56:59] iter_views: 路径C SelectByID2(type only) 抛 com_error:(-2147352571, '类型不匹配。', None, 8)
-[05:57:00] iter_views: 路径C(SelectAll+SelMgr) 拿到 0 个模型视图
-[05:57:00] apply_dim: InsertModelAnnotations3 后计数 DisplayDimension=0
-[05:57:00] apply_dim: 进入路径E 判定 imported=0 app_available=True
-[05:57:00] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[05:57:00] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[05:57:00] iter_views: 路径2 GetSheetNames 抛异常 TypeError:'tuple' object is not callable
-[05:57:00] iter_views: 路径3 draw_model.GetFirstView 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[05:57:00] iter_views: 路径3汇总 sheet_count=0 raw_top_view_count=0 model_view_count=0
-[05:57:00] iter_views: 路径5 读取 dump 抛异常 FileNotFoundError:[Errno 2] No such file or directory: 'C:/Users/LVBO_ZY/AppData/Local/Temp/aisw_view_dump_a82b81cb.json'
-[05:57:00] iter_views: 路径5(VBA 宏 dump) 拿到视图名 []
-[05:57:00] iter_views: 路径5(VBA 宏 dump) 拿到视图名 []
-[05:57:00] iter_views: 进入路径4 前, 尝试 draw_model.SelectionManager
-[05:57:00] iter_views: 路径4 SelectionManager=ok
-[05:57:03] iter_views: 路径4(SelectByID2 命名视图) 拿到 0 个模型视图
-[05:57:03] iter_views: 路径C SelectByID2(type only) 抛 com_error:(-2147352571, '类型不匹配。', None, 8)
-[05:57:04] iter_views: 路径C(SelectAll+SelMgr) 拿到 0 个模型视图
-[05:57:04] apply_dim: 路径E fallback_views 数量=0
-[05:57:04] apply_dim: 路径E 类型选 DRAWINGVIEW 抛 com_error:(-2147352571, '类型不匹配。', None, 8)
-[05:57:04] apply_dim: 路径E 类型选 DRAWINGVIEW=fail, 准备直发 RunCommand
-[05:57:05] apply_dim: 路径E RunCommand(cmd=1668) 返回=True
-[05:57:05] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[05:57:05] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[05:57:05] iter_views: 路径2 GetSheetNames 抛异常 TypeError:'tuple' object is not callable
-[05:57:06] iter_views: 路径3 draw_model.GetFirstView 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[05:57:06] iter_views: 路径3汇总 sheet_count=0 raw_top_view_count=0 model_view_count=0
-[05:57:06] iter_views: 路径5 读取 dump 抛异常 FileNotFoundError:[Errno 2] No such file or directory: 'C:/Users/LVBO_ZY/AppData/Local/Temp/aisw_view_dump_e3df2e3a.json'
-[05:57:06] iter_views: 路径5(VBA 宏 dump) 拿到视图名 []
-[05:57:06] iter_views: 路径5(VBA 宏 dump) 拿到视图名 []
-[05:57:06] iter_views: 进入路径4 前, 尝试 draw_model.SelectionManager
-[05:57:06] iter_views: 路径4 SelectionManager=ok
-[05:57:09] iter_views: 路径4(SelectByID2 命名视图) 拿到 0 个模型视图
-[05:57:09] iter_views: 路径C SelectByID2(type only) 抛 com_error:(-2147352571, '类型不匹配。', None, 8)
-[05:57:10] iter_views: 路径C(SelectAll+SelMgr) 拿到 0 个模型视图
-[05:57:10] apply_dim: 路径E(RunCommand InsertModelItems) 尝试=1 成功=1 命令后 DisplayDimension=0
-[05:57:10] apply_dim: 路径F 前置状态 imported=0 app_is_none=False
-[05:57:10] apply_dim: 进入路径F 判定 imported=0 app_available=True
-[05:57:10] path_F: dump 文件不存在, 宏体根本没跑到 main (RunMacro2 静默无痕失败)
-[05:57:10] path_F: VBA 宏 InsertModelAnnotations3 完成 phase='' imported=0 views=0 err='no_dump_macro_not_started'
-[05:57:10] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[05:57:10] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[05:57:10] iter_views: 路径2 GetSheetNames 抛异常 TypeError:'tuple' object is not callable
-[05:57:10] iter_views: 路径3 draw_model.GetFirstView 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[05:57:10] iter_views: 路径3汇总 sheet_count=0 raw_top_view_count=0 model_view_count=0
-[05:57:10] iter_views: 路径5 读取 dump 抛异常 FileNotFoundError:[Errno 2] No such file or directory: 'C:/Users/LVBO_ZY/AppData/Local/Temp/aisw_view_dump_f479e99b.json'
-[05:57:10] iter_views: 路径5(VBA 宏 dump) 拿到视图名 []
-[05:57:10] iter_views: 路径5(VBA 宏 dump) 拿到视图名 []
-[05:57:10] iter_views: 进入路径4 前, 尝试 draw_model.SelectionManager
-[05:57:10] iter_views: 路径4 SelectionManager=ok
-[05:57:13] iter_views: 路径4(SelectByID2 命名视图) 拿到 0 个模型视图
-[05:57:13] iter_views: 路径C SelectByID2(type only) 抛 com_error:(-2147352571, '类型不匹配。', None, 8)
-[05:57:14] iter_views: 路径C(SelectAll+SelMgr) 拿到 0 个模型视图
-[05:57:14] apply_dim: 路径F(VBA InsertModelAnnotations3) 宏内 imported=0 views=0 命令后 DisplayDimension=0 err='no_dump_macro_not_started'
-[05:57:14] draw_self: EditRebuild3 抛异常 TypeError: 'bool' object is not callable
-[05:57:14] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[05:57:14] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[05:57:15] iter_views: 路径2 GetSheetNames 抛异常 TypeError:'tuple' object is not callable
-[05:57:15] iter_views: 路径3 draw_model.GetFirstView 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[05:57:15] iter_views: 路径3汇总 sheet_count=0 raw_top_view_count=0 model_view_count=0
-[05:57:15] iter_views: 路径5 读取 dump 抛异常 FileNotFoundError:[Errno 2] No such file or directory: 'C:/Users/LVBO_ZY/AppData/Local/Temp/aisw_view_dump_20ebd453.json'
-[05:57:15] iter_views: 路径5(VBA 宏 dump) 拿到视图名 []
-[05:57:15] iter_views: 路径5(VBA 宏 dump) 拿到视图名 []
-[05:57:15] iter_views: 进入路径4 前, 尝试 draw_model.SelectionManager
-[05:57:15] iter_views: 路径4 SelectionManager=ok
-[05:57:17] iter_views: 路径4(SelectByID2 命名视图) 拿到 0 个模型视图
-[05:57:18] iter_views: 路径C SelectByID2(type only) 抛 com_error:(-2147352571, '类型不匹配。', None, 8)
-[05:57:19] iter_views: 路径C(SelectAll+SelMgr) 拿到 0 个模型视图
-[05:57:19] classify_views: 未找到任何正投影视图(ortho=0)
-[05:57:19] draw_self[top]: 视图缺失, 跳过
-[05:57:19] draw_self[front]: 视图缺失, 跳过
-[05:57:19] draw_self[right]: 视图缺失, 跳过
-[05:57:19] draw_self: 累计自绘 0 条
-[05:57:19] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[05:57:19] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[05:57:19] iter_views: 路径2 GetSheetNames 抛异常 TypeError:'tuple' object is not callable
-[05:57:19] iter_views: 路径3 draw_model.GetFirstView 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[05:57:19] iter_views: 路径3汇总 sheet_count=0 raw_top_view_count=0 model_view_count=0
-[05:57:19] iter_views: 路径5 读取 dump 抛异常 FileNotFoundError:[Errno 2] No such file or directory: 'C:/Users/LVBO_ZY/AppData/Local/Temp/aisw_view_dump_cf3abf4b.json'
-[05:57:19] iter_views: 路径5(VBA 宏 dump) 拿到视图名 []
-[05:57:19] iter_views: 路径5(VBA 宏 dump) 拿到视图名 []
-[05:57:19] iter_views: 进入路径4 前, 尝试 draw_model.SelectionManager
-[05:57:19] iter_views: 路径4 SelectionManager=ok
-[05:57:22] iter_views: 路径4(SelectByID2 命名视图) 拿到 0 个模型视图
-[05:57:22] iter_views: 路径C SelectByID2(type only) 抛 com_error:(-2147352571, '类型不匹配。', None, 8)
-[05:57:23] iter_views: 路径C(SelectAll+SelMgr) 拿到 0 个模型视图
-[05:57:23] classify_views: 未找到任何正投影视图(ortho=0)
-[05:57:23] apply_dim: dim_count 汇总 = 模型导入0 + 自绘0 + 兜底0 合计=0
-[05:57:24] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[05:57:24] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[05:57:24] iter_views: 路径2 GetSheetNames 抛异常 TypeError:'tuple' object is not callable
-[05:57:24] iter_views: 路径3 draw_model.GetFirstView 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[05:57:24] iter_views: 路径3汇总 sheet_count=0 raw_top_view_count=0 model_view_count=0
-[05:57:24] iter_views: 路径5 读取 dump 抛异常 FileNotFoundError:[Errno 2] No such file or directory: 'C:/Users/LVBO_ZY/AppData/Local/Temp/aisw_view_dump_eeecafe4.json'
-[05:57:24] iter_views: 路径5(VBA 宏 dump) 拿到视图名 []
-[05:57:24] iter_views: 路径5(VBA 宏 dump) 拿到视图名 []
-[05:57:24] iter_views: 进入路径4 前, 尝试 draw_model.SelectionManager
-[05:57:24] iter_views: 路径4 SelectionManager=ok
-[05:57:27] iter_views: 路径4(SelectByID2 命名视图) 拿到 0 个模型视图
-[05:57:27] iter_views: 路径C SelectByID2(type only) 抛 com_error:(-2147352571, '类型不匹配。', None, 8)
-[05:57:28] iter_views: 路径C(SelectAll+SelMgr) 拿到 0 个模型视图
-[05:57:28] apply_dim: 逐视图导入前, 拿到模型视图数=0
-[05:57:28] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[05:57:28] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[05:57:29] iter_views: 路径2 GetSheetNames 抛异常 TypeError:'tuple' object is not callable
-[05:57:29] iter_views: 路径3 draw_model.GetFirstView 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[05:57:29] iter_views: 路径3汇总 sheet_count=0 raw_top_view_count=0 model_view_count=0
-[05:57:29] iter_views: 路径5 读取 dump 抛异常 FileNotFoundError:[Errno 2] No such file or directory: 'C:/Users/LVBO_ZY/AppData/Local/Temp/aisw_view_dump_28079694.json'
-[05:57:29] iter_views: 路径5(VBA 宏 dump) 拿到视图名 []
-[05:57:29] iter_views: 路径5(VBA 宏 dump) 拿到视图名 []
-[05:57:29] iter_views: 进入路径4 前, 尝试 draw_model.SelectionManager
-[05:57:29] iter_views: 路径4 SelectionManager=ok
-[05:57:32] iter_views: 路径4(SelectByID2 命名视图) 拿到 0 个模型视图
-[05:57:32] iter_views: 路径C SelectByID2(type only) 抛 com_error:(-2147352571, '类型不匹配。', None, 8)
-[05:57:33] iter_views: 路径C(SelectAll+SelMgr) 拿到 0 个模型视图
-[05:57:33] apply_dim: InsertModelAnnotations3 后计数 DisplayDimension=0
-[05:57:33] apply_dim: 进入路径E 判定 imported=0 app_available=True
-[05:57:33] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[05:57:33] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[05:57:33] iter_views: 路径2 GetSheetNames 抛异常 TypeError:'tuple' object is not callable
-[05:57:33] iter_views: 路径3 draw_model.GetFirstView 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[05:57:33] iter_views: 路径3汇总 sheet_count=0 raw_top_view_count=0 model_view_count=0
-[05:57:33] iter_views: 路径5 读取 dump 抛异常 FileNotFoundError:[Errno 2] No such file or directory: 'C:/Users/LVBO_ZY/AppData/Local/Temp/aisw_view_dump_e9df1803.json'
-[05:57:33] iter_views: 路径5(VBA 宏 dump) 拿到视图名 []
-[05:57:33] iter_views: 路径5(VBA 宏 dump) 拿到视图名 []
-[05:57:33] iter_views: 进入路径4 前, 尝试 draw_model.SelectionManager
-[05:57:33] iter_views: 路径4 SelectionManager=ok
-[05:57:36] iter_views: 路径4(SelectByID2 命名视图) 拿到 0 个模型视图
-[05:57:36] iter_views: 路径C SelectByID2(type only) 抛 com_error:(-2147352571, '类型不匹配。', None, 8)
-[05:57:36] iter_views: 路径C(SelectAll+SelMgr) 拿到 0 个模型视图
-[05:57:36] apply_dim: 路径E fallback_views 数量=0
-[05:57:36] apply_dim: 路径E 类型选 DRAWINGVIEW 抛 com_error:(-2147352571, '类型不匹配。', None, 8)
-[05:57:36] apply_dim: 路径E 类型选 DRAWINGVIEW=fail, 准备直发 RunCommand
-[05:57:37] apply_dim: 路径E RunCommand(cmd=1668) 返回=True
-[05:57:37] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[05:57:37] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[05:57:37] iter_views: 路径2 GetSheetNames 抛异常 TypeError:'tuple' object is not callable
-[05:57:37] iter_views: 路径3 draw_model.GetFirstView 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[05:57:37] iter_views: 路径3汇总 sheet_count=0 raw_top_view_count=0 model_view_count=0
-[05:57:37] iter_views: 路径5 读取 dump 抛异常 FileNotFoundError:[Errno 2] No such file or directory: 'C:/Users/LVBO_ZY/AppData/Local/Temp/aisw_view_dump_9233f91a.json'
-[05:57:37] iter_views: 路径5(VBA 宏 dump) 拿到视图名 []
-[05:57:37] iter_views: 路径5(VBA 宏 dump) 拿到视图名 []
-[05:57:37] iter_views: 进入路径4 前, 尝试 draw_model.SelectionManager
-[05:57:37] iter_views: 路径4 SelectionManager=ok
-[05:57:40] iter_views: 路径4(SelectByID2 命名视图) 拿到 0 个模型视图
-[05:57:40] iter_views: 路径C SelectByID2(type only) 抛 com_error:(-2147352571, '类型不匹配。', None, 8)
-[05:57:41] iter_views: 路径C(SelectAll+SelMgr) 拿到 0 个模型视图
-[05:57:41] apply_dim: 路径E(RunCommand InsertModelItems) 尝试=1 成功=1 命令后 DisplayDimension=0
-[05:57:41] apply_dim: 路径F 前置状态 imported=0 app_is_none=False
-[05:57:41] apply_dim: 进入路径F 判定 imported=0 app_available=True
-[05:57:41] path_F: dump 文件不存在, 宏体根本没跑到 main (RunMacro2 静默无痕失败)
-[05:57:41] path_F: VBA 宏 InsertModelAnnotations3 完成 phase='' imported=0 views=0 err='no_dump_macro_not_started'
-[05:57:41] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[05:57:41] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[05:57:41] iter_views: 路径2 GetSheetNames 抛异常 TypeError:'tuple' object is not callable
-[05:57:41] iter_views: 路径3 draw_model.GetFirstView 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[05:57:41] iter_views: 路径3汇总 sheet_count=0 raw_top_view_count=0 model_view_count=0
-[05:57:41] iter_views: 路径5 读取 dump 抛异常 FileNotFoundError:[Errno 2] No such file or directory: 'C:/Users/LVBO_ZY/AppData/Local/Temp/aisw_view_dump_f5f9a436.json'
-[05:57:41] iter_views: 路径5(VBA 宏 dump) 拿到视图名 []
-[05:57:41] iter_views: 路径5(VBA 宏 dump) 拿到视图名 []
-[05:57:41] iter_views: 进入路径4 前, 尝试 draw_model.SelectionManager
-[05:57:41] iter_views: 路径4 SelectionManager=ok
-[05:57:41] iter_views: 路径4(SelectByID2 命名视图) 拿到 0 个模型视图
-[05:57:41] iter_views: 路径C SelectByID2(type only) 抛 com_error:(-2147352571, '类型不匹配。', None, 8)
-[05:57:41] iter_views: 路径C(SelectAll+SelMgr) 拿到 0 个模型视图
-[05:57:41] apply_dim: 路径F(VBA InsertModelAnnotations3) 宏内 imported=0 views=0 命令后 DisplayDimension=0 err='no_dump_macro_not_started'
-[05:57:41] draw_self: EditRebuild3 抛异常 TypeError: 'bool' object is not callable
-[05:57:41] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[05:57:41] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[05:57:41] iter_views: 路径2 GetSheetNames 抛异常 TypeError:'tuple' object is not callable
-[05:57:41] iter_views: 路径3 draw_model.GetFirstView 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[05:57:41] iter_views: 路径3汇总 sheet_count=0 raw_top_view_count=0 model_view_count=0
-[05:57:41] iter_views: 路径5 读取 dump 抛异常 FileNotFoundError:[Errno 2] No such file or directory: 'C:/Users/LVBO_ZY/AppData/Local/Temp/aisw_view_dump_1b913150.json'
-[05:57:41] iter_views: 路径5(VBA 宏 dump) 拿到视图名 []
-[05:57:41] iter_views: 路径5(VBA 宏 dump) 拿到视图名 []
-[05:57:41] iter_views: 进入路径4 前, 尝试 draw_model.SelectionManager
-[05:57:41] iter_views: 路径4 SelectionManager=ok
-[05:57:41] iter_views: 路径4(SelectByID2 命名视图) 拿到 0 个模型视图
-[05:57:41] iter_views: 路径C SelectByID2(type only) 抛 com_error:(-2147352571, '类型不匹配。', None, 8)
-[05:57:42] iter_views: 路径C(SelectAll+SelMgr) 拿到 0 个模型视图
-[05:57:42] classify_views: 未找到任何正投影视图(ortho=0)
-[05:57:42] draw_self[top]: 视图缺失, 跳过
-[05:57:42] draw_self[front]: 视图缺失, 跳过
-[05:57:42] draw_self[right]: 视图缺失, 跳过
-[05:57:42] draw_self: 累计自绘 0 条
-[05:57:42] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[05:57:42] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[05:57:42] iter_views: 路径2 GetSheetNames 抛异常 TypeError:'tuple' object is not callable
-[05:57:42] iter_views: 路径3 draw_model.GetFirstView 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[05:57:42] iter_views: 路径3汇总 sheet_count=0 raw_top_view_count=0 model_view_count=0
-[05:57:42] iter_views: 路径5 读取 dump 抛异常 FileNotFoundError:[Errno 2] No such file or directory: 'C:/Users/LVBO_ZY/AppData/Local/Temp/aisw_view_dump_eeef15f5.json'
-[05:57:42] iter_views: 路径5(VBA 宏 dump) 拿到视图名 []
-[05:57:42] iter_views: 路径5(VBA 宏 dump) 拿到视图名 []
-[05:57:42] iter_views: 进入路径4 前, 尝试 draw_model.SelectionManager
-[05:57:42] iter_views: 路径4 SelectionManager=ok
-[05:57:42] iter_views: 路径4(SelectByID2 命名视图) 拿到 0 个模型视图
-[05:57:42] iter_views: 路径C SelectByID2(type only) 抛 com_error:(-2147352571, '类型不匹配。', None, 8)
-[05:57:42] iter_views: 路径C(SelectAll+SelMgr) 拿到 0 个模型视图
-[05:57:42] classify_views: 未找到任何正投影视图(ortho=0)
-[05:57:42] apply_dim: dim_count 汇总 = 模型导入0 + 自绘0 + 兜底0 合计=0
+[06:10:22] create_drawing: 入口
+[06:10:25] insert_views: Create3rdAngleViews2 返回 True part_path=C:\Users\LVBO_ZY\PycharmProjects\AI-Enterprise\workspace\outputs\parts\ai_part_v029.SLDPRT
+[06:10:25] insert_views: 创建后视图计数 = -1
+[06:10:25] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[06:10:25] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[06:10:25] iter_views: 路径2 GetSheetNames 抛异常 TypeError:'tuple' object is not callable
+[06:10:25] iter_views: 路径3 draw_model.GetFirstView 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[06:10:25] iter_views: 路径3汇总 sheet_count=0 raw_top_view_count=0 model_view_count=0
+[06:10:25] iter_views: 路径5 读取 dump 抛异常 FileNotFoundError:[Errno 2] No such file or directory: 'C:/Users/LVBO_ZY/AppData/Local/Temp/aisw_view_dump_ee1749b9.json'
+[06:10:25] iter_views: 路径5(VBA 宏 dump) 拿到视图名 []
+[06:10:25] iter_views: 路径5(VBA 宏 dump) 拿到视图名 []
+[06:10:25] iter_views: 进入路径4 前, 尝试 draw_model.SelectionManager
+[06:10:25] iter_views: 路径4 SelectionManager=ok
+[06:10:27] iter_views: 路径4(SelectByID2 命名视图) 拿到 0 个模型视图
+[06:10:28] iter_views: 路径C SelectByID2(type only) 抛 com_error:(-2147352571, '类型不匹配。', None, 8)
+[06:10:29] iter_views: 路径C(SelectAll+SelMgr) 拿到 0 个模型视图
+[06:10:29] apply_dim: 逐视图导入前, 拿到模型视图数=0
+[06:10:29] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[06:10:29] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[06:10:29] iter_views: 路径2 GetSheetNames 抛异常 TypeError:'tuple' object is not callable
+[06:10:29] iter_views: 路径3 draw_model.GetFirstView 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[06:10:29] iter_views: 路径3汇总 sheet_count=0 raw_top_view_count=0 model_view_count=0
+[06:10:29] iter_views: 路径5 读取 dump 抛异常 FileNotFoundError:[Errno 2] No such file or directory: 'C:/Users/LVBO_ZY/AppData/Local/Temp/aisw_view_dump_3c042d62.json'
+[06:10:29] iter_views: 路径5(VBA 宏 dump) 拿到视图名 []
+[06:10:29] iter_views: 路径5(VBA 宏 dump) 拿到视图名 []
+[06:10:29] iter_views: 进入路径4 前, 尝试 draw_model.SelectionManager
+[06:10:29] iter_views: 路径4 SelectionManager=ok
+[06:10:32] iter_views: 路径4(SelectByID2 命名视图) 拿到 0 个模型视图
+[06:10:33] iter_views: 路径C SelectByID2(type only) 抛 com_error:(-2147352571, '类型不匹配。', None, 8)
+[06:10:34] iter_views: 路径C(SelectAll+SelMgr) 拿到 0 个模型视图
+[06:10:34] apply_dim: InsertModelAnnotations3 后计数 DisplayDimension=0
+[06:10:34] apply_dim: 进入路径E 判定 imported=0 app_available=True
+[06:10:34] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[06:10:34] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[06:10:34] iter_views: 路径2 GetSheetNames 抛异常 TypeError:'tuple' object is not callable
+[06:10:34] iter_views: 路径3 draw_model.GetFirstView 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[06:10:34] iter_views: 路径3汇总 sheet_count=0 raw_top_view_count=0 model_view_count=0
+[06:10:34] iter_views: 路径5 读取 dump 抛异常 FileNotFoundError:[Errno 2] No such file or directory: 'C:/Users/LVBO_ZY/AppData/Local/Temp/aisw_view_dump_492ab633.json'
+[06:10:34] iter_views: 路径5(VBA 宏 dump) 拿到视图名 []
+[06:10:34] iter_views: 路径5(VBA 宏 dump) 拿到视图名 []
+[06:10:34] iter_views: 进入路径4 前, 尝试 draw_model.SelectionManager
+[06:10:34] iter_views: 路径4 SelectionManager=ok
+[06:10:36] iter_views: 路径4(SelectByID2 命名视图) 拿到 0 个模型视图
+[06:10:36] iter_views: 路径C SelectByID2(type only) 抛 com_error:(-2147352571, '类型不匹配。', None, 8)
+[06:10:36] iter_views: 路径C(SelectAll+SelMgr) 拿到 0 个模型视图
+[06:10:37] apply_dim: 路径E fallback_views 数量=0
+[06:10:37] apply_dim: 路径E 类型选 DRAWINGVIEW 抛 com_error:(-2147352571, '类型不匹配。', None, 8)
+[06:10:37] apply_dim: 路径E 类型选 DRAWINGVIEW=fail, 准备直发 RunCommand
+[06:10:37] apply_dim: 路径E RunCommand(cmd=1668) 返回=True
+[06:10:37] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[06:10:37] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[06:10:37] iter_views: 路径2 GetSheetNames 抛异常 TypeError:'tuple' object is not callable
+[06:10:38] iter_views: 路径3 draw_model.GetFirstView 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[06:10:38] iter_views: 路径3汇总 sheet_count=0 raw_top_view_count=0 model_view_count=0
+[06:10:38] iter_views: 路径5 读取 dump 抛异常 FileNotFoundError:[Errno 2] No such file or directory: 'C:/Users/LVBO_ZY/AppData/Local/Temp/aisw_view_dump_d1e71964.json'
+[06:10:38] iter_views: 路径5(VBA 宏 dump) 拿到视图名 []
+[06:10:38] iter_views: 路径5(VBA 宏 dump) 拿到视图名 []
+[06:10:38] iter_views: 进入路径4 前, 尝试 draw_model.SelectionManager
+[06:10:38] iter_views: 路径4 SelectionManager=ok
+[06:10:41] iter_views: 路径4(SelectByID2 命名视图) 拿到 0 个模型视图
+[06:10:41] iter_views: 路径C SelectByID2(type only) 抛 com_error:(-2147352571, '类型不匹配。', None, 8)
+[06:10:42] iter_views: 路径C(SelectAll+SelMgr) 拿到 0 个模型视图
+[06:10:42] apply_dim: 路径E(RunCommand InsertModelItems) 尝试=1 成功=1 命令后 DisplayDimension=0
+[06:10:42] apply_dim: 路径F 前置状态 imported=0 app_is_none=False
+[06:10:42] apply_dim: 进入路径F 判定 imported=0 app_available=True
+[06:10:42] path_F: RunMacro2 proc='main' ok=True err_ref=0 msg=
+[06:10:42] path_F: dump 文件不存在, 宏体根本没跑到 main (RunMacro2 静默无痕失败)
+[06:10:42] path_F: VBA 宏 InsertModelAnnotations3 完成 phase='' imported=0 views=0 err='no_dump_macro_not_started'
+[06:10:42] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[06:10:42] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[06:10:43] iter_views: 路径2 GetSheetNames 抛异常 TypeError:'tuple' object is not callable
+[06:10:43] iter_views: 路径3 draw_model.GetFirstView 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[06:10:43] iter_views: 路径3汇总 sheet_count=0 raw_top_view_count=0 model_view_count=0
+[06:10:43] iter_views: 路径5 读取 dump 抛异常 FileNotFoundError:[Errno 2] No such file or directory: 'C:/Users/LVBO_ZY/AppData/Local/Temp/aisw_view_dump_8bab0688.json'
+[06:10:43] iter_views: 路径5(VBA 宏 dump) 拿到视图名 []
+[06:10:43] iter_views: 路径5(VBA 宏 dump) 拿到视图名 []
+[06:10:43] iter_views: 进入路径4 前, 尝试 draw_model.SelectionManager
+[06:10:43] iter_views: 路径4 SelectionManager=ok
+[06:10:46] iter_views: 路径4(SelectByID2 命名视图) 拿到 0 个模型视图
+[06:10:46] iter_views: 路径C SelectByID2(type only) 抛 com_error:(-2147352571, '类型不匹配。', None, 8)
+[06:10:47] iter_views: 路径C(SelectAll+SelMgr) 拿到 0 个模型视图
+[06:10:47] apply_dim: 路径F(VBA InsertModelAnnotations3) 宏内 imported=0 views=0 命令后 DisplayDimension=0 err='no_dump_macro_not_started'
+[06:10:47] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[06:10:47] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[06:10:47] iter_views: 路径2 GetSheetNames 抛异常 TypeError:'tuple' object is not callable
+[06:10:47] iter_views: 路径3 draw_model.GetFirstView 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[06:10:47] iter_views: 路径3汇总 sheet_count=0 raw_top_view_count=0 model_view_count=0
+[06:10:48] iter_views: 路径5 读取 dump 抛异常 FileNotFoundError:[Errno 2] No such file or directory: 'C:/Users/LVBO_ZY/AppData/Local/Temp/aisw_view_dump_27ca0690.json'
+[06:10:48] iter_views: 路径5(VBA 宏 dump) 拿到视图名 []
+[06:10:48] iter_views: 路径5(VBA 宏 dump) 拿到视图名 []
+[06:10:48] iter_views: 进入路径4 前, 尝试 draw_model.SelectionManager
+[06:10:48] iter_views: 路径4 SelectionManager=ok
+[06:10:51] iter_views: 路径4(SelectByID2 命名视图) 拿到 0 个模型视图
+[06:10:51] iter_views: 路径C SelectByID2(type only) 抛 com_error:(-2147352571, '类型不匹配。', None, 8)
+[06:10:52] iter_views: 路径C(SelectAll+SelMgr) 拿到 0 个模型视图
+[06:10:52] classify_views: 未找到任何正投影视图(ortho=0)
+[06:10:52] draw_self[top]: 视图缺失, 跳过
+[06:10:52] draw_self[front]: 视图缺失, 跳过
+[06:10:52] draw_self[right]: 视图缺失, 跳过
+[06:10:52] draw_self: 累计自绘 0 条
+[06:10:52] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[06:10:52] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[06:10:52] iter_views: 路径2 GetSheetNames 抛异常 TypeError:'tuple' object is not callable
+[06:10:52] iter_views: 路径3 draw_model.GetFirstView 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[06:10:52] iter_views: 路径3汇总 sheet_count=0 raw_top_view_count=0 model_view_count=0
+[06:10:52] iter_views: 路径5 读取 dump 抛异常 FileNotFoundError:[Errno 2] No such file or directory: 'C:/Users/LVBO_ZY/AppData/Local/Temp/aisw_view_dump_5bdb5338.json'
+[06:10:52] iter_views: 路径5(VBA 宏 dump) 拿到视图名 []
+[06:10:52] iter_views: 路径5(VBA 宏 dump) 拿到视图名 []
+[06:10:52] iter_views: 进入路径4 前, 尝试 draw_model.SelectionManager
+[06:10:53] iter_views: 路径4 SelectionManager=ok
+[06:10:56] iter_views: 路径4(SelectByID2 命名视图) 拿到 0 个模型视图
+[06:10:56] iter_views: 路径C SelectByID2(type only) 抛 com_error:(-2147352571, '类型不匹配。', None, 8)
+[06:10:57] iter_views: 路径C(SelectAll+SelMgr) 拿到 0 个模型视图
+[06:10:57] classify_views: 未找到任何正投影视图(ortho=0)
+[06:10:57] apply_dim: dim_count 汇总 = 模型导入0 + 自绘0 + 兜底0 合计=0
+[06:10:57] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[06:10:57] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[06:10:57] iter_views: 路径2 GetSheetNames 抛异常 TypeError:'tuple' object is not callable
+[06:10:58] iter_views: 路径3 draw_model.GetFirstView 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[06:10:58] iter_views: 路径3汇总 sheet_count=0 raw_top_view_count=0 model_view_count=0
+[06:10:58] iter_views: 路径5 读取 dump 抛异常 FileNotFoundError:[Errno 2] No such file or directory: 'C:/Users/LVBO_ZY/AppData/Local/Temp/aisw_view_dump_f5c04da5.json'
+[06:10:58] iter_views: 路径5(VBA 宏 dump) 拿到视图名 []
+[06:10:58] iter_views: 路径5(VBA 宏 dump) 拿到视图名 []
+[06:10:58] iter_views: 进入路径4 前, 尝试 draw_model.SelectionManager
+[06:10:58] iter_views: 路径4 SelectionManager=ok
+[06:11:00] iter_views: 路径4(SelectByID2 命名视图) 拿到 0 个模型视图
+[06:11:01] iter_views: 路径C SelectByID2(type only) 抛 com_error:(-2147352571, '类型不匹配。', None, 8)
+[06:11:01] iter_views: 路径C(SelectAll+SelMgr) 拿到 0 个模型视图
+[06:11:01] apply_dim: 逐视图导入前, 拿到模型视图数=0
+[06:11:01] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[06:11:01] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[06:11:01] iter_views: 路径2 GetSheetNames 抛异常 TypeError:'tuple' object is not callable
+[06:11:01] iter_views: 路径3 draw_model.GetFirstView 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[06:11:02] iter_views: 路径3汇总 sheet_count=0 raw_top_view_count=0 model_view_count=0
+[06:11:02] iter_views: 路径5 读取 dump 抛异常 FileNotFoundError:[Errno 2] No such file or directory: 'C:/Users/LVBO_ZY/AppData/Local/Temp/aisw_view_dump_bbe926c8.json'
+[06:11:02] iter_views: 路径5(VBA 宏 dump) 拿到视图名 []
+[06:11:02] iter_views: 路径5(VBA 宏 dump) 拿到视图名 []
+[06:11:02] iter_views: 进入路径4 前, 尝试 draw_model.SelectionManager
+[06:11:02] iter_views: 路径4 SelectionManager=ok
+[06:11:04] iter_views: 路径4(SelectByID2 命名视图) 拿到 0 个模型视图
+[06:11:04] iter_views: 路径C SelectByID2(type only) 抛 com_error:(-2147352571, '类型不匹配。', None, 8)
+[06:11:04] iter_views: 路径C(SelectAll+SelMgr) 拿到 0 个模型视图
+[06:11:04] apply_dim: InsertModelAnnotations3 后计数 DisplayDimension=0
+[06:11:04] apply_dim: 进入路径E 判定 imported=0 app_available=True
+[06:11:04] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[06:11:04] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[06:11:04] iter_views: 路径2 GetSheetNames 抛异常 TypeError:'tuple' object is not callable
+[06:11:04] iter_views: 路径3 draw_model.GetFirstView 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[06:11:04] iter_views: 路径3汇总 sheet_count=0 raw_top_view_count=0 model_view_count=0
+[06:11:04] iter_views: 路径5 读取 dump 抛异常 FileNotFoundError:[Errno 2] No such file or directory: 'C:/Users/LVBO_ZY/AppData/Local/Temp/aisw_view_dump_df9aedbe.json'
+[06:11:04] iter_views: 路径5(VBA 宏 dump) 拿到视图名 []
+[06:11:04] iter_views: 路径5(VBA 宏 dump) 拿到视图名 []
+[06:11:04] iter_views: 进入路径4 前, 尝试 draw_model.SelectionManager
+[06:11:04] iter_views: 路径4 SelectionManager=ok
+[06:11:05] iter_views: 路径4(SelectByID2 命名视图) 拿到 0 个模型视图
+[06:11:05] iter_views: 路径C SelectByID2(type only) 抛 com_error:(-2147352571, '类型不匹配。', None, 8)
+[06:11:06] iter_views: 路径C(SelectAll+SelMgr) 拿到 0 个模型视图
+[06:11:06] apply_dim: 路径E fallback_views 数量=0
+[06:11:06] apply_dim: 路径E 类型选 DRAWINGVIEW 抛 com_error:(-2147352571, '类型不匹配。', None, 8)
+[06:11:06] apply_dim: 路径E 类型选 DRAWINGVIEW=fail, 准备直发 RunCommand
+[06:11:06] apply_dim: 路径E RunCommand(cmd=1668) 返回=True
+[06:11:06] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[06:11:06] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[06:11:07] iter_views: 路径2 GetSheetNames 抛异常 TypeError:'tuple' object is not callable
+[06:11:07] iter_views: 路径3 draw_model.GetFirstView 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[06:11:07] iter_views: 路径3汇总 sheet_count=0 raw_top_view_count=0 model_view_count=0
+[06:11:07] iter_views: 路径5 读取 dump 抛异常 FileNotFoundError:[Errno 2] No such file or directory: 'C:/Users/LVBO_ZY/AppData/Local/Temp/aisw_view_dump_0ed0b986.json'
+[06:11:07] iter_views: 路径5(VBA 宏 dump) 拿到视图名 []
+[06:11:07] iter_views: 路径5(VBA 宏 dump) 拿到视图名 []
+[06:11:07] iter_views: 进入路径4 前, 尝试 draw_model.SelectionManager
+[06:11:07] iter_views: 路径4 SelectionManager=ok
+[06:11:10] iter_views: 路径4(SelectByID2 命名视图) 拿到 0 个模型视图
+[06:11:10] iter_views: 路径C SelectByID2(type only) 抛 com_error:(-2147352571, '类型不匹配。', None, 8)
+[06:11:11] iter_views: 路径C(SelectAll+SelMgr) 拿到 0 个模型视图
+[06:11:11] apply_dim: 路径E(RunCommand InsertModelItems) 尝试=1 成功=1 命令后 DisplayDimension=0
+[06:11:11] apply_dim: 路径F 前置状态 imported=0 app_is_none=False
+[06:11:11] apply_dim: 进入路径F 判定 imported=0 app_available=True
+[06:11:11] path_F: RunMacro2 proc='main' ok=True err_ref=0 msg=
+[06:11:11] path_F: dump 文件不存在, 宏体根本没跑到 main (RunMacro2 静默无痕失败)
+[06:11:11] path_F: VBA 宏 InsertModelAnnotations3 完成 phase='' imported=0 views=0 err='no_dump_macro_not_started'
+[06:11:11] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[06:11:11] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[06:11:11] iter_views: 路径2 GetSheetNames 抛异常 TypeError:'tuple' object is not callable
+[06:11:12] iter_views: 路径3 draw_model.GetFirstView 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[06:11:12] iter_views: 路径3汇总 sheet_count=0 raw_top_view_count=0 model_view_count=0
+[06:11:12] iter_views: 路径5 读取 dump 抛异常 FileNotFoundError:[Errno 2] No such file or directory: 'C:/Users/LVBO_ZY/AppData/Local/Temp/aisw_view_dump_115e2164.json'
+[06:11:12] iter_views: 路径5(VBA 宏 dump) 拿到视图名 []
+[06:11:12] iter_views: 路径5(VBA 宏 dump) 拿到视图名 []
+[06:11:12] iter_views: 进入路径4 前, 尝试 draw_model.SelectionManager
+[06:11:12] iter_views: 路径4 SelectionManager=ok
+[06:11:15] iter_views: 路径4(SelectByID2 命名视图) 拿到 0 个模型视图
+[06:11:15] iter_views: 路径C SelectByID2(type only) 抛 com_error:(-2147352571, '类型不匹配。', None, 8)
+[06:11:16] iter_views: 路径C(SelectAll+SelMgr) 拿到 0 个模型视图
+[06:11:16] apply_dim: 路径F(VBA InsertModelAnnotations3) 宏内 imported=0 views=0 命令后 DisplayDimension=0 err='no_dump_macro_not_started'
+[06:11:16] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[06:11:16] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[06:11:16] iter_views: 路径2 GetSheetNames 抛异常 TypeError:'tuple' object is not callable
+[06:11:16] iter_views: 路径3 draw_model.GetFirstView 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[06:11:16] iter_views: 路径3汇总 sheet_count=0 raw_top_view_count=0 model_view_count=0
+[06:11:16] iter_views: 路径5 读取 dump 抛异常 FileNotFoundError:[Errno 2] No such file or directory: 'C:/Users/LVBO_ZY/AppData/Local/Temp/aisw_view_dump_cf72c214.json'
+[06:11:16] iter_views: 路径5(VBA 宏 dump) 拿到视图名 []
+[06:11:16] iter_views: 路径5(VBA 宏 dump) 拿到视图名 []
+[06:11:16] iter_views: 进入路径4 前, 尝试 draw_model.SelectionManager
+[06:11:17] iter_views: 路径4 SelectionManager=ok
+[06:11:20] iter_views: 路径4(SelectByID2 命名视图) 拿到 0 个模型视图
+[06:11:20] iter_views: 路径C SelectByID2(type only) 抛 com_error:(-2147352571, '类型不匹配。', None, 8)
+[06:11:21] iter_views: 路径C(SelectAll+SelMgr) 拿到 0 个模型视图
+[06:11:21] classify_views: 未找到任何正投影视图(ortho=0)
+[06:11:21] draw_self[top]: 视图缺失, 跳过
+[06:11:21] draw_self[front]: 视图缺失, 跳过
+[06:11:21] draw_self[right]: 视图缺失, 跳过
+[06:11:21] draw_self: 累计自绘 0 条
+[06:11:21] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[06:11:21] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[06:11:21] iter_views: 路径2 GetSheetNames 抛异常 TypeError:'tuple' object is not callable
+[06:11:21] iter_views: 路径3 draw_model.GetFirstView 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[06:11:21] iter_views: 路径3汇总 sheet_count=0 raw_top_view_count=0 model_view_count=0
+[06:11:21] iter_views: 路径5 读取 dump 抛异常 FileNotFoundError:[Errno 2] No such file or directory: 'C:/Users/LVBO_ZY/AppData/Local/Temp/aisw_view_dump_055bcb0f.json'
+[06:11:21] iter_views: 路径5(VBA 宏 dump) 拿到视图名 []
+[06:11:21] iter_views: 路径5(VBA 宏 dump) 拿到视图名 []
+[06:11:21] iter_views: 进入路径4 前, 尝试 draw_model.SelectionManager
+[06:11:21] iter_views: 路径4 SelectionManager=ok
+[06:11:24] iter_views: 路径4(SelectByID2 命名视图) 拿到 0 个模型视图
+[06:11:24] iter_views: 路径C SelectByID2(type only) 抛 com_error:(-2147352571, '类型不匹配。', None, 8)
+[06:11:24] iter_views: 路径C(SelectAll+SelMgr) 拿到 0 个模型视图
+[06:11:24] classify_views: 未找到任何正投影视图(ortho=0)
+[06:11:24] apply_dim: dim_count 汇总 = 模型导入0 + 自绘0 + 兜底0 合计=0
