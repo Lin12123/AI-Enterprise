@@ -1,0 +1,274 @@
+{
+  "id": "20260815_221744_2638",
+  "title": "画一个120mm*80mm*15mm的安装板，四",
+  "status": "active",
+  "started_at": "2026-08-15T22:17:44",
+  "updated_at": "2026-08-15T22:18:50",
+  "messages": [
+    {
+      "role": "user",
+      "text": "画一个120mm*80mm*15mm的安装板，四角加直径为10的通孔四周边距10，安装板上加直径20的中心凸台，中心开直径20的通孔。沿着安装板上表面宽度方向分别在距离两边20mm处开2个宽度为8mm的通槽。再从上边面的长边中心，边距0mm处切割一个10mm*10mm*10mm的口袋，两侧各一个。安装板加圆角。",
+      "ts": "2026-08-15T22:18:50"
+    },
+    {
+      "role": "ai",
+      "text": "已生成建模计划",
+      "ts": "2026-08-15T22:18:50",
+      "type": "plan"
+    }
+  ],
+  "context": {
+    "last_plan": {
+      "version": "2.0",
+      "unit": "mm",
+      "document_type": "part",
+      "part_name": "Installation_Plate",
+      "metadata": {
+        "explicit_parameters": [
+          "create_base_plate.001.params.length",
+          "create_base_plate.001.params.width",
+          "create_base_plate.001.params.thickness",
+          "create_through_hole.002.params.diameter",
+          "create_through_hole.003.params.diameter",
+          "create_through_hole.004.params.diameter",
+          "create_through_hole.005.params.diameter",
+          "create_center_boss.006.params.diameter",
+          "create_center_boss.006.params.height",
+          "create_through_hole.007.params.diameter",
+          "cut_slot.008.params.length",
+          "cut_slot.008.params.width",
+          "cut_slot.008.params.direction",
+          "cut_slot.009.params.length",
+          "cut_slot.009.params.width",
+          "cut_slot.009.params.direction",
+          "cut_rectangle_pocket.010.params.length",
+          "cut_rectangle_pocket.010.params.width",
+          "cut_rectangle_pocket.010.params.depth"
+        ],
+        "inferred_parameters": [
+          "create_base_plate.001.params.plane",
+          "create_through_hole.002.params.center",
+          "create_through_hole.003.params.center",
+          "create_through_hole.004.params.center",
+          "create_through_hole.005.params.center",
+          "create_center_boss.006.params.host",
+          "create_center_boss.006.params.plane",
+          "create_through_hole.007.params.center",
+          "cut_slot.008.params.plane",
+          "cut_slot.009.params.plane",
+          "cut_rectangle_pocket.010.params.plane",
+          "create_through_hole.002.params.plane",
+          "create_through_hole.003.params.plane",
+          "create_through_hole.004.params.plane",
+          "create_through_hole.005.params.plane",
+          "create_through_hole.007.params.plane",
+          "cut_slot.008.params.center",
+          "cut_slot.009.params.center",
+          "cut_rectangle_pocket.010.params.center",
+          "add_fillet.011.params.target",
+          "add_fillet.011.params.radius",
+          "cut_slot.008.params.depth",
+          "cut_slot.009.params.depth",
+          "cut_rectangle_pocket.010_002.params.length",
+          "cut_rectangle_pocket.010_002.params.width",
+          "cut_rectangle_pocket.010_002.params.center",
+          "cut_rectangle_pocket.010_002.params.depth",
+          "cut_rectangle_pocket.010_002.params.plane",
+          "cut_corner_holes.012.params.diameter",
+          "cut_corner_holes.012.params.edge_margin"
+        ],
+        "name": "Installation_Plate",
+        "description": "",
+        "source": "local"
+      },
+      "operations": [
+        {
+          "id": "create_new_part.001",
+          "op": "create_new_part",
+          "params": {
+            "part_name": "Installation Plate"
+          }
+        },
+        {
+          "id": "create_base_plate.001",
+          "op": "create_base_plate",
+          "params": {
+            "length": 120,
+            "width": 80,
+            "thickness": 15,
+            "plane": "Top"
+          }
+        },
+        {
+          "id": "create_through_hole.002",
+          "op": "create_through_hole",
+          "params": {
+            "plane": "top_face",
+            "center": [
+              0.0,
+              0.0
+            ],
+            "diameter": 10,
+            "host": "base"
+          }
+        },
+        {
+          "id": "create_through_hole.003",
+          "op": "create_through_hole",
+          "params": {
+            "plane": "top_face",
+            "center": [
+              55.0,
+              0.0
+            ],
+            "diameter": 10,
+            "host": "base"
+          }
+        },
+        {
+          "id": "create_through_hole.004",
+          "op": "create_through_hole",
+          "params": {
+            "plane": "top_face",
+            "center": [
+              0.0,
+              35.0
+            ],
+            "diameter": 10,
+            "host": "base"
+          }
+        },
+        {
+          "id": "create_through_hole.005",
+          "op": "create_through_hole",
+          "params": {
+            "plane": "top_face",
+            "center": [
+              55.0,
+              35.0
+            ],
+            "diameter": 10,
+            "host": "base"
+          }
+        },
+        {
+          "id": "create_center_boss.006",
+          "op": "create_center_boss",
+          "params": {
+            "diameter": 20.0,
+            "height": 15,
+            "host": "base",
+            "plane": "top_face"
+          }
+        },
+        {
+          "id": "create_through_hole.007",
+          "op": "create_through_hole",
+          "params": {
+            "plane": "top_face",
+            "center": [
+              50.0,
+              30.0
+            ],
+            "diameter": 20,
+            "host": "base"
+          }
+        },
+        {
+          "id": "cut_slot.008",
+          "op": "cut_slot",
+          "params": {
+            "plane": "top_face",
+            "center": [
+              -36.0,
+              0.0
+            ],
+            "length": 80.0,
+            "width": 8,
+            "direction": "y",
+            "host": "base",
+            "depth": 7.5
+          }
+        },
+        {
+          "id": "cut_slot.009",
+          "op": "cut_slot",
+          "params": {
+            "plane": "top_face",
+            "center": [
+              36.0,
+              0.0
+            ],
+            "length": 80.0,
+            "width": 8,
+            "direction": "y",
+            "host": "base",
+            "depth": 7.5
+          }
+        },
+        {
+          "id": "cut_rectangle_pocket.010",
+          "op": "cut_rectangle_pocket",
+          "params": {
+            "plane": "top_face",
+            "center": [
+              0.0,
+              -35.0
+            ],
+            "length": 10.0,
+            "width": 10.0,
+            "depth": 10.0,
+            "host": "base"
+          }
+        },
+        {
+          "id": "cut_rectangle_pocket.010_002",
+          "op": "cut_rectangle_pocket",
+          "params": {
+            "plane": "top_face",
+            "center": [
+              0.0,
+              35.0
+            ],
+            "length": 10.0,
+            "width": 10.0,
+            "depth": 10.0,
+            "host": "base"
+          }
+        },
+        {
+          "id": "add_fillet.011",
+          "op": "add_fillet",
+          "params": {
+            "target": "outer_edges",
+            "radius": 2
+          }
+        },
+        {
+          "id": "cut_corner_holes.012",
+          "op": "cut_corner_holes",
+          "params": {
+            "diameter": 10,
+            "edge_margin": 15.0
+          }
+        },
+        {
+          "id": "rebuild_model.013",
+          "op": "rebuild_model",
+          "params": {}
+        },
+        {
+          "id": "validate_rebuild.014",
+          "op": "validate_rebuild",
+          "params": {}
+        },
+        {
+          "id": "save_sldprt.015",
+          "op": "save_sldprt",
+          "params": {}
+        }
+      ],
+      "outputs": {}
+    }
+  }
+}
