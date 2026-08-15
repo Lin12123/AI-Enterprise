@@ -1,0 +1,47 @@
+{
+  "id": "20260815_120858_2767",
+  "title": "生成一个120 100 10 mm的安装板",
+  "status": "active",
+  "started_at": "2026-08-15T12:08:58",
+  "updated_at": "2026-08-15T12:09:05",
+  "messages": [
+    {
+      "role": "user",
+      "text": "生成一个120 100 10 mm的安装板",
+      "ts": "2026-08-15T12:09:05"
+    },
+    {
+      "role": "ai",
+      "text": "已生成建模计划",
+      "ts": "2026-08-15T12:09:05",
+      "type": "plan"
+    }
+  ],
+  "context": {
+    "last_plan": {
+      "version": "2.0",
+      "unit": "mm",
+      "document_type": "part",
+      "part_name": "unnamed_part",
+      "metadata": {
+        "explicit_parameters": [],
+        "name": "unnamed_part",
+        "description": "",
+        "source": "local",
+        "inferred_parameters": []
+      },
+      "operations": [
+        {
+          "id": "create_base_plate.001",
+          "op": "create_base_plate",
+          "params": {
+            "length": 120,
+            "width": 100,
+            "thickness": 10
+          }
+        }
+      ],
+      "outputs": {}
+    }
+  }
+}
