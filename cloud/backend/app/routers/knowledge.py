@@ -101,9 +101,9 @@ async def import_knowledge(
             standard_id = row["id"]
         else:
             cur = conn.execute(
-                "INSERT INTO standard(standard_no, standard_type, title, version, source)"
-                " VALUES(?,?,?,?,?)",
-                (standard_no, standard_type or None, title or None, version or None, source),
+                "INSERT INTO standard(standard_no, standard_type, title, version, source, status)"
+                " VALUES(?,?,?,?,?,?)",
+                (standard_no, standard_type or None, title or None, version or None, source, "draft"),
             )
             standard_id = cur.lastrowid
 
