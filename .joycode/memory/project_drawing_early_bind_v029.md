@@ -1,6 +1,8 @@
 ---
-name: 出图早绑定迭代与 v032 回退决策
-description: AI-Enterprise 3D转2D出图 draw早绑定 v029→v032 根因链；v032放弃draw整体早绑定改用_sw_invoke局部安全取值
+name: 出图早绑定迭代与 v033 卡点转移
+description: >-
+  AI-Enterprise 3D转2D出图 draw早绑定 v029→v033
+  根因链；v032放弃draw整体早绑定改用_sw_invoke；v033卡点从建/读视图转到标尺寸
 type: project
 ---
 

@@ -1808,10 +1808,11 @@ def _iter_model_views(draw_model: object, app: object = None) -> list:
 
 def _view_outline(view: object) -> tuple:
     """取视图在图纸坐标系下的外轮廓 (xmin, ymin, xmax, ymax, cx, cy)(米)。取不到返回 None。"""
-    try:
-        box = view.GetOutline()
-    except Exception as exc:
-        _dbg(f"view_outline: GetOutline 抛异常 {type(exc).__name__}: {exc}")
+    # v033: GetOutline 在 late-bind 下同样被误当属性(返回 tuple, 再 `()` 调用报
+    # 'tuple object is not callable', 见 last_run.log)。走 _sw_invoke 局部安全取值。
+    box = _sw_invoke(view, "GetOutline")
+    if box is None:
+        _dbg("view_outline: GetOutline 取值失败(None), 跳过该视图")
         return None
     try:
         xmin, ymin, xmax, ymax = (float(v) for v in box[:4])
@@ -2124,16 +2125,21 @@ def _count_display_dimensions(draw_model: object, app: object = None) -> int:
         )
         model_views = []
     for view in model_views:
-        try:
-            dim = view.GetFirstDisplayDimension5()
-        except BaseException:
-            dim = None
+        # v033: GetFirstDisplayDimension5/GetNext5 是 late-bind 无参方法, 直接
+        # `view.GetFirstDisplayDimension5()` 可能被当属性返回 tuple 再触发
+        # 'tuple object is not callable', 或抛异常被吞成 None → 计数恒 0,
+        # 误判\"尺寸没导进来\"从而触发全部兜底路径。改用 _sw_invoke 安全取值,
+        # 并按视图落诊断日志区分\"视图本就无尺寸\" vs \"取值挂了\"。
+        vname = _sw_invoke(view, "GetName2")
+        dim = _sw_invoke(view, "GetFirstDisplayDimension5")
+        view_cnt = 0
         while dim is not None:
             total += 1
-            try:
-                dim = dim.GetNext5()
-            except BaseException:
-                dim = None
+            view_cnt += 1
+            nxt = _sw_invoke(dim, "GetNext5")
+            # GetNext5 到末尾会返回 None; _sw_invoke 异常也返回 None, 二者都停
+            dim = nxt
+        _dbg(f"count_display: 视图[{vname}] 显示尺寸={view_cnt}")
     return total
 
 
@@ -2182,8 +2188,12 @@ def _apply_dimensions_and_tolerance(app: object, draw_model: object, rules: list
     try:
         ext = draw_model.Extension
         ext.InsertModelAnnotations3(0, _SW_INSERT_ALL_DIMENSIONS, True, False, False, False)
-    except Exception:
-        pass
+        _dbg("apply_dim: 文档层 ext.InsertModelAnnotations3 调用未抛异常")
+    except BaseException as exc:
+        _dbg(
+            f"apply_dim: 文档层 ext.InsertModelAnnotations3 抛 {type(exc).__name__}:{exc}",
+            summary=True,
+        )
 
     # 无论文档层调用是否成功，都再逐视图补一次(某些版本文档层不生效)，
     # 保证程序化建模的"未标记"尺寸也能被导入。逐视图导入前必须先激活该视图，
@@ -2194,18 +2204,25 @@ def _apply_dimensions_and_tolerance(app: object, draw_model: object, rules: list
         model_views = _iter_model_views(draw_model, app)
         _dbg(f"apply_dim: 逐视图导入前, 拿到模型视图数={len(model_views)}")
         for view in model_views:
-            try:
-                name = str(view.GetName2())
-                if name:
-                    draw_model.ActivateView(name)
-            except Exception:
-                pass
+            # v033: GetName2 走 _sw_invoke 防 late-bind tuple 坑; 激活视图后
+            # 再逐视图 InsertModelAnnotations3, 异常落 summary 日志(不再 pass 吞),
+            # 用来分辨\"命令抛错\"(InvokeTypes 白名单) vs \"命令成功但模型无尺寸可导\"。
+            name = _sw_invoke(view, "GetName2")
+            if name:
+                try:
+                    draw_model.ActivateView(str(name))
+                except BaseException as exc:
+                    _dbg(f"apply_dim: ActivateView[{name}] 抛 {type(exc).__name__}:{exc}")
             try:
                 view.InsertModelAnnotations3(0, _SW_INSERT_ALL_DIMENSIONS, False, False, False, False)
-            except Exception:
-                pass
-    except Exception:
-        pass
+                _dbg(f"apply_dim: 视图[{name}] InsertModelAnnotations3 调用未抛异常")
+            except BaseException as exc:
+                _dbg(
+                    f"apply_dim: 视图[{name}] InsertModelAnnotations3 抛 {type(exc).__name__}:{exc}",
+                    summary=True,
+                )
+    except BaseException as exc:
+        _dbg(f"apply_dim: 逐视图导入外层抛 {type(exc).__name__}:{exc}", summary=True)
 
     try:
         draw_model.EditRebuild3()
