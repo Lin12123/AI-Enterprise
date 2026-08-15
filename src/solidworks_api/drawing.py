@@ -65,10 +65,15 @@ def _dbg_flush() -> str:
 
 
 def _dbg_summary_text() -> str:
-    """成果卡片可见的\"最关键 3 行\"，避免刷屏。"""
+    """成果卡片可见的关键诊断行。
+
+    v023 教训: 之前 [:6] 硬截断只显示前 6 条, 用户诊断消息只能看到路径 0-5,
+    路径 4/C/E 的加固日志全部被截掉, 完全误导排查方向。现在放开到 30 条,
+    足够覆盖 5→4→C→E 完整轨迹, 单行成果卡片挤但比信息缺失强。
+    """
     if not _DBG_SUMMARY:
         return ""
-    return " | ".join(_DBG_SUMMARY[:6])
+    return " | ".join(_DBG_SUMMARY[:30])
 
 
 # SolidWorks 文档类型常量(swDocumentTypes_e)
