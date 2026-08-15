@@ -152,11 +152,22 @@ def _validate_metadata_parameter_paths(plan: FeaturePlan, paths: set[str], field
     errors: list[str] = []
     operations = {operation.id: operation for operation in plan.operations}
     for path in sorted(paths):
-        parts = path.split(".")
-        if len(parts) != 3 or parts[1] != "params":
+        # Parameter paths have the form ``<operation_id>.params.<parameter>``.
+        # The operation id itself may legitimately contain dots (local models
+        # emit ids such as ``create_base_plate.001``), so a naive
+        # ``split(".")`` would incorrectly count 4+ segments and reject valid
+        # paths. Split on the ``.params.`` separator instead, keeping the
+        # operation id (which may contain dots) intact.
+        separator = ".params."
+        marker = path.find(separator)
+        if marker < 0:
             errors.append(f"metadata.{field_name} contains invalid parameter path: {path}")
             continue
-        operation_id, _, parameter_name = parts
+        operation_id = path[:marker]
+        parameter_name = path[marker + len(separator) :]
+        if not operation_id or not parameter_name or "." in parameter_name:
+            errors.append(f"metadata.{field_name} contains invalid parameter path: {path}")
+            continue
         operation = operations.get(operation_id)
         if operation is None:
             errors.append(f"metadata.{field_name} references unknown operation id: {path}")

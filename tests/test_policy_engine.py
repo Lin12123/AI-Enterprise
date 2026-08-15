@@ -391,6 +391,33 @@ class TestPolicyEngine(unittest.TestCase):
         self.assertFalse(result.allowed)
         self.assertTrue(any(v.code == "metadata" and "missing operation parameter" in v.message for v in result.violations), result.violations)
 
+    def test_metadata_parameter_paths_accept_dotted_operation_ids(self):
+        # Local 7B models emit operation ids that contain a dot (e.g.
+        # ``create_base_plate.001``). A parameter path like
+        # ``create_base_plate.001.params.length`` therefore has 4 dot-separated
+        # segments; the validator must split on ``.params.`` (not count 3
+        # segments) so these legitimate paths are not falsely rejected as
+        # "invalid parameter path".
+        plan = complete_p0_plan()
+        target_op = plan["operations"][3]
+        dotted_id = "extrude_boss.004"
+        target_op["id"] = dotted_id
+        param_name = next(iter(target_op["params"]), None)
+        self.assertIsNotNone(param_name, "fixture operation must expose at least one param")
+        plan["metadata"] = {
+            "name": "p0_complete_part",
+            "source": "local",
+            "inferred_parameters": [f"{dotted_id}.params.{param_name}"],
+            "explicit_parameters": [],
+        }
+
+        result = PolicyEngine().validate(plan)
+
+        self.assertFalse(
+            any(v.code == "metadata" and "invalid parameter path" in v.message for v in result.violations),
+            result.violations,
+        )
+
     def test_offcenter_hole_with_left_edge_distance_coordinate_is_allowed(self):
         plan = complete_p0_plan()
         plan["operations"] = [
