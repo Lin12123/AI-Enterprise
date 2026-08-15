@@ -67,13 +67,17 @@ def _dbg_flush() -> str:
 def _dbg_summary_text() -> str:
     """成果卡片可见的关键诊断行。
 
-    v023 教训: 之前 [:6] 硬截断只显示前 6 条, 用户诊断消息只能看到路径 0-5,
-    路径 4/C/E 的加固日志全部被截掉, 完全误导排查方向。现在放开到 30 条,
-    足够覆盖 5→4→C→E 完整轨迹, 单行成果卡片挤但比信息缺失强。
+    v023 教训: [:6] 硬截断只显示前 6 条, 路径 4/C/E 全被截掉。
+    v025 教训: [:30] 依然被 iter_views 循环刷屏填满 (path E 无视图分支会
+    再调一次 _iter_model_views, 每次 5 条 summary; 加上 EditRebuild3 也会
+    触发多轮), 结果新加的路径 F 诊断挤不进前 30 条。
+    v026: 改为取**最新 30 条** (_DBG_SUMMARY[-30:]), 因为真机排查最关心
+    的永远是最后一步执行到哪 (路径 E → 路径 F → 兜底自绘), 前面的
+    iter_views 失败已经稳定重复很多轮不需要再看。
     """
     if not _DBG_SUMMARY:
         return ""
-    return " | ".join(_DBG_SUMMARY[:30])
+    return " | ".join(_DBG_SUMMARY[-30:])
 
 
 # SolidWorks 文档类型常量(swDocumentTypes_e)
@@ -907,6 +911,11 @@ def _insert_annotations_via_macro(app: object) -> dict:
         "  errMsg = \"\"\n"
         "  Set swApp = Application.SldWorks\n"
         "  Set swModel = swApp.ActiveDoc\n"
+        "  ' 心跳: 一进 main 就先落 dump, 后面即便崩了 Python 也能知道宏跑起来了\n"
+        "  iFile = FreeFile\n"
+        f"  Open \"{dump_path}\" For Output As #iFile\n"
+        "  Print #iFile, \"{\"\"phase\"\":\"\"macro_started\"\",\"\"imported\"\":0,\"\"views\"\":0,\"\"error\"\":\"\"\"\"}\"\n"
+        "  Close #iFile\n"
         " If swModel Is Nothing Then\n"
         "    errMsg = \"no_active_doc\"\n"
         "    GoTo WriteResult\n"
@@ -969,7 +978,7 @@ def _insert_annotations_via_macro(app: object) -> dict:
         "WriteResult:\n"
         "  iFile = FreeFile\n"
         f"  Open \"{dump_path}\" For Output As #iFile\n"
-        "  Print #iFile, \"{\"\"imported\"\":\" & totalImported & \",\"\"doc_imported\"\":\" & docImported & \",\"\"views\"\":\" & viewCount & \",\"\"error\"\":\"\"\" & errMsg & \"\"\"}\"\n"
+        "  Print #iFile, \"{\"\"phase\"\":\"\"finished\"\",\"\"imported\"\":\" & totalImported & \",\"\"doc_imported\"\":\" & docImported & \",\"\"views\"\":\" & viewCount & \",\"\"error\"\":\"\"\" & errMsg & \"\"\"}\"\n"
         "  Close #iFile\n"
         "End Sub\n"
     )
@@ -1011,12 +1020,21 @@ def _insert_annotations_via_macro(app: object) -> dict:
     imported = 0
     views = 0
     err = ""
+    phase = ""
+    dump_exists = os.path.exists(dump_path)
     try:
         with open(dump_path, "r", encoding="utf-8") as f:
             data = json.loads(f.read().strip())
         imported = int(data.get("imported", 0) or 0)
         views = int(data.get("views", 0) or 0)
         err = str(data.get("error") or "")
+        phase = str(data.get("phase") or "")
+    except FileNotFoundError:
+        _dbg(
+            "path_F: dump 文件不存在, 宏体根本没跑到 main (RunMacro2 静默无痕失败)",
+            summary=True,
+        )
+        err = "no_dump_macro_not_started"
     except Exception as exc:
         _dbg(f"path_F: 读取 dump 抛异常 {type(exc).__name__}:{exc}", summary=True)
         err = f"read_dump_fail:{exc}"
@@ -1029,11 +1047,19 @@ def _insert_annotations_via_macro(app: object) -> dict:
             os.remove(macro_path)
         except Exception:
             pass
+    # 分级诊断: 心跳 macro_started 但没进到 finished → 宏中途崩; finished → 正常跑完
+    if phase == "macro_started":
+        _dbg(
+            "path_F: 宏跑到 heartbeat 但没到 finished, 宏体中途崩 (Extension/GetSheetNames/InsertModelAnnotations3 抛错未捕获)",
+            summary=True,
+        )
+    elif phase == "" and dump_exists:
+        _dbg("path_F: dump 存在但缺 phase 字段, 疑似写入格式异常", summary=True)
     _dbg(
-     f"path_F: VBA 宏 InsertModelAnnotations3 完成 imported={imported} views={views} err={err!r}",
+     f"path_F: VBA 宏 InsertModelAnnotations3 完成 phase={phase!r} imported={imported} views={views} err={err!r}",
         summary=True,
     )
-    return {"imported": imported, "views": views, "error": err}
+    return {"imported": imported, "views": views, "error": err, "phase": phase}
 
 
 def _iter_model_views(draw_model: object, app: object = None) -> list:
