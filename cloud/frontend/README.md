@@ -11,21 +11,28 @@ cloud/frontend/
 ├── vite.config.js
 └── src/
     ├── main.js            # 入口：注册 Pinia / Router / Element Plus
-    ├── App.vue            # 顶部导航 + 路由出口
+    ├── App.vue            # ThinkForm 布局：顶栏 + 侧边栏 + 路由出口
     ├── api/
     │   ├── client.js      # axios 封装，统一处理 {ok,data,message}
-    │   └── index.js       # 各业务模块 API 聚合
+    │   ├── index.js       # 各业务模块 API 聚合（真实接口 + 假数据封装）
+    │   └── mock.js        # 假数据源（总览 / 项目 / 插件 / 知识库分类）
+    ├── styles/
+    │   └── theme.css      # ThinkForm 公共样式（tf-page/tf-card/tf-grid 等）
     ├── router/
-    │   └── index.js       # 三个页面路由
+    │   └── index.js       # 五模块路由（懒加载）
     └── views/
-        ├── KnowledgeView.vue   # 知识库管理（标准列表 + 导入）
-        ├── BaseDataView.vue    # 基础数据（材料 + 模板）
-        └── ArtifactsView.vue   # 产物管理（任务 + 文件下载）
+        ├── OverviewView.vue    # ① 企业运营总览（指标 / 待审批 / 覆盖率）
+        ├── ProjectsView.vue    # ② 项目图纸管理（卡片 + 搜索 + 启用禁用）
+        ├── KnowledgeView.vue    # ③ 知识库管理（三分类 + 发布状态 + 导入）
+        ├── ModelsView.vue      # ④ 模型管理（占位，本地模型）
+        └── PluginsView.vue     # ⑤ 插件管理（Manifest / SBOM / 采用指标）
 ```
 
-## 本机启动（需 Windows / 联网环境）
+## 本机启动（需 Node ≥ 18 环境）
 
-> 本仓库只提交源码骨架，`node_modules` 未安装。首次使用需自行安装依赖。
+> 本仓库只提交源码骨架，`node_modules` 未安装（已被 `.gitignore` 排除）。
+> Vite 5 要求 **Node.js ≥ 18**（低版本会报 `??=` 语法错误）。
+> 在 Windows 上首次使用需自行安装 Node 18/20 LTS 并安装依赖（Mac 的 `node_modules` 不能跨平台拷贝）。
 
 ```bash
 cd cloud/frontend
