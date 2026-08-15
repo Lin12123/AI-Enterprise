@@ -77,6 +77,10 @@ onMounted(load)
 .stat-grid {
   align-items: stretch;
 }
+/* 覆盖 theme.css 的 .tf-card + .tf-card{margin-top:16px}：
+   该规则给 grid 里第 2~4 张卡强加了顶部外边距，导致它们比第一张低 16px。
+   grid 内卡片靠 gap 控制间距，这里必须清零。 */
+.stat-grid .tf-card + .tf-card { margin-top: 0; }
 .stat-card {
   position: relative;
   overflow: hidden;

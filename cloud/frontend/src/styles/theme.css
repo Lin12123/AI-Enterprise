@@ -40,6 +40,9 @@ body {
   padding: 20px;
 }
 .tf-card + .tf-card { margin-top: 16px; }
+/* grid 布局内的卡片用 gap 控制间距，不能再叠加 margin-top，
+   否则第 2 张起会比第一张低一截，造成横排卡片高度错位。 */
+.tf-grid > .tf-card + .tf-card { margin-top: 0; }
 
 /* 工具条 */
 .tf-toolbar {
