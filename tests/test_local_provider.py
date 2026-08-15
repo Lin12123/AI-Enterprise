@@ -789,6 +789,50 @@ class TestLocalProvider(unittest.TestCase):
 
         self.assertIn("1.params.diameter", normalized["metadata"]["inferred_parameters"])
 
+    def test_local_protocol_compresses_opname_id_joined_provenance_paths(self):
+        # Local 7B often joins the operation name and id with a dot, producing a
+        # 4-segment provenance path (``create_base_plate.001.params.plane``) that
+        # the Policy Engine rejects. It must be compressed to the canonical
+        # ``<id>.params.<param>`` form, and references to non-existent
+        # operations/params must be dropped rather than passed through.
+        data = {
+            "version": "2.0",
+            "unit": "mm",
+            "document_type": "part",
+            "part_name": "joined_paths",
+            "metadata": {
+                "inferred_parameters": [
+                    "create_base_plate.001.params.plane",
+                    "create_center_boss.006.params.host",
+                    "cut_center_hole.007.params.depth",
+                ],
+                "explicit_parameters": [],
+            },
+            "operations": [
+                {"id": "001", "op": "create_base_plate", "params": {"length": 100, "width": 80, "thickness": 10, "plane": "Top"}},
+                {"id": "006", "op": "create_center_boss", "params": {"diameter": 30, "height": 20}},
+            ],
+            "outputs": {},
+        }
+
+        normalized = local_provider._normalize_featureplan_protocol(data)
+        paths = (
+            normalized["metadata"]["inferred_parameters"]
+            + normalized["metadata"]["explicit_parameters"]
+        )
+
+        # Valid path is compressed to canonical 3-segment id form.
+        self.assertIn("001.params.plane", paths)
+        # Reference to a param the op does not have (host) is dropped.
+        self.assertNotIn("create_center_boss.006.params.host", paths)
+        # Reference to a non-existent operation is dropped.
+        self.assertNotIn("cut_center_hole.007.params.depth", paths)
+        # Every surviving path is a valid 3-segment ``<id>.params.<param>`` form.
+        for path in paths:
+            segments = path.split(".")
+            self.assertEqual(len(segments), 3)
+            self.assertEqual(segments[1], "params")
+
     def test_local_protocol_normalizes_center_object_and_metadata_center_components(self):
         data = {
             "version": "2.0",

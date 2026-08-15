@@ -940,12 +940,50 @@ def _normalize_metadata_parameter_path(path: str, operations: list, default_buck
         parts = [parts[0], parts[1], parts[2]]
         path = ".".join(parts)
         center_component = True
+    # Local 7B models frequently emit malformed provenance paths where the
+    # operation *name* and *id* are joined with a dot (e.g.
+    # ``create_base_plate.001.params.plane``), producing a 4+ segment path the
+    # Policy Engine rejects. Deterministically compress these back to the
+    # canonical ``<operation_id>.params.<parameter>`` form when we can map the
+    # pre-``params`` head to a real operation, and drop the rest instead of
+    # letting them pass through as fatal metadata violations.
     if len(parts) != 3 or parts[1] != "params":
-        return path, default_bucket
+        if "params" not in parts:
+            return "", default_bucket
+        p_index = parts.index("params")
+        parameter_name = ".".join(parts[p_index + 1 :]).strip()
+        head = parts[:p_index]
+        if not parameter_name or not head:
+            return "", default_bucket
+        resolved = ""
+        for start in range(len(head)):
+            candidate_ref = ".".join(head[start:]).strip()
+            if not candidate_ref:
+                continue
+            resolved = _resolve_metadata_operation_ref(candidate_ref, parameter_name, operations)
+            if resolved:
+                break
+        if not resolved:
+            return "", default_bucket
+        parts = [resolved,"params", parameter_name]
+        path = ".".join(parts)
 
     operation_ref, _, parameter_name = parts
     resolved_operation_ref = _resolve_metadata_operation_ref(operation_ref, parameter_name, operations)
     if not resolved_operation_ref:
+        return "", default_bucket
+
+    # Drop provenance that references a parameter the resolved operation does
+    # not actually carry (e.g. a bogus ``host`` on ``create_center_boss``).
+    # Policy validation rejects such paths as fatal metadata violations.
+    resolved_params: set[str] = set()
+    for operation in operations:
+        if isinstance(operation, dict) and str(operation.get("id", "")).strip() == resolved_operation_ref:
+            op_params = operation.get("params")
+            if isinstance(op_params, dict):
+                resolved_params = set(op_params.keys())
+            break
+    if parameter_name not in resolved_params:
         return "", default_bucket
 
     bucket = default_bucket
