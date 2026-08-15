@@ -2,22 +2,17 @@
   "version": "2.0",
   "unit": "mm",
   "document_type": "part",
-  "part_name": "安装板",
+  "part_name": "Installation Plate",
   "metadata": {
     "explicit_parameters": {
       "create_base_plate.001.params.length": 120,
       "create_base_plate.001.params.width": 80,
-      "create_base_plate.001.params.thickness": 15,
-      "create_center_boss.002.params.diameter": 20,
-      "create_center_boss.002.params.height": 15,
-      "create_through_hole.003.params.plane": "top_face",
-      "create_through_hole.003.params.center": [
-        0,
-        0
-      ],
-      "create_through_hole.003.params.diameter": 15
+      "create_base_plate.001.params.thickness": 15
     },
-    "inferred_parameters": {}
+    "inferred_parameters": {
+      "cut_corner_holes.002.params.diameter": 10,
+      "cut_corner_holes.002.params.edge_margin": 10
+    }
   },
   "operations": [
     {
@@ -26,35 +21,17 @@
       "params": {
         "length": 120,
         "width": 80,
-        "thickness": 15,
-        "plane": "top_face"
+        "thickness": 15
       }
     },
     {
-      "id": "create_center_boss.002",
-      "op": "create_center_boss",
+      "id": "cut_corner_holes.002",
+      "op": "cut_corner_holes",
       "params": {
-        "diameter": 20,
-        "height": 15,
-        "plane": "top_face"
-      }
-    },
-    {
-      "id": "create_through_hole.003",
-      "op": "create_through_hole",
-      "params": {
-        "plane": "top_face",
-        "center": [
-          0,
-          0
-        ],
-        "diameter": 15
+        "diameter": 10,
+        "edge_margin": 10
       }
     }
   ],
-  "outputs": {
-    "save_sldprt": false,
-    "export_step": false,
-    "capture_png": false
-  }
+  "outputs": {}
 }
