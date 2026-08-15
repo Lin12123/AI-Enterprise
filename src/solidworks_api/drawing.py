@@ -86,6 +86,13 @@ _SW_DRAWING_SHEET_VIEW_TYPE = 3
 # 图纸上看不到任何尺寸。因此必须传 1|2=3 才能把全部模型尺寸导入工程图。
 _SW_INSERT_ALL_DIMENSIONS = 3
 
+# swCommands_e.swCommands_InsertModelItems: 触发 SW 主 UI 的"模型项目"命令,
+# 让 SW 自己把当前激活视图的模型尺寸/注解按 UI 上下文导入。作为路径 E: 当
+# InsertModelAnnotations3 走 late-bind 挂 DISP_E_MEMBERNOTFOUND 时的兜底。
+# SW 2019 常量值 = 1497 (swCommands_e), 若不同版本值有偏差, RunCommand
+# 静默失败也不会破坏主流程。
+_SW_CMD_INSERT_MODEL_ITEMS = 1497
+
 
 def create_drawing_from_active_part(app: object, rules: list | None = None) -> dict:
     """把当前活动的 3D 零件转为三视图工程图并保存。
@@ -697,7 +704,140 @@ def _build_tech_requirements_text(rules: list) -> str:
     return "\n".join(lines)
 
 
-def _iter_model_views(draw_model: object) -> list:
+def _dump_view_names_via_macro(app: object) -> list:
+    """通过 SolidWorks 内部 VBA 宏读回当前活动工程图的所有视图名。
+
+    背景：v019 真机现场 IDrawingDoc 上 late-bind 全废 (FirstFeature/GetCurrentSheet
+    /GetSheetNames/GetFirstView 全抛 -2147352573 "找不到成员")。原因是 pywin32 拿
+    到的 IDispatch 只暴露了 IModelDoc 白名单方法, IModelDoc2/IDrawingDoc 的成员
+    通过 IDispatch.Invoke 全部返回 DISP_E_MEMBERNOTFOUND。
+
+    绕开方式：在 SolidWorks 自己的 VBA 引擎里跑一段脚本 —— 宏内部对 IDrawingDoc
+    是 early-bind (VBA 编译时按 typelib 绑定), 所有方法都能调。宏遍历所有 sheet
+    的所有视图, 把 {name, is_sheet} 序列化到临时 JSON, Python 侧读回。
+
+    实际拿到视图名之后, 就能用 Extension.SelectByID2("真实名", "DRAWINGVIEW", ...)
+    把 IView 回取到 Python 侧 —— SelectByID2 走的是 IModelDocExtension 命令通道
+    (跟 IDrawingDoc 是不同的 IDispatch), 已多次实测可用。
+
+    返回：视图名列表 (只含"引用模型的视图", 已过滤 Sheet 本身)。任一步失败返回 []。
+    """
+    if app is None:
+        return []
+    import os
+    import json
+    import tempfile
+    import uuid
+
+    tmp_dir = tempfile.gettempdir()
+    tag = uuid.uuid4().hex[:8]
+    dump_path = os.path.join(tmp_dir, f"aisw_view_dump_{tag}.json").replace("\\", "/")
+    macro_path = os.path.join(tmp_dir, f"aisw_dump_views_{tag}.swp")
+
+    # 宏内 Application.SldWorks 是 early-bind, 能拿全部 IDrawingDoc 方法。
+    # 每个 sheet 用 GetViews 拿元组: 第一个是 Sheet 自身(Type=1), 之后是引用模型
+    # 的视图 —— 只 dump 后者。视图名用 IView.GetName2。
+    vba_source = (
+        "Dim swApp As Object\n"
+        "Sub main()\n"
+        "  Dim swModel As Object\n"
+        "  Dim swDraw As Object\n"
+        "  Dim vSheetNames As Variant\n"
+        "  Dim vSheet As Variant\n"
+        "  Dim swSheet As Object\n"
+        "  Dim vViews As Variant\n"
+        "  Dim swView As Object\n"
+        "  Dim i As Long, j As Long\n"
+        "  Dim lines As String\n"
+        "  Dim iFile As Integer\n"
+        "  Set swApp = Application.SldWorks\n"
+        "  Set swModel = swApp.ActiveDoc\n"
+        "  If swModel Is Nothing Then Exit Sub\n"
+        "  ' swDocDRAWING = 3\n"
+   "  If swModel.GetType <> 3 Then Exit Sub\n"
+        "  Set swDraw = swModel\n"
+        "  lines = \"{\"\"views\"\":[\"\n"
+        "  Dim first As Boolean\n"
+        "  first = True\n"
+        "  vSheetNames = swDraw.GetSheetNames\n"
+        "  If Not IsEmpty(vSheetNames) Then\n"
+        "    For i = LBound(vSheetNames) To UBound(vSheetNames)\n"
+        "      Set swSheet = swDraw.Sheet(CStr(vSheetNames(i)))\n"
+        "      If Not swSheet Is Nothing Then\n"
+        "        vViews = swSheet.GetViews\n"
+        "        If Not IsEmpty(vViews) Then\n"
+        "          For j = LBound(vViews) To UBound(vViews)\n"
+        "            Set swView = vViews(j)\n"
+        "            If Not swView Is Nothing Then\n"
+        "              ' 跳过 sheet 自身 (Type=1)\n"
+        "              If swView.Type <> 1 Then\n"
+        "                If Not first Then lines = lines & \",\"\n"
+        "                lines = lines & \"{\"\"name\"\":\"\"\" & Replace(swView.GetName2, \"\"\"\", \"'\") & \"\"\",\"\"type\"\":\" & swView.Type & \"}\"\n"
+        "                first = False\n"
+        "              End If\n"
+        "            End If\n"
+        "          Next j\n"
+        "        End If\n"
+        "      End If\n"
+        "    Next i\n"
+        "  End If\n"
+        "  lines = lines & \"]}\"\n"
+        "  iFile = FreeFile\n"
+        f"  Open \"{dump_path}\" For Output As #iFile\n"
+        "  Print #iFile, lines\n"
+        "  Close #iFile\n"
+        "End Sub\n"
+    )
+
+    try:
+        with open(macro_path, "w", encoding="utf-8") as f:
+            f.write(vba_source)
+    except Exception as exc:
+        _dbg(f"iter_views: 路径5 写宏失败 {type(exc).__name__}:{exc}", summary=True)
+        return []
+
+    # RunMacro2(filePath, moduleName, procName, options, byref error)
+    # options=1 (swRunMacroOption_e.swRunMacroDefault); 若 SW 版本不认 5 参数就退回 3 参数版
+    try:
+        from solidworks_api.com_types import byref_int
+        err_ref = byref_int(0)
+        try:
+            app.RunMacro2(macro_path, "Module1", "main", 1, err_ref)
+        except Exception:
+            try:
+                app.RunMacro(macro_path, "Module1", "main")
+            except Exception as exc2:
+                _dbg(
+                    f"iter_views: 路径5 RunMacro/RunMacro2 均失败 {type(exc2).__name__}:{exc2}",
+                    summary=True,
+                )
+                return []
+    except Exception as exc:
+        _dbg(f"iter_views:路径5 执行宏抛异常 {type(exc).__name__}:{exc}", summary=True)
+        return []
+
+    try:
+        with open(dump_path, "r", encoding="utf-8") as f:
+            data = json.loads(f.read().strip())
+        names = [str(v.get("name") or "").strip() for v in data.get("views", [])]
+        names = [n for n in names if n]
+    except Exception as exc:
+        _dbg(f"iter_views: 路径5 读取 dump 抛异常 {type(exc).__name__}:{exc}", summary=True)
+        names = []
+    finally:
+        try:
+            os.remove(dump_path)
+        except Exception:
+            pass
+        try:
+            os.remove(macro_path)
+        except Exception:
+            pass
+    _dbg(f"iter_views: 路径5(VBA 宏 dump) 拿到视图名 {names}", summary=True)
+    return names
+
+
+def _iter_model_views(draw_model: object, app: object = None) -> list:
     """遍历工程图，返回所有引用模型的视图对象列表(跳过图纸页视图)。
 
     真机 SolidWorks 2019 排查记录：
@@ -937,10 +1077,30 @@ def _iter_model_views(draw_model: object) -> list:
     if views:
         return views
 
+    # --- 路径 5: VBA 宏 early-bind 穿透白名单, 拿真实视图名再 SelectByID2 回取 ---
+    # 前 4 路径都失败通常是 pywin32 late-bind IDispatch 白名单只暴露 IModelDoc,
+    # IDrawingDoc 全部成员挂 DISP_E_MEMBERNOTFOUND。VBA 宏在 SW 进程内是 early-bind,
+    # 能穿透白名单读到 Sheet/GetViews 全部真实名字。
+    macro_view_names: list = []
+    if app is not None:
+        try:
+            macro_view_names = _dump_view_names_via_macro(app) or []
+        except Exception as exc:
+            _dbg(
+                f"iter_views: 路径5 宏中转异常 {type(exc).__name__}:{exc}",
+                summary=True,
+            )
+            macro_view_names = []
+        _dbg(
+            f"iter_views: 路径5(VBA 宏 dump) 拿到视图名 {macro_view_names!r}",
+            summary=True,
+        )
+
     # --- 路径 4: SelectByID2 命名视图回取 (最坏兜底) ---
     # Create3rdAngleViews2 会产生固定命名的视图: 英文模板 "Drawing View1..4",
     # 中文模板可能是 "视图 1..4" 或 "工程视图1..4"。逐个尝试选中后从 SelectionMgr
     # 拿回 IView。这是完全绕开 IDrawingDoc 遍历接口的终极兜底。
+    # 若路径5 拿到了真实名, 就把它作为首选候选组; 否则用硬编码多语言候选兜底。
     try:
         sel_mgr = draw_model.SelectionManager
     except Exception as exc:
@@ -951,12 +1111,15 @@ def _iter_model_views(draw_model: object) -> list:
         sel_mgr = None
     if sel_mgr is not None:
         # SelectByID2(name, "DRAWINGVIEW", x, y, z, append, mark, callout, selectOption)
-        candidates_by_lang = [
+        candidates_by_lang = []
+        if macro_view_names:
+            candidates_by_lang.append(list(macro_view_names))
+        candidates_by_lang.extend([
             ["Drawing View1", "Drawing View2", "Drawing View3", "Drawing View4"],
             ["视图 1", "视图 2", "视图 3", "视图 4"],
             ["工程视图1", "工程视图2", "工程视图3", "工程视图4"],
             ["视图1", "视图2", "视图3", "视图4"],
-        ]
+        ])
         try:
             draw_model.ClearSelection2(True)
         except Exception:
@@ -999,6 +1162,88 @@ def _iter_model_views(draw_model: object) -> list:
             f"iter_views: 路径4(SelectByID2 命名视图) 拿到 {picked} 个模型视图",
             summary=True,
         )
+
+    # --- 路径 C: Extension.SelectAll + SelectionMgr 遍历回取 (终极兜底) ---
+    # 若命名候选一个都没命中(比如客户模板视图名完全定制过, 且宏 dump 也失败),
+    # 就走 SW 主命令通道的 SelectAll: 它会把当前图纸上所有实体全选上, 再从
+    # SelectionMgr 逐个回取, 按 Type 过滤出 DRAWINGVIEW(非 SheetView)。
+    # 这条路径彻底不依赖任何"名字"或 IDrawingDoc 遍历接口。
+    if not views and sel_mgr is not None:
+        picked_c = 0
+        try:
+            draw_model.ClearSelection2(True)
+        except Exception:
+            pass
+        selected_ok = False
+        # 优先按类型选: SelectByID2 允许 name="" + Type="DRAWINGVIEW" 走类型选择。
+        try:
+            selected_ok = bool(
+                draw_model.Extension.SelectByID2(
+                    "", "DRAWINGVIEW", 0.0, 0.0, 0.0, False, 0, None, 0
+                )
+            )
+        except Exception as exc:
+            _dbg(
+                f"iter_views: 路径C SelectByID2(type only) 抛 {type(exc).__name__}:{exc}",
+                summary=True,
+            )
+            selected_ok = False
+        if not selected_ok:
+            # 类型选失败, 再退到 SelectAll(全选图纸上所有实体)
+            try:
+                draw_model.Extension.SelectAll()
+                selected_ok = True
+            except Exception as exc:
+                _dbg(
+                    f"iter_views: 路径C SelectAll 抛 {type(exc).__name__}:{exc}",
+                    summary=True,
+                )
+                selected_ok = False
+        if selected_ok:
+            try:
+                sel_count = int(sel_mgr.GetSelectedObjectCount2(-1) or 0)
+            except Exception as exc:
+                _dbg(
+                    f"iter_views: 路径C GetSelectedObjectCount2 抛 {type(exc).__name__}:{exc}",
+                    summary=True,
+               )
+                sel_count = 0
+            for i in range(1, sel_count + 1):
+                try:
+                    sel = sel_mgr.GetSelectedObject6(i, -1)
+                except Exception:
+                    sel = None
+                if sel is None:
+                    continue
+                # 视图对象通常有 GetName2 + Type; 用 duck typing 过滤
+                try:
+                    vt = int(getattr(sel, "Type", 0) or 0)
+                except Exception:
+                    vt = 0
+                if vt == _SW_DRAWING_SHEET_VIEW_TYPE:
+                    continue
+                has_view_api = False
+                for probe in ("GetName2", "GetOutline"):
+                    try:
+                        getattr(sel, probe)
+                        has_view_api = True
+                        break
+                    except Exception:
+                        continue
+                if not has_view_api:
+                    continue
+                if sel not in views:
+                    views.append(sel)
+                    picked_c += 1
+            try:
+                draw_model.ClearSelection2(True)
+            except Exception:
+                pass
+        _dbg(
+            f"iter_views: 路径C(SelectAll+SelMgr) 拿到 {picked_c} 个模型视图",
+            summary=True,
+        )
+
     return views
 
 
@@ -1020,7 +1265,7 @@ def _view_outline(view: object) -> tuple:
     return (xmin, ymin, xmax, ymax, (xmin + xmax) / 2.0, (ymin + ymax) / 2.0)
 
 
-def _classify_three_views(draw_model: object) -> dict:
+def _classify_three_views(draw_model: object, app: object = None) -> dict:
     """按图纸坐标位置把三视图分类为 front/top/right(等轴测忽略)。
 
     第三角: 前视图为基准(通常最左下的正投影视图), 俯视图在其正上方,
@@ -1028,7 +1273,7 @@ def _classify_three_views(draw_model: object) -> dict:
     返回 {"front": view, "top": view|None, "right": view|None}, 取不到为 None。
     """
     ortho = []
-    for v in _iter_model_views(draw_model):
+    for v in _iter_model_views(draw_model, app):
         # 等轴测/轴测图排除: swDrawingIsometricView=4 等; 保守用轮廓近似方形+无法水平/竖直对齐再排除
         ol = _view_outline(v)
         if ol is None:
@@ -1144,7 +1389,7 @@ def _add_v_dim(draw_model: object, view: object, y1: float, y2: float, x_edge: f
         return False
 
 
-def _insert_overall_view_dimensions(draw_model: object) -> int:
+def _insert_overall_view_dimensions(draw_model: object, app: object = None) -> int:
     """在俯视图标注长/宽、在右视图标注高(厚度)的整体轮廓尺寸。
 
     仅补充"整体外形长宽高"三个基本尺寸(不重复模型自动导入的孔距/孔径等)。
@@ -1165,7 +1410,7 @@ def _insert_overall_view_dimensions(draw_model: object) -> int:
     except Exception:
         pass
     try:
-        cls = _classify_three_views(draw_model)
+        cls = _classify_three_views(draw_model, app)
     except Exception:
         return 0
     margin = 0.012  # 尺寸线离轮廓的偏移量(米, ≈12mm)
@@ -1207,7 +1452,7 @@ def _insert_overall_view_dimensions(draw_model: object) -> int:
     return placed
 
 
-def _draw_all_dimensions_by_ourselves(draw_model: object, part_model: object) -> int:
+def _draw_all_dimensions_by_ourselves(draw_model: object, part_model: object, app: object = None) -> int:
     """出图端自绘策略：不依赖模型 DisplayDimension，直接在三视图上补齐外形尺寸。
 
     真机现象：程序化 API 建模 (create_base_plate / cut_corner_holes 等)
@@ -1242,7 +1487,7 @@ def _draw_all_dimensions_by_ourselves(draw_model: object, part_model: object) ->
         _dbg(f"draw_self: EditRebuild3 抛异常 {type(exc).__name__}: {exc}")
 
     try:
-        cls = _classify_three_views(draw_model)
+        cls = _classify_three_views(draw_model, app)
     except Exception as exc:
         _dbg(f"draw_self: _classify_three_views 抛异常 {type(exc).__name__}: {exc}", summary=True)
         return 0
@@ -1299,7 +1544,7 @@ def _draw_all_dimensions_by_ourselves(draw_model: object, part_model: object) ->
     return placed
 
 
-def _count_display_dimensions(draw_model: object) -> int:
+def _count_display_dimensions(draw_model: object, app: object = None) -> int:
     """统计整张工程图当前已导入的显示尺寸总数(遍历所有视图)。
 
     用于判断 InsertModelAnnotations3 是否真的把尺寸画进了图纸——
@@ -1308,7 +1553,7 @@ def _count_display_dimensions(draw_model: object) -> int:
     避免此处再次踩"同级链只有 sheet 视图"的坑。
     """
     total = 0
-    for view in _iter_model_views(draw_model):
+    for view in _iter_model_views(draw_model, app):
         try:
             dim = view.GetFirstDisplayDimension5()
         except Exception:
@@ -1376,7 +1621,7 @@ def _apply_dimensions_and_tolerance(app: object, draw_model: object, rules: list
     # 视图筛选统一走 _iter_model_views(已正确下沉到 sheet 子节点)，避免此处
     # 再次踩"同级链只有 sheet 视图"的坑。
     try:
-        model_views = _iter_model_views(draw_model)
+        model_views = _iter_model_views(draw_model, app)
         _dbg(f"apply_dim: 逐视图导入前, 拿到模型视图数={len(model_views)}")
         for view in model_views:
             try:
@@ -1398,8 +1643,50 @@ def _apply_dimensions_and_tolerance(app: object, draw_model: object, rules: list
         pass
 
     # 用实际显示尺寸数核实是否真的画进了图纸(返回值非 None 不可靠)
-    imported = _count_display_dimensions(draw_model)
+    imported = _count_display_dimensions(draw_model, app)
     _dbg(f"apply_dim: InsertModelAnnotations3 后计数 DisplayDimension={imported}", summary=True)
+
+    # 路径 E: 若 InsertModelAnnotations3 一条尺寸都没导进来(late-bind 白名单挂),
+    # 就走 SW 主 UI 命令通道 RunCommand(swCommands_InsertModelItems),
+    # 让 SW 按当前激活视图上下文自己标模型项目。RunCommand 是 ISldWorks 主
+    # IDispatch 上的方法(与 RunMacro2 同级), 已知不在 IModelDoc 白名单管辖内。
+    # 逐视图激活后触发, 保证 3 个投影视图都有机会被标注。
+    if imported == 0 and app is not None:
+        try:
+            fallback_views = _iter_model_views(draw_model, app)
+        except Exception:
+            fallback_views = []
+        run_cmd_ok = 0
+        for view in fallback_views:
+            try:
+                name = str(view.GetName2())
+                if name:
+                    draw_model.ActivateView(name)
+            except Exception:
+                pass
+            try:
+                # RunCommand(commandID, notitle) → bool
+                ok = bool(app.RunCommand(_SW_CMD_INSERT_MODEL_ITEMS, ""))
+                if ok:
+                    run_cmd_ok += 1
+            except Exception as exc:
+                _dbg(
+                    f"apply_dim: 路径E RunCommand 抛 {type(exc).__name__}:{exc}",
+                    summary=True,
+                )
+                break
+        try:
+            draw_model.EditRebuild3()
+        except Exception:
+            pass
+        imported_after_e = _count_display_dimensions(draw_model, app)
+        _dbg(
+            f"apply_dim: 路径E(RunCommand InsertModelItems) 命令次数={run_cmd_ok} "
+            f"命令后 DisplayDimension={imported_after_e}",
+            summary=True,
+        )
+        imported = imported_after_e
+
     dim_count = imported
 
     # 1.1) 出图端自绘策略：程序化 API 建模的零件里 DisplayDimension 恒为 0,
@@ -1407,7 +1694,7 @@ def _apply_dimensions_and_tolerance(app: object, draw_model: object, rules: list
     #      自绘长/宽/高六条外形尺寸(俯视图长宽、前视图长高、右视图宽高)。
     #      自绘条数直接计入 dim_count，取代之前"再数一次 display dimension"的做法。
     try:
-        drawn = _draw_all_dimensions_by_ourselves(draw_model, part_model)
+        drawn = _draw_all_dimensions_by_ourselves(draw_model, part_model, app)
     except Exception as exc:
         _dbg(f"apply_dim: _draw_all_dimensions_by_ourselves 抛异常 {type(exc).__name__}: {exc}", summary=True)
         drawn = 0
@@ -1417,7 +1704,7 @@ def _apply_dimensions_and_tolerance(app: object, draw_model: object, rules: list
     # 1.2) 兼容旧路径:模型自带 DisplayDimension 的场景(如手工建模+AddDimension),
     #      再走一遍"整体外形长/宽/高补打",与自绘互补不冲突(SW 会去重)。
     try:
-        overall = _insert_overall_view_dimensions(draw_model)
+        overall = _insert_overall_view_dimensions(draw_model, app)
     except Exception as exc:
         _dbg(f"apply_dim: _insert_overall_view_dimensions 抛异常 {type(exc).__name__}: {exc}")
         overall = 0

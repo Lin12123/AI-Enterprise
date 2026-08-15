@@ -169,3 +169,153 @@ def test_build_tech_requirements_text_defaults_when_empty_rules():
     assert text.startswith("技术要求")
     # 无规则时至少要有通用工艺兜底(圆角/倒角/去毛刺)
     assert "去毛刺" in text
+
+
+# --- v020 CEA 组合方案: 路径 5(宏 dump 名) + 路径 4(SelectByID2) + 路径 C(SelectAll) ---
+#
+# 场景: pywin32 late-bind 白名单场景下, IDrawingDoc 全部成员挂 DISP_E_MEMBERNOTFOUND,
+# 前 4 路径全废时, 通过 VBA 宏拿真实视图名 → SelectByID2 回取 IView。
+# mock 只需要证明: 只要宏 dump 返回了名字, 且 Extension.SelectByID2 命中,
+# _iter_model_views 能把这些 IView 累积回来, 不再依赖 GetFirstFeature/GetSheetNames。
+
+
+class _FakeExt:
+    """Extension mock: SelectByID2 按传入的 name 命中预置视图池。"""
+
+    def __init__(self, view_pool):
+        self._pool = view_pool
+        self._last_hit = None
+
+    def SelectByID2(self, name, kind, x, y, z, append, mark, callout, opt):
+        if kind != "DRAWINGVIEW":
+            return False
+        v = self._pool.get(name)
+        if v is None:
+            return False
+        self._last_hit = v
+        return True
+
+
+class _FakeSelMgr:
+    def __init__(self, ext):
+        self._ext = ext
+
+    def GetSelectedObject6(self, i, mark):
+        return self._ext._last_hit
+
+    def GetSelectedObjectCount2(self, mark):
+        # 路径 C 用: SelectAll 后返回全部预置视图
+        return len(self._ext._pool)
+
+
+class _FakeView:
+    """模型视图 mock: Type=2(非 SheetView), 有 GetName2/GetOutline。"""
+
+    def __init__(self, name):
+        self._name = name
+        self.Type = 2  # 非 _SW_DRAWING_SHEET_VIEW_TYPE(3)
+
+    def GetName2(self):
+        return self._name
+
+    def GetOutline(self):
+        return (0.0, 0.0, 0.1, 0.1)
+
+
+class _FakeDrawModel:
+    """图纸 mock: 前 4 路径全部抛异常, 只 Extension/SelectionManager 可用。"""
+
+    def __init__(self, ext, sel_mgr):
+        self.Extension = ext
+        self.SelectionManager = sel_mgr
+
+    def ClearSelection2(self, flag):
+        return None
+
+    # 前 4 路径的入口全部抛, 模拟 late-bind 白名单挂
+    def GetFirstFeature(self):
+        raise Exception("com_error -2147352573 (late-bind 白名单)")
+
+    def GetCurrentSheet(self):
+        raise Exception("com_error -2147352573")
+
+    def GetSheetNames(self):
+        raise Exception("tuple object is not callable")
+
+    def GetFirstView(self):
+        raise Exception("com_error -2147352573")
+
+
+def test_iter_model_views_path5_macro_dump_feeds_selectbyid2(monkeypatch):
+    """路径 5: 宏 dump 拿到 ['视图_A','视图_B'] → 路径 4 用这些名字 SelectByID2 命中 2 个视图。"""
+    from solidworks_api import drawing as _dm
+
+    va = _FakeView("视图_A")
+    vb = _FakeView("视图_B")
+    ext = _FakeExt({"视图_A": va, "视图_B": vb})
+    sel_mgr = _FakeSelMgr(ext)
+    draw = _FakeDrawModel(ext, sel_mgr)
+
+    # 让宏 dump 直接返回真实名字, 绕开 RunMacro2 落盘
+    monkeypatch.setattr(_dm, "_dump_view_names_via_macro", lambda app: ["视图_A", "视图_B"])
+
+    class _App:
+        pass
+
+    views = _dm._iter_model_views(draw, _App())
+    # 视图池里 2 个都要被 SelectByID2 命中并加入 views
+    names = [v.GetName2() for v in views]
+    assert set(names) == {"视图_A", "视图_B"}
+
+
+def test_iter_model_views_path_c_selectall_fallback_when_no_names(monkeypatch):
+    """路径 C: 宏 dump 空 + 硬编码候选全不命中 → SelectAll 类型选把视图池全捞出来。"""
+    from solidworks_api import drawing as _dm
+
+    va = _FakeView("完全自定义的视图名X")
+    ext = _FakeExt({"完全自定义的视图名X": va})
+    sel_mgr = _FakeSelMgr(ext)
+    draw = _FakeDrawModel(ext, sel_mgr)
+
+    # 宏 dump 返回空; 硬编码候选也不匹配 ext 池 → 路径 4 拿到 0
+    monkeypatch.setattr(_dm, "_dump_view_names_via_macro", lambda app: [])
+
+    # 路径 C: SelectByID2("", "DRAWINGVIEW", ...) 触发, 我们让它成功 →
+    # 然后 GetSelectedObject6(i, -1) 会返回 _last_hit; 但 _last_hit 是 None(空 name 没命中池)。
+    # 所以路径 C 走 SelectAll 分支: 需要 Extension 有 SelectAll。
+    def _select_all():
+        ext._last_hit = va  # SelectAll 后就有东西被选中
+        return True
+
+    ext.SelectAll = _select_all
+
+    # 让类型选走失败分支, 强制退到 SelectAll
+    def _sbyid_fail(name, kind, *args):
+        # name="" 视为类型选, 我们让它返回 False, 强制 SelectAll 分支
+        if name == "":
+            return False
+        # 命名选也不命中(硬编码候选进不来)
+        return False
+
+    ext.SelectByID2 = _sbyid_fail
+
+    class _App:
+        pass
+
+    views = _dm._iter_model_views(draw, _App())
+    assert len(views) == 1
+    assert views[0].GetName2() == "完全自定义的视图名X"
+
+
+def test_iter_model_views_returns_empty_when_all_paths_fail():
+    """所有兜底路径都拿不到时, 返回空 list(不抛异常, 让上层走 bbox 兜底)。"""
+    from solidworks_api import drawing as _dm
+
+    ext = _FakeExt({})
+    sel_mgr = _FakeSelMgr(ext)
+    draw = _FakeDrawModel(ext, sel_mgr)
+
+    # app=None → 跳过路径 5; 硬编码候选也不命中空池 → 路径 4 拿到 0;
+    # 路径 C SelectAll 没定义 → 也失败
+    views = _dm._iter_model_views(draw, None)
+    assert views == []
