@@ -4,59 +4,8 @@
   "document_type": "part",
   "part_name": "Installation_Plate",
   "metadata": {
-    "explicit_parameters": [
-      "create_base_plate.001.params.length",
-      "create_base_plate.001.params.width",
-      "create_base_plate.001.params.thickness",
-      "create_through_hole.002.params.diameter",
-      "create_through_hole.003.params.diameter",
-      "create_through_hole.004.params.diameter",
-      "create_through_hole.005.params.diameter",
-      "create_center_boss.006.params.diameter",
-      "create_center_boss.006.params.height",
-      "cut_center_hole.007.params.diameter",
-      "cut_slot.008.params.length",
-      "cut_slot.008.params.width",
-      "cut_slot.008.params.direction",
-      "cut_slot.008.params.host",
-      "cut_slot.009.params.length",
-      "cut_slot.009.params.width",
-      "cut_slot.009.params.direction",
-      "cut_slot.009.params.host",
-      "cut_rectangle_pocket.010.params.length",
-      "cut_rectangle_pocket.010.params.width",
-      "cut_rectangle_pocket.010.params.depth",
-      "cut_rectangle_pocket.010.params.host"
-    ],
-    "inferred_parameters": [
-      "create_base_plate.001.params.plane",
-      "create_through_hole.002.params.center",
-      "create_through_hole.003.params.center",
-      "create_through_hole.004.params.center",
-      "create_through_hole.005.params.center",
-      "create_center_boss.006.params.plane",
-      "cut_center_hole.007.params.depth",
-      "cut_center_hole.007.params.target",
-      "cut_slot.008.params.plane",
-      "cut_slot.009.params.plane",
-      "cut_rectangle_pocket.010.params.plane",
-      "create_through_hole.002.params.plane",
-      "create_through_hole.003.params.plane",
-      "create_through_hole.004.params.plane",
-      "create_through_hole.005.params.plane",
-      "cut_slot.008.params.center",
-      "cut_slot.009.params.center",
-      "cut_rectangle_pocket.010.params.center",
-      "add_fillet.011.params.target",
-      "add_fillet.011.params.radius",
-      "cut_slot.008.params.depth",
-      "cut_slot.009.params.depth",
-      "cut_rectangle_pocket.010_002.params.length",
-      "cut_rectangle_pocket.010_002.params.width",
-      "cut_rectangle_pocket.010_002.params.center",
-      "cut_rectangle_pocket.010_002.params.depth",
-      "cut_rectangle_pocket.010_002.params.plane"
-    ],
+    "explicit_parameters": [],
+    "inferred_parameters": [],
     "name": "Installation_Plate",
     "description": "",
     "source": "local"
@@ -85,8 +34,8 @@
       "params": {
         "plane": "top_face",
         "center": [
-          10.0,
-          10.0
+          -50.0,
+          -35.0
         ],
         "diameter": 10,
         "host": "base"
@@ -98,7 +47,7 @@
       "params": {
         "plane": "top_face",
         "center": [
-          10.0,
+          -50.0,
           35.0
         ],
         "diameter": 10,
@@ -111,8 +60,8 @@
       "params": {
         "plane": "top_face",
         "center": [
-          55.0,
-          10.0
+          50.0,
+          -35.0
         ],
         "diameter": 10,
         "host": "base"
@@ -124,7 +73,7 @@
       "params": {
         "plane": "top_face",
         "center": [
-          55.0,
+          50.0,
           35.0
         ],
         "diameter": 10,
@@ -132,114 +81,70 @@
       }
     },
     {
-      "id": "create_center_boss.006",
+      "id": "create_center_boss.001",
       "op": "create_center_boss",
       "params": {
-        "diameter": 20.0,
-        "height": 15,
         "plane": "top_face",
+        "diameter": 20.0,
         "host": "base"
       }
     },
     {
-      "id": "cut_center_hole.007",
-      "op": "cut_center_hole",
-      "params": {
-        "diameter": 20.0,
-        "depth": 15,
-        "target": "boss"
-      }
-    },
-    {
-      "id": "cut_slot.008",
-      "op": "cut_slot",
-      "params": {
-        "plane": "top_face",
-        "center": [
-          -36.0,
-          0.0
-        ],
-        "length": 80.0,
-        "width": 8,
-        "direction": "y",
-        "host": "base",
-        "depth": 7.5
-      }
-    },
-    {
-      "id": "cut_slot.009",
-      "op": "cut_slot",
-      "params": {
-        "plane": "top_face",
-        "center": [
-          36.0,
-          0.0
-        ],
-        "length": 80.0,
-        "width": 8,
-        "direction": "y",
-        "host": "base",
-        "depth": 7.5
-      }
-    },
-    {
-      "id": "cut_rectangle_pocket.010",
-      "op": "cut_rectangle_pocket",
+      "id": "create_center_through_hole.001",
+      "op": "create_through_hole",
       "params": {
         "plane": "top_face",
         "center": [
           0.0,
-          -35.0
+          0.0
         ],
-        "length": 10.0,
-        "width": 10.0,
-        "depth": 10.0,
+        "diameter": 20,
+        "host": "boss"
+      }
+    },
+    {
+      "id": "create_slot.001",
+      "op": "create_slot",
+      "params": {
+        "plane": "top_face",
+        "center": [
+          -50.0,
+          0.0
+        ],
+        "length": 8,
+        "width": 20,
         "host": "base"
       }
     },
     {
-      "id": "cut_rectangle_pocket.010_002",
-      "op": "cut_rectangle_pocket",
+      "id": "create_slot.002",
+      "op": "create_slot",
+      "params": {
+        "plane": "top_face",
+        "center": [
+          50.0,
+          0.0
+        ],
+        "length": 8,
+        "width": 20,
+        "host": "base"
+      }
+    },
+    {
+      "id": "create_pocket.001",
+      "op": "create_pocket",
       "params": {
         "plane": "top_face",
         "center": [
           0.0,
-          35.0
+          40.0
         ],
-        "length": 10.0,
-        "width": 10.0,
-        "depth": 10.0,
+        "length": 10,
+        "width": 10,
+        "depth": 10,
         "host": "base"
       }
-    },
-    {
-      "id": "add_fillet.011",
-      "op": "add_fillet",
-      "params": {
-        "target": "outer_edges",
-        "radius": 2
-      }
-    },
-    {
-      "id": "rebuild_model.012",
-      "op": "rebuild_model",
-      "params": {}
-    },
-    {
-      "id": "validate_rebuild.013",
-      "op": "validate_rebuild",
-      "params": {}
     }
   ],
-  "outputs": {
-    "save_sldprt.014": {
-      "file_name": "Installation_Plate.sldprt"
-    },
-    "export_step.015": {
-      "file_name": "Installation_Plate.step"
-    },
-    "capture_png.016": {
-      "file_name": "Installation_Plate.png"
-    }
-  }
+  "outputs": {}
 }

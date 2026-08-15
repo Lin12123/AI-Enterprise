@@ -14,47 +14,46 @@
       "create_through_hole.005.params.diameter": 10,
       "create_center_boss.006.params.diameter": 20,
       "create_center_boss.006.params.height": 15,
-      "create_through_hole.007.params.diameter": 20,
+      "cut_center_hole.007.params.diameter": 20,
       "cut_slot.008.params.length": 8,
       "cut_slot.008.params.width": 8,
       "cut_slot.008.params.direction": "y",
-      "cut_slot.008.params.offset_x": 20,
-      "cut_slot.008.params.offset_y": 0,
+      "cut_slot.008.params.offset_y": 20,
+      "cut_slot.008.params.host": "base_plate_001",
       "cut_slot.009.params.length": 8,
       "cut_slot.009.params.width": 8,
       "cut_slot.009.params.direction": "y",
-      "cut_slot.009.params.offset_x": -20,
-      "cut_slot.009.params.offset_y": 0,
+      "cut_slot.009.params.offset_y": -20,
+      "cut_slot.009.params.host": "base_plate_001",
       "cut_rectangle_pocket.010.params.length": 10,
       "cut_rectangle_pocket.010.params.width": 10,
       "cut_rectangle_pocket.010.params.depth": 10,
+      "cut_rectangle_pocket.010.params.host": "base_plate_001",
       "cut_rectangle_pocket.010.params.offset_x": 0,
       "cut_rectangle_pocket.010.params.offset_y": 0
     },
     "inferred_parameters": {
       "create_base_plate.001.params.plane": "top_face",
       "create_through_hole.002.params.center": [
-        0,
-        0
+        10,
+        10
       ],
       "create_through_hole.003.params.center": [
-        120,
-        0
+        10,
+        70
       ],
       "create_through_hole.004.params.center": [
-        0,
-        80
+        110,
+        10
       ],
       "create_through_hole.005.params.center": [
-        120,
-        80
+        110,
+        70
       ],
-      "create_center_boss.006.params.host": "base",
       "create_center_boss.006.params.plane": "top_face",
-      "create_through_hole.007.params.center": [
-        60,
-        40
-      ],
+      "cut_center_hole.007.params.plane": "top_face",
+      "cut_center_hole.007.params.depth": 15,
+      "cut_center_hole.007.params.target": "boss",
       "cut_slot.008.params.plane": "top_face",
       "cut_slot.009.params.plane": "top_face",
       "cut_rectangle_pocket.010.params.plane": "top_face"
@@ -84,8 +83,8 @@
       "params": {
         "plane": "top_face",
         "center": [
-          0,
-          0
+          10,
+          10
         ],
         "diameter": 10
       }
@@ -96,8 +95,8 @@
       "params": {
         "plane": "top_face",
         "center": [
-          120,
-          0
+          10,
+          70
         ],
         "diameter": 10
       }
@@ -108,8 +107,8 @@
       "params": {
         "plane": "top_face",
         "center": [
-          0,
-          80
+          110,
+          10
         ],
         "diameter": 10
       }
@@ -120,8 +119,8 @@
       "params": {
         "plane": "top_face",
         "center": [
-          120,
-          80
+          110,
+          70
         ],
         "diameter": 10
       }
@@ -132,20 +131,16 @@
       "params": {
         "diameter": 20,
         "height": 15,
-        "host": "base",
         "plane": "top_face"
       }
     },
     {
-      "id": "create_through_hole.007",
-      "op": "create_through_hole",
+      "id": "cut_center_hole.007",
+      "op": "cut_center_hole",
       "params": {
-        "plane": "top_face",
-        "center": [
-          60,
-          40
-        ],
-        "diameter": 20
+        "diameter": 20,
+        "depth": 15,
+        "target": "boss"
       }
     },
     {
@@ -160,8 +155,8 @@
         "length": 8,
         "width": 8,
         "direction": "y",
-        "offset_x": 20,
-        "offset_y": 0
+        "offset_y": 20,
+        "host": "base_plate_001"
       }
     },
     {
@@ -176,8 +171,8 @@
         "length": 8,
         "width": 8,
         "direction": "y",
-        "offset_x": -20,
-        "offset_y": 0
+        "offset_y": -20,
+        "host": "base_plate_001"
       }
     },
     {
@@ -192,6 +187,7 @@
         "length": 10,
         "width": 10,
         "depth": 10,
+        "host": "base_plate_001",
         "offset_x": 0,
         "offset_y": 0
       }
