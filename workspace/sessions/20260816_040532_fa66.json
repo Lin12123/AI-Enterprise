@@ -1,0 +1,106 @@
+{
+  "id": "20260816_040532_fa66",
+  "title": "画一个120mm*80mm*15mm的安装板，四",
+  "status": "active",
+  "started_at": "2026-08-16T04:05:32",
+  "updated_at": "2026-08-16T04:06:13",
+  "messages": [
+    {
+      "role": "user",
+      "text": "画一个120mm*80mm*15mm的安装板，四角加直径为10的通孔四周边距10",
+      "ts": "2026-08-16T04:05:38"
+    },
+    {
+      "role": "ai",
+      "text": "已生成建模计划",
+      "ts": "2026-08-16T04:05:38",
+      "type": "plan"
+    },
+    {
+      "role": "user",
+      "text": "修改当前零件，安装板上加直径20的中心凸台，中心开直径15的通孔。",
+      "ts": "2026-08-16T04:06:13"
+    },
+    {
+      "role": "ai",
+      "text": "已生成建模计划",
+      "ts": "2026-08-16T04:06:13",
+      "type": "plan"
+    }
+  ],
+  "context": {
+    "last_plan": {
+      "version": "2.0",
+      "unit": "mm",
+      "document_type": "part",
+      "part_name": "unnamed_part",
+      "metadata": {
+        "explicit_parameters": [
+          "create_base_plate.001.params.length",
+          "create_base_plate.001.params.width",
+          "create_base_plate.001.params.thickness",
+          "create_center_boss.002.params.diameter",
+          "create_center_boss.002.params.height",
+          "create_through_hole.003.params.plane",
+          "create_through_hole.003.params.diameter",
+          "create_corner_holes.004.params.diameter",
+          "create_corner_holes.004.params.edge_margin"
+        ],
+        "inferred_parameters": [
+          "create_through_hole.003.params.center"
+        ],
+        "name": "unnamed_part",
+        "description": "",
+        "source": "local"
+      },
+      "operations": [
+        {
+          "id": "create_base_plate.001",
+          "op": "create_base_plate",
+          "params": {
+            "length": 120,
+            "width": 80,
+            "thickness": 15,
+            "plane": "Top"
+          }
+        },
+        {
+          "id": "create_center_boss.002",
+          "op": "create_center_boss",
+          "params": {
+            "diameter": 20.0,
+            "height": 15,
+            "plane": "top_face",
+            "host": "base"
+          }
+        },
+        {
+          "id": "create_through_hole.003",
+          "op": "create_through_hole",
+          "params": {
+            "plane": "top_face",
+            "center": [
+              0.0,
+              0.0
+            ],
+            "diameter": 15,
+            "host": "base"
+          }
+        },
+        {
+          "id": "create_corner_holes.004",
+          "op": "cut_corner_holes",
+          "params": {
+            "diameter": 10,
+            "edge_margin": 10
+          }
+        }
+      ],
+      "outputs": {
+        "save_sldprt": false,
+        "export_step": false,
+        "capture_png": false
+      }
+    }
+  }
+}
