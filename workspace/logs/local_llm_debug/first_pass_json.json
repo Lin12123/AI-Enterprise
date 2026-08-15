@@ -1,5 +1,109 @@
 {
-  "create_new_part": {
-    "part_name": "InstallationPlate"
+  "version": "2.0",
+  "unit": "mm",
+  "document_type": "part",
+  "part_name": "Part1",
+  "metadata": {
+    "explicit_parameters": {
+      "create_new_part.params.part_name": "Part1"
+    },
+    "inferred_parameters": {
+      "cut_slot.params.length": 8,
+      "cut_slot.params.width": 2,
+      "cut_slot.params.direction": "x",
+      "cut_slot.params.host": "base_sketch"
+    }
+  },
+  "operations": [
+    {
+      "id": "create_new_part",
+      "op": "create_new_part",
+      "params": {
+        "part_name": "Part1"
+      }
+    },
+    {
+      "id": "create_base_plate",
+      "op": "create_base_plate",
+      "params": {
+        "length": 100,
+        "width": 100,
+        "thickness": 10
+      }
+    },
+    {
+      "id": "create_sketch",
+      "op": "create_sketch",
+      "params": {
+        "name": "base_sketch",
+        "plane": "top_face"
+      }
+    },
+    {
+      "id": "sketch_center_rectangle",
+      "op": "sketch_center_rectangle",
+      "params": {
+        "sketch": "base_sketch",
+        "center": [
+          0,
+          0
+        ],
+        "length": 100,
+        "width": 100
+      }
+    },
+    {
+      "id": "extrude_boss",
+      "op": "extrude_boss",
+      "params": {
+        "sketch": "base_sketch",
+        "depth": 10
+      }
+    },
+    {
+      "id": "cut_slot",
+      "op": "cut_slot",
+      "params": {
+        "plane": "top_face",
+        "center": [
+          -40,
+          0
+        ],
+        "length": 8,
+        "width": 2,
+        "direction": "x",
+        "host": "base_sketch"
+      }
+    },
+    {
+      "id": "cut_slot_2",
+      "op": "cut_slot",
+      "params": {
+        "plane": "top_face",
+        "center": [
+          40,
+          0
+        ],
+        "length": 8,
+        "width": 2,
+        "direction": "x",
+        "host": "base_sketch"
+      }
+    },
+    {
+      "id": "rebuild_model",
+      "op": "rebuild_model",
+      "params": {}
+    },
+    {
+      "id": "save_sldprt",
+      "op": "save_sldprt",
+      "params": {}
+    }
+  ],
+  "outputs": {
+    "save_sldprt": false,
+    "export_step": false,
+    "capture_png": false
   }
 }

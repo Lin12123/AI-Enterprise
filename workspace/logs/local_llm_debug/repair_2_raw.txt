@@ -1,25 +1,127 @@
 {
-  "id": "slot_001",
-  "op": "cut_slot",
-  "params": {
-    "plane": "top_face",
-    "center": [-40, 20],
-    "length": 8,
-    "width": 10,
-    "direction": "y",
-    "through_all": false
-  },
-  "operations": [],
   "version": "2.0",
   "unit": "mm",
   "document_type": "part",
-  "part_name": "unnamed_part",
+  "part_name": "Installation_Plate",
   "metadata": {
-    "name": "unnamed_part",
+    "explicit_parameters": [
+      "1.params.length",
+      "1.params.width",
+      "1.params.thickness",
+      "2.params.diameter",
+      "3.params.diameter",
+      "3.params.height",
+      "4.params.diameter",
+      "5.params.plane",
+      "5.params.center",
+      "5.params.length",
+      "5.params.width",
+      "5.params.direction",
+      "6.params.center",
+      "6.params.width",
+      "6.params.plane",
+      "6.params.length",
+      "6.params.direction",
+      "5.params.depth",
+      "6.params.depth"
+    ],
+    "inferred_parameters": [
+      "1.params.plane",
+      "2.params.plane",
+      "2.params.center",
+      "5.params.depth",
+      "6.params.depth"
+    ],
+    "name": "Installation_Plate",
     "description": "",
-    "source": "local",
-    "inferred_parameters": [],
-    "explicit_parameters": []
+    "source": "local"
   },
+  "operations": [
+    {
+      "id": "1",
+      "op": "create_base_plate",
+      "params": {
+        "length": 120,
+        "width": 80,
+        "thickness": 15,
+        "plane": "Top"
+      }
+    },
+    {
+      "id": "2",
+      "op": "create_through_hole",
+      "params": {
+        "plane": "top_face",
+        "center": [10.0, 10.0],
+        "diameter": 10,
+        "host": "base"
+      }
+    },
+    {
+      "id": "3",
+      "op": "create_center_boss",
+      "params": {
+        "diameter": 20.0,
+        "height": 15,
+        "plane": "top_face",
+        "host": "base"
+      }
+    },
+    {
+      "id": "4",
+      "op": "cut_center_hole",
+      "params": {
+        "diameter": 20.0,
+        "target": "boss",
+        "through_all": true
+      }
+    },
+    {
+      "id": "5",
+      "op": "cut_slot",
+      "params": {
+        "plane": "top_face",
+        "center": [-40, 0],
+        "length": 80.0,
+        "width": 2,
+        "direction": "y",
+        "host": "base",
+        "depth": 2.0
+      }
+    },
+    {
+      "id": "6",
+      "op": "cut_slot",
+      "params": {
+        "plane": "top_face",
+        "center": [40, 0],
+        "length": 80.0,
+        "width": 2,
+        "direction": "y",
+        "host": "base",
+        "depth": 2.0
+      }
+    },
+    {
+      "id": "7",
+      "op": "cut_corner_holes",
+      "params": {
+        "plane": "top_face",
+        "center": [
+          [-50, -50],
+          [-50, 50],
+          [50, -50],
+          [50, 50]
+        ],
+        "diameter": 10,
+        "host": "base"
+      }
+    },
+    {
+      "id": "8",
+      "op": "save_sldprt",
+      "params": {}
+    }
+  ],
   "outputs": {}
 }

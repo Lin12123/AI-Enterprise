@@ -1,28 +1,89 @@
 {
-  "id": "slot_001",
-  "op": "cut_slot",
-  "params": {
-    "plane": "top_face",
-    "center": [
-      -40,
-      20
-    ],
-    "length": 8,
-    "width": 10,
-    "direction": "y",
-    "through_all": false
-  },
-  "operations": [],
   "version": "2.0",
   "unit": "mm",
   "document_type": "part",
-  "part_name": "unnamed_part",
+  "part_name": "Part1",
   "metadata": {
-    "name": "unnamed_part",
+    "explicit_parameters": [
+      "create_new_part.params.part_name"
+    ],
+    "inferred_parameters": [
+      "cut_slot.params.center",
+      "cut_slot_2.params.center",
+      "cut_slot.params.plane",
+      "cut_slot.params.direction",
+      "cut_slot.params.width",
+      "cut_slot.params.length",
+      "cut_slot.params.depth",
+      "cut_slot_2.params.plane",
+      "cut_slot_2.params.direction",
+      "cut_slot_2.params.width",
+      "cut_slot_2.params.length",
+      "cut_slot_2.params.depth"
+    ],
+    "name": "Part1",
     "description": "",
-    "source": "local",
-    "inferred_parameters": [],
-    "explicit_parameters": []
+    "source": "local"
   },
+  "operations": [
+    {
+      "id": "create_new_part",
+      "op": "create_new_part",
+      "params": {
+        "part_name": "Part1"
+      }
+    },
+    {
+      "id": "create_base_plate",
+      "op": "create_base_plate",
+      "params": {
+        "length": 100,
+        "width": 100,
+        "thickness": 10
+      }
+    },
+    {
+      "id": "cut_slot",
+      "op": "cut_slot",
+      "params": {
+        "plane": "top_face",
+        "center": [
+          -40,
+          0
+        ],
+        "length": 100.0,
+        "width": 2,
+        "direction": "x",
+        "host": "base",
+        "depth": 2.0
+      }
+    },
+    {
+      "id": "cut_slot_2",
+      "op": "cut_slot",
+      "params": {
+        "plane": "top_face",
+        "center": [
+          40,
+          0
+        ],
+        "length": 100.0,
+        "width": 2,
+        "direction": "x",
+        "host": "base",
+        "depth": 2.0
+      }
+    },
+    {
+      "id": "rebuild_model",
+      "op": "rebuild_model",
+      "params": {}
+    },
+    {
+      "id": "save_sldprt",
+      "op": "save_sldprt",
+      "params": {}
+    }
+  ],
   "outputs": {}
 }

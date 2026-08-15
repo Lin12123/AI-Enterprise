@@ -1,0 +1,153 @@
+{
+  "id": "20260816_012104_3cd1",
+  "title": "画一个120mm*80mm*15mm的安装板，四",
+  "status": "active",
+  "started_at": "2026-08-16T01:21:04",
+  "updated_at": "2026-08-16T01:26:20",
+  "messages": [
+    {
+      "role": "user",
+      "text": "画一个120mm*80mm*15mm的安装板，四角加直径为10的通孔四周边距10",
+      "ts": "2026-08-16T01:21:10"
+    },
+    {
+      "role": "ai",
+      "text": "已生成建模计划",
+      "ts": "2026-08-16T01:21:10",
+      "type": "plan"
+    },
+    {
+      "role": "user",
+      "text": "修改当前零件，安装板上加直径20的中心凸台，安装板中心开直径15的通孔。",
+      "ts": "2026-08-16T01:23:07"
+    },
+    {
+      "role": "ai",
+      "text": "已生成建模计划",
+      "ts": "2026-08-16T01:23:07",
+      "type": "plan"
+    },
+    {
+      "role": "user",
+      "text": "修改当前零件，再从上表面的长边中心，边距0mm处切割一个10mm*10mm*10mm的口袋，两侧各一个。",
+      "ts": "2026-08-16T01:26:20"
+    },
+    {
+      "role": "ai",
+      "text": "已生成建模计划",
+      "ts": "2026-08-16T01:26:20",
+      "type": "plan"
+    }
+  ],
+  "context": {
+    "last_plan": {
+      "version": "2.0",
+      "unit": "mm",
+      "document_type": "part",
+      "part_name": "part",
+      "metadata": {
+        "explicit_parameters": [
+          "create_new_part.0.params.part_name"
+        ],
+        "inferred_parameters": [
+          "create_base_plate.1.params.length",
+          "create_base_plate.1.params.width",
+          "create_base_plate.1.params.thickness",
+          "create_center_boss.2.params.diameter",
+          "create_center_boss.2.params.height",
+          "cut_center_hole.3.params.diameter",
+          "cut_corner_holes.4.params.diameter",
+          "cut_corner_holes.4.params.edge_margin",
+          "cut_rectangle_pocket.5.params.plane",
+          "cut_rectangle_pocket.5.params.center",
+          "cut_rectangle_pocket.5.params.length",
+          "cut_rectangle_pocket.5.params.width",
+          "cut_rectangle_pocket.5.params.depth",
+          "cut_rectangle_pocket.5_002.params.plane",
+          "cut_rectangle_pocket.5_002.params.center",
+          "cut_rectangle_pocket.5_002.params.width",
+          "cut_rectangle_pocket.5_002.params.length",
+          "cut_rectangle_pocket.5_002.params.depth"
+        ],
+        "name": "part",
+        "description": "",
+        "source": "local"
+      },
+      "operations": [
+        {
+          "id": "create_new_part.0",
+          "op": "create_new_part",
+          "params": {
+            "part_name": "part"
+          }
+        },
+        {
+          "id": "create_base_plate.1",
+          "op": "create_base_plate",
+          "params": {
+            "length": 120,
+            "width": 80,
+            "thickness": 15
+          }
+        },
+        {
+          "id": "create_center_boss.2",
+          "op": "create_center_boss",
+          "params": {
+            "diameter": 20.0,
+            "height": 15,
+            "host": "base"
+          }
+        },
+        {
+          "id": "cut_center_hole.3",
+          "op": "cut_center_hole",
+          "params": {
+            "diameter": 15.0,
+            "target": "boss",
+            "through_all": true
+          }
+        },
+        {
+          "id": "cut_corner_holes.4",
+          "op": "cut_corner_holes",
+          "params": {
+            "diameter": 10,
+            "edge_margin": 10
+          }
+        },
+        {
+          "id": "cut_rectangle_pocket.5",
+          "op": "cut_rectangle_pocket",
+          "params": {
+            "plane": "top_face",
+            "center": [
+              0.0,
+              -35.0
+            ],
+            "length": 10.0,
+            "width": 10.0,
+            "depth": 10.0,
+            "host": "base"
+          }
+        },
+        {
+          "id": "cut_rectangle_pocket.5_002",
+          "op": "cut_rectangle_pocket",
+          "params": {
+            "plane": "top_face",
+            "center": [
+              0.0,
+              35.0
+            ],
+            "length": 10.0,
+            "width": 10.0,
+            "depth": 10.0,
+            "host": "base"
+          }
+        }
+      ],
+      "outputs": {}
+    }
+  }
+}
