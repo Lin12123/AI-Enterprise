@@ -631,13 +631,110 @@ namespace AiSwAddin
         }
     }
 
+    /// <summary>
+    /// 三渐变圆点 loading 动效控件：用 Timer 驱动三个圆点依次高亮，表达"AI 处理中"。
+    /// 可选前缀文字(如"编码 / 解析中")。Start() 启动动画并显示，Stop() 停止并隐藏。
+    /// 自绘、无子控件，跨线程调用请由外层 BeginInvoke 包裹。
+    /// </summary>
+    internal class LoadingDots : Control
+    {
+        private readonly Timer _timer;
+        private int _phase;
+        private string _label = "";
+
+        public string Label
+        {
+            get { return _label; }
+            set { _label = value ?? ""; Invalidate(); }
+        }
+
+        public LoadingDots()
+        {
+            SetStyle(ControlStyles.UserPaint
+                     | ControlStyles.AllPaintingInWmPaint
+                     | ControlStyles.OptimizedDoubleBuffer
+                     | ControlStyles.ResizeRedraw
+                     | ControlStyles.SupportsTransparentBackColor, true);
+            BackColor = Color.Transparent;
+            Height = 22;
+            Visible = false;
+            _timer = new Timer { Interval = 320 };
+            _timer.Tick += (s, e) => { _phase = (_phase + 1) % 3; Invalidate(); };
+        }
+
+        /// <summary>开始动画并显示。可传入前缀文字。</summary>
+        public void Start(string label)
+        {
+            _label = label ?? "";
+            _phase = 0;
+            Visible = true;
+            if (!_timer.Enabled) _timer.Start();
+            Invalidate();
+        }
+
+        /// <summary>停止动画并隐藏。</summary>
+        public void Stop()
+        {
+            if (_timer.Enabled) _timer.Stop();
+            Visible = false;
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            var g = e.Graphics;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+
+            int x = 2;
+            int cy = Height / 2;
+
+            // 前缀文字（可选）
+            if (!string.IsNullOrEmpty(_label))
+            {
+                using (var f = Theme.Body(9, FontStyle.Bold))
+                {
+                    Size sz = TextRenderer.MeasureText(g, _label, f);
+                    TextRenderer.DrawText(g, _label, f,
+                        new Rectangle(x, 0, sz.Width + 2, Height), Theme.Primary,
+                        TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
+                    x += sz.Width + 8;
+                }
+            }
+
+            // 三个圆点：当前 phase 的圆点最亮，其余渐灰
+            int dotD = 8, gap = 6;
+            for (int i = 0; i < 3; i++)
+            {
+                int alpha = (i == _phase) ? 255 : (i == (_phase + 2) % 3 ? 150 : 90);
+                var c = Color.FromArgb(alpha, Theme.Primary);
+                using (var b = new SolidBrush(c))
+                    g.FillEllipse(b, x + i * (dotD + gap), cy - dotD / 2, dotD, dotD);
+            }
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing && _timer != null) _timer.Dispose();
+            base.Dispose(disposing);
+        }
+    }
+
     /// <summary>3D 建模执行计划中的一个步骤条目。</summary>
+    /// <summary>单个建模步骤的执行状态。用于 PlanStepRow 左侧圆圈按状态着色/换图标。</summary>
+    internal enum StepStatus
+    {
+        Pending,   // 待执行（默认，蓝底数字）
+        Running,   // 执行中（琥珀底，旋转/进行提示）
+        Done,      // 已完成（绿底 ✓）
+        Failed     // 执行失败（红底 ✕）
+    }
+
     internal class PlanStep
     {
         public int Index;              // 从 1 开始
         public string NameCn;          // 中文步骤名，如 "草图1 (Sketch1)"
         public string ApiName;         // 右侧 API 名，如 "Sketch.CreateRectangle"
         public string Description;     // 灰色描述文字，如 "在前视基准面上绘制 120×80 mm 中心矩形草图"
+        public StepStatus Status = StepStatus.Pending;   // 当前执行状态，默认待执行
 
         public PlanStep(int index, string nameCn, string apiName, string description)
         {
@@ -850,6 +947,36 @@ namespace AiSwAddin
             _confirmBtn.Invalidate();
         }
 
+        /// <summary>按步骤序号(1 起)更新对应行的执行状态并重绘。索引越界则忽略。</summary>
+        public void UpdateStepStatus(int index1Based, StepStatus status)
+        {
+            if (InvokeRequired)
+            {
+                BeginInvoke(new Action<int, StepStatus>(UpdateStepStatus), index1Based, status);
+                return;
+            }
+            int i = index1Based - 1;
+            if (i < 0 || i >= _stepsFlow.Controls.Count) return;
+            var row = _stepsFlow.Controls[i] as PlanStepRow;
+            if (row != null) row.SetStatus(status);
+        }
+
+        /// <summary>把所有步骤统一标记为指定终态(收尾/整体失败用)。</summary>
+        public void MarkAllRemaining(StepStatus status)
+        {
+            if (InvokeRequired)
+            {
+                BeginInvoke(new Action<StepStatus>(MarkAllRemaining), status);
+                return;
+            }
+            foreach (Control c in _stepsFlow.Controls)
+            {
+                var row = c as PlanStepRow;
+                if (row != null) row.SetStatus(status);
+            }
+        }
+
+
         /// <summary>切换回初始占位态：显示"AI 助手就绪"提示，隐藏步骤列表与按钮。</summary>
         public void ShowIdleState(string title, string description)
         {
@@ -935,19 +1062,41 @@ namespace AiSwAddin
             Height = 44;
         }
 
+        /// <summary>更新本行绑定步骤的状态并立即重绘（供逐步执行时刷新）。</summary>
+        public void SetStatus(StepStatus status)
+        {
+            _step.Status = status;
+            Invalidate();
+        }
+
         protected override void OnPaint(PaintEventArgs e)
         {
             var g = e.Graphics;
             g.SmoothingMode = SmoothingMode.AntiAlias;
 
-            // 左侧编号圆圈
+            // 左侧状态圆圈：按执行状态着色，Pending 显示数字，其余显示状态符号
             int circleD = 22;
             int cx = 4, cy = (Height - circleD) / 2;
             var circleRect = new Rectangle(cx, cy, circleD, circleD);
-            using (var bg = new SolidBrush(Color.FromArgb(238, 243, 255)))
+
+            Color fillColor;
+            Color textColor;
+            string glyph;
+            switch (_step.Status)
+            {
+                case StepStatus.Running:
+                    fillColor = Color.FromArgb(253, 246, 227); textColor = Theme.Amber; glyph = "…"; break;
+                case StepStatus.Done:
+                    fillColor = Color.FromArgb(226, 245, 236); textColor = Theme.Green; glyph = "✓"; break;
+                case StepStatus.Failed:
+                    fillColor = Color.FromArgb(253, 232, 232); textColor = Color.FromArgb(214, 69, 69); glyph = "✕"; break;
+                default:
+                    fillColor = Color.FromArgb(238, 243, 255); textColor = Theme.Primary; glyph = _step.Index.ToString(); break;
+            }
+            using (var bg = new SolidBrush(fillColor))
                 g.FillEllipse(bg, circleRect);
-            TextRenderer.DrawText(g, _step.Index.ToString(), Theme.Body(9, FontStyle.Bold),
-                circleRect, Theme.Primary,
+            TextRenderer.DrawText(g, glyph, Theme.Body(9, FontStyle.Bold),
+                circleRect, textColor,
                 TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
 
             int leftPad = cx + circleD + 8;

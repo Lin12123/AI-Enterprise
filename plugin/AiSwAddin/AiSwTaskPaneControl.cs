@@ -43,6 +43,7 @@ namespace AiSwAddin
         private TextBox _logBox;
         private FeatureCard _cardNew3d, _card3dTo2d, _cardUpload;
         private RoundButton _sendBtn;
+        private LoadingDots _loadingDots;   // AI 调用期间的加载动效(三渐变圆点)
 
         // 输入框提示文字（placeholder）状态
         private const string InputPlaceholderText = "请描述建模需求，例如：做一个长100宽80厚10的底板，四角各开一个直径6的通孔";
@@ -505,6 +506,15 @@ namespace AiSwAddin
             bottomBar.Controls.Add(attach);
             bottomBar.Controls.Add(_sendBtn);
 
+            // loading 动效：位于发送按钮左侧，AI 调用期间由 SetBusy 显示
+            _loadingDots = new LoadingDots
+            {
+                Dock = DockStyle.Right,
+                Width = 120,
+                Visible = false
+            };
+            bottomBar.Controls.Add(_loadingDots);
+
             card.Controls.Add(bottomBar);
             card.Controls.Add(_inputBox);
             host.Controls.Add(card);
@@ -736,6 +746,20 @@ namespace AiSwAddin
         {
             if (_sendBtn != null) _sendBtn.Enabled = !busy;
             if (_cardNew3d != null) _cardNew3d.Enabled = !busy;
+            SetLoading(busy, busy ? "处理中" : null);
+        }
+
+        /// <summary>显示/隐藏 loading 动效并设置阶段文字(如"解析中"/"校验中"/"执行中")。可跨线程调用。</summary>
+        private void SetLoading(bool on, string label)
+        {
+            if (_loadingDots == null) return;
+            if (_loadingDots.InvokeRequired)
+            {
+                _loadingDots.BeginInvoke(new Action<bool, string>(SetLoading), on, label);
+                return;
+            }
+            if (on) _loadingDots.Start(label);
+            else _loadingDots.Stop();
         }
 
         // ==== 业务逻辑：发送 = 生成→校验→预演→执行(带确认) 的一体化流程 ====
@@ -901,18 +925,120 @@ namespace AiSwAddin
             // "新增零件"或意图不明则自动新建窗口，避免叠加到用户已有零件上。
             const bool useActiveDoc = true;
             AppendLog("[执行] 正在驱动 SolidWorks 建模(空零件复用/已有零件按需求判断复用或新建窗口)...");
+            // 执行开始：先把全部步骤置为"执行中"，让用户看到进度处于运行态
+            if (_planPanel != null) _planPanel.MarkAllRemaining(StepStatus.Running);
             try
             {
                 string resp = await _client.ExecuteAsync(_currentPlanJson, useActiveDoc, _lastPrompt);
                 bool ok = resp.Contains("\"ok\": true") || resp.Contains("\"ok\":true");
                 AppendLog(ok ? "[执行完成] SolidWorks 建模成功。" : "[执行失败] " + Truncate(resp));
+                // 依据服务端返回的 operations 明细，把执行结果逐步映射到执行卡片步骤状态；
+                // 失败时把失败原因/交互数据/原始响应完整打印到日志模块，便于排查。
+                ApplyExecutionResultToPlan(resp, ok);
                 return ok;
             }
             catch (Exception ex)
             {
                 AppendLog("[执行异常] " + ex.Message);
+                // 异常同样反映到卡片：把所有步骤标记为失败并记录异常堆栈
+                if (_planPanel != null) _planPanel.MarkAllRemaining(StepStatus.Failed);
+                AppendLog("[执行异常-详情] " + ex);
                 return false;
             }
+        }
+
+        /// <summary>
+        /// 解析 /api/execute 返回 JSON 中的 operations 数组，把每个操作的 status 映射到执行卡片对应步骤：
+        /// executed/done → Done，failed/error → Failed，其余 → Running。
+        /// 整体失败时把失败原因、每步交互数据、原始响应完整写入日志模块(供 LogPopupForm 查看)。
+        /// </summary>
+        private void ApplyExecutionResultToPlan(string resp, bool ok)
+        {
+            if (_planPanel == null || string.IsNullOrEmpty(resp)) return;
+
+            var ops = ExtractOperations(resp);   // 顺序对应计划步骤
+            if (ops.Count == 0)
+            {
+                // 服务端未回传分步明细：整体成功则全部标完成，失败则全部标失败
+                _planPanel.MarkAllRemaining(ok ? StepStatus.Done : StepStatus.Failed);
+            }
+            else
+            {
+                for (int i = 0; i < ops.Count; i++)
+                {
+                    var op = ops[i];
+                    StepStatus st;
+                    string s = (op.Status ?? "").ToLowerInvariant();
+                    if (s == "executed" || s == "done" || s == "ok" || s == "success")
+                        st = StepStatus.Done;
+                    else if (s == "failed" || s == "error")
+                        st = StepStatus.Failed;
+                    else
+                        st = ok ? StepStatus.Done : StepStatus.Failed;
+                    _planPanel.UpdateStepStatus(i + 1, st);
+                }
+            }
+
+            if (!ok)
+            {
+                // 失败：把失败原因/失败步骤明细/原始交互数据全部打印到日志模块
+                string reason = ExtractStringField(resp, "message");
+                AppendLog("[执行失败-原因] " + (string.IsNullOrEmpty(reason) ? "(服务端未提供 message)" : reason));
+                for (int i = 0; i < ops.Count; i++)
+                {
+                    var op = ops[i];
+                    if ((op.Status ?? "").ToLowerInvariant() == "failed"
+                        || (op.Status ?? "").ToLowerInvariant() == "error")
+                    {
+                        AppendLog(string.Format("[执行失败-步骤{0}] {1} ({2}) → {3}",
+                            i + 1, op.OperationId, op.OperationType, op.Message));
+                    }
+                }
+                AppendLog("[执行失败-原始响应] " + resp);
+            }
+        }
+
+        /// <summary>轻量解析 operations 数组：逐个提取 operation_id/operation_type/status/message。</summary>
+        private static System.Collections.Generic.List<OperationEntry> ExtractOperations(string resp)
+        {
+            var list = new System.Collections.Generic.List<OperationEntry>();
+            if (string.IsNullOrEmpty(resp)) return list;
+            int keyIndex = resp.IndexOf("\"operations\"", StringComparison.Ordinal);
+            if (keyIndex < 0) return list;
+            int arrStart = resp.IndexOf('[', keyIndex);
+            if (arrStart < 0) return list;
+
+            int depth = 0, i = arrStart;
+            int objStart = -1;
+            for (; i < resp.Length; i++)
+            {
+                char c = resp[i];
+                if (c == '[') { depth++; }
+                else if (c == ']') { depth--; if (depth == 0) break; }
+                else if (c == '{' && depth == 1) { objStart = i; }
+                else if (c == '}' && depth == 1 && objStart >= 0)
+                {
+                    string obj = resp.Substring(objStart, i - objStart + 1);
+                    list.Add(new OperationEntry
+                    {
+                        OperationId = ExtractStringField(obj, "operation_id") ?? "",
+                        OperationType = ExtractStringField(obj, "operation_type") ?? "",
+                        Status = ExtractStringField(obj, "status") ?? "",
+                        Message = ExtractStringField(obj, "message") ?? ""
+                    });
+                    objStart = -1;
+                }
+            }
+            return list;
+        }
+
+        /// <summary>execute 响应中单条操作明细。</summary>
+        private sealed class OperationEntry
+        {
+            public string OperationId;
+            public string OperationType;
+            public string Status;
+            public string Message;
         }
 
         // ---- 轻量 JSON 辅助 ----
