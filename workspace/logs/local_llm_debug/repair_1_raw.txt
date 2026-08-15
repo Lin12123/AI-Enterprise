@@ -1,25 +1,381 @@
 {
-  "id": "slot_001",
-  "op": "cut_slot",
-  "params": {
-    "plane": "top_face",
-    "center": [-40, 20],
-    "length": 8,
-    "width": 10,
-    "direction": "y",
-    "through_all": false
+  "create_new_part": {
+    "part_name": "InstallationPlate"
   },
-  "operations": [],
-  "version": "2.0",
-  "unit": "mm",
-  "document_type": "part",
-  "part_name": "unnamed_part",
-  "metadata": {
-    "name": "unnamed_part",
-    "description": "",
-    "source": "local",
-    "inferred_parameters": ["center"],
-    "explicit_parameters": []
-  },
-  "outputs": {}
-}
+  "operations": [
+    {
+      "create_sketch": {
+        "plane": "XY",
+        "sketch_elements": [
+          {
+            "create_rectangle": {
+              "length": 120,
+              "width": 80
+            }
+          },
+          {
+            "create_circle": {
+              "center": [0, 0],
+              "radius": 10
+            }
+          },
+          {
+            "create_circle": {
+              "center": [-60, 0],
+              "radius": 10
+            }
+          },
+          {
+            "create_circle": {
+              "center": [60, 0],
+              "radius": 10
+            }
+          },
+          {
+            "create_circle": {
+              "center": [0, 40],
+              "radius": 10
+            }
+          },
+          {
+            "create_circle": {
+              "center": [0, -40],
+              "radius": 10
+            }
+          },
+          {
+            "create_circle": {
+              "center": [0, 0],
+              "radius": 20,
+              "target": "boss"
+            }
+          },
+          {
+            "create_circle": {
+              "center": [0, 0],
+              "radius": 20
+            }
+          },
+          {
+            "create_slot": {
+              "center": [0, 40],
+              "length": 10,
+              "width": 8
+            }
+          },
+          {
+            "create_slot": {
+              "center": [0, -40],
+              "length": 10,
+              "width": 8
+            }
+          },
+          {
+            "create_through_hole": {
+              "center": [0, 0],
+              "diameter": 20
+            }
+          },
+          {
+            "create_through_hole": {
+              "center": [0, 0],
+              "diameter": 20
+            }
+          },
+          {
+            "create_slot": {
+              "center": [0, 40],
+              "length": 10,
+              "width": 8
+            }
+          },
+          {
+            "create_slot": {
+              "center": [0, -40],
+              "length": 10,
+              "width": 8
+            }
+          },
+          {
+            "create_slot": {
+              "center": [0, 40],
+              "length": 10,
+              "width": 8
+            }
+          },
+          {
+            "create_slot": {
+              "center": [0, -40],
+              "length": 10,
+              "width": 8
+            }
+          },
+          {
+            "create_slot": {
+              "center": [0, 40],
+              "length": 10,
+              "width": 8
+            }
+          },
+          {
+            "create_slot": {
+              "center": [0, -40],
+              "length": 10,
+              "width": 8
+            }
+          },
+          {
+            "create_slot": {
+              "center": [0, 40],
+              "length": 10,
+              "width": 8
+            }
+          },
+          {
+            "create_slot": {
+              "center": [0, -40],
+              "length": 10,
+              "width": 8
+            }
+          },
+          {
+            "create_slot": {
+              "center": [0, 40],
+              "length": 10,
+              "width": 8
+            }
+          },
+          {
+            "create_slot": {
+              "center": [0, -40],
+              "length": 10,
+              "width": 8
+            }
+          },
+          {
+            "create_slot": {
+              "center": [0, 40],
+              "length": 10,
+              "width": 8
+            }
+          },
+          {
+            "create_slot": {
+              "center": [0, -40],
+              "length": 10,
+              "width": 8
+            }
+          },
+          {
+            "create_slot": {
+              "center": [0, 40],
+              "length": 10,
+              "width": 8
+            }
+          },
+          {
+            "create_slot": {
+              "center": [0, -40],
+              "length": 10,
+              "width": 8
+            }
+          },
+          {
+            "create_slot": {
+              "center": [0, 40],
+              "length": 10,
+              "width": 8
+            }
+          },
+          {
+            "create_slot": {
+              "center": [0, -40],
+              "length": 10,
+              "width": 8
+            }
+          },
+          {
+            "create_slot": {
+              "center": [0, 40],
+              "length": 10,
+              "width": 8
+            }
+          },
+          {
+            "create_slot": {
+              "center": [0, -40],
+              "length": 10,
+              "width": 8
+            }
+          },
+          {
+            "create_slot": {
+              "center": [0, 40],
+              "length": 10,
+              "width": 8
+            }
+          },
+          {
+            "create_slot": {
+              "center": [0, -40],
+              "length": 10,
+              "width": 8
+            }
+          },
+          {
+            "create_slot": {
+              "center": [0, 40],
+              "length": 10,
+              "width": 8
+            }
+          },
+          {
+            "create_slot": {
+              "center": [0, -40],
+              "length": 10,
+              "width": 8
+            }
+          },
+          {
+            "create_slot": {
+              "center": [0, 40],
+              "length": 10,
+              "width": 8
+            }
+          },
+          {
+            "create_slot": {
+              "center": [0, -40],
+              "length": 10,
+              "width": 8
+            }
+          },
+          {
+            "create_slot": {
+              "center": [0, 40],
+              "length": 10,
+              "width": 8
+            }
+          },
+          {
+            "create_slot": {
+              "center": [0, -40],
+              "length": 10,
+              "width": 8
+            }
+          },
+          {
+            "create_slot": {
+              "center": [0, 40],
+              "length": 10,
+              "width": 8
+            }
+          },
+          {
+            "create_slot": {
+              "center": [0, -40],
+              "length": 10,
+              "width": 8
+            }
+          },
+          {
+            "create_slot": {
+              "center": [0, 40],
+              "length": 10,
+              "width": 8
+            }
+          },
+          {
+            "create_slot": {
+              "center": [0, -40],
+              "length": 10,
+              "width": 8
+            }
+          },
+          {
+            "create_slot": {
+              "center": [0, 40],
+              "length": 10,
+              "width": 8
+            }
+          },
+          {
+            "create_slot": {
+              "center": [0, -40],
+              "length": 10,
+              "width": 8
+            }
+          },
+          {
+            "create_slot": {
+              "center": [0, 40],
+              "length": 10,
+              "width": 8
+            }
+          },
+          {
+            "create_slot": {
+              "center": [0, -40],
+              "length": 10,
+              "width": 8
+            }
+          },
+          {
+            "create_slot": {
+              "center": [0, 40],
+              "length": 10,
+              "width": 8
+            }
+          },
+          {
+            "create_slot": {
+              "center": [0, -40],
+              "length": 10,
+              "width": 8
+            }
+          },
+          {
+            "create_slot": {
+              "center": [0, 40],
+              "length": 10,
+              "width": 8
+            }
+          },
+          {
+            "create_slot": {
+              "center": [0, -40],
+              "length": 10,
+              "width": 8
+            }
+          },
+          {
+            "create_slot": {
+              "center": [0, 40],
+              "length": 10,
+              "width": 8
+            }
+          },
+          {
+            "create_slot": {
+              "center": [0, -40],
+              "length": 10,
+              "width": 8
+            }
+          },
+          {
+            "create_slot": {
+              "center": [0, 40],
+              "length": 10,
+              "width": 8
+            }
+          },
+          {
+            "create_slot": {
+              "center": [0, -40],
+              "length": 10,
+              "width": 8
+            }
+          },
+          {
+            "create_slot": {
+              "center": [

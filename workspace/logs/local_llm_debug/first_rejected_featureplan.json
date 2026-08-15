@@ -1,16 +1,6 @@
 {
-  "id": "slot_001",
-  "op": "cut_slot",
-  "params": {
-    "plane": "top_face",
-    "center": [
-      0,
-      20
-    ],
-    "length": 8,
-    "width": 10,
-    "direction": "y",
-    "through_all": false
+  "create_new_part": {
+    "part_name": "InstallationPlate"
   },
   "operations": [],
   "version": "2.0",
