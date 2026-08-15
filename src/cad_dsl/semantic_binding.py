@@ -550,12 +550,21 @@ def _bind_operation_params(
             if corrected_length <= width:
                 corrected_length = width + 1.0
             normalized["length"] = round(corrected_length, 3)
-        if _prompt_requests_slot_through_thickness(prompt) and "depth" not in normalized:
-            normalized["through_all"] = True
-        elif "depth" not in normalized and "through_all" not in normalized:
+        # 深度/贯穿处理：本项目对“通槽/through slot”的既定语义是沿板跨度方向贯通
+        # （length 覆盖整个板跨，由 _infer_slot_span_from_prompt 处理），深度方向仍按
+        # 底板厚度切除，而不是设 through_all。本地模型偶尔把 through_all 误设为 false
+        # 又不给 depth，导致 Policy 报“cut_slot depth 必须大于 0”而 500。这里做确定性
+        # 修正：只要 through_all 不是 True 且没有有效 depth，就用底板厚度兜底 depth 并
+        # 移除矛盾的 through_all（保持与跨度全通语义一致，depth 沿厚度方向兜底）。
+        current_depth = _coerce_float(normalized.get("depth"))
+        has_valid_depth = current_depth is not None and current_depth > 0
+        through_all_value = normalized.get("through_all")
+        through_all_is_true = through_all_value is True
+        if not through_all_is_true and not has_valid_depth:
             inferred_slot_depth = _infer_default_slot_depth(normalized, base_thickness)
             if inferred_slot_depth is not None:
                 normalized["depth"] = inferred_slot_depth
+                normalized.pop("through_all", None)
         normalized_center = _normalize_edge_distance_slot_center(
             prompt,
             operation_id,

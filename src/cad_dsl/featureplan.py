@@ -22,6 +22,11 @@ class PlanMetadata:
     source: str = "local"
     inferred_parameters: tuple[str, ...] = ()
     explicit_parameters: tuple[str, ...] = ()
+    # 增量模式标志：当插件在“当前已打开的 SolidWorks 零件”上继续操作（例如仅在
+    # 已有安装板上开槽/开孔）时置 True。此时 FeaturePlan 可以不包含创建底板的
+    # 算子，规划阶段应把当前零件视为隐式的已完成实体（existing base solid），
+    # 从而放宽 cut_slot 等 solid-body 依赖算子对 base 的硬性校验。
+    assume_existing_base: bool = False
 
 
 @dataclass(frozen=True)
@@ -66,6 +71,7 @@ class FeaturePlan:
                 source=str(metadata_data.get("source", "local")),
                 inferred_parameters=tuple(str(value) for value in metadata_data.get("inferred_parameters", ()) or ()),
                 explicit_parameters=tuple(str(value) for value in metadata_data.get("explicit_parameters", ()) or ()),
+                assume_existing_base=bool(metadata_data.get("assume_existing_base", False)),
             ),
             operations=tuple(
                 FeatureOperation(
@@ -91,6 +97,7 @@ class FeaturePlan:
                 "source": self.metadata.source,
                 "inferred_parameters": list(self.metadata.inferred_parameters),
                 "explicit_parameters": list(self.metadata.explicit_parameters),
+                "assume_existing_base": self.metadata.assume_existing_base,
             },
             "operations": [
                 {

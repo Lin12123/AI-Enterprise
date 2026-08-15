@@ -222,6 +222,52 @@ def _build_prompt_with_history(natural_language: str, session_id: str) -> str:
     return "\n".join(lines)
 
 
+# 判定“底板/首个实体”的算子集合：出现其一即认为计划自带完整实体，无需增量兜底。
+_BASE_SOLID_OPS = {"create_base_plate", "extrude_boss"}
+
+
+def _apply_incremental_base_flag(plan: dict, active_document) -> None:
+    """当处于增量场景时，给计划 metadata 打上 assume_existing_base 标志。
+
+    增量场景判定：
+      1) 请求体带 active_document，且其表明当前已打开的零件已有实体
+         （has_solid_body 为真，或存在 part_name / body_count>0）；
+      2) 本次生成的计划里没有任何创建底板/首个实体的算子。
+    两者同时满足才视为“在既有零件上做增量操作”，避免误伤自包含的完整计划。
+    """
+    if not isinstance(active_document, dict):
+        return
+
+    has_solid = bool(
+        active_document.get("has_solid_body")
+        or active_document.get("part_name")
+        or _coerce_int(active_document.get("body_count")) > 0
+    )
+    if not has_solid:
+        return
+
+    operations = plan.get("operations") if isinstance(plan.get("operations"), list) else []
+    plan_has_base = any(
+        isinstance(op, dict) and str(op.get("op") or op.get("type", "")).strip() in _BASE_SOLID_OPS
+        for op in operations
+    )
+    if plan_has_base:
+        return
+
+    metadata = plan.get("metadata")
+    if not isinstance(metadata, dict):
+        metadata = {}
+        plan["metadata"] = metadata
+    metadata["assume_existing_base"] = True
+
+
+def _coerce_int(value) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return 0
+
+
 def _handle_generate_plan(payload: dict) -> dict:
     """自然语言 → FeaturePlan。
 
@@ -259,6 +305,13 @@ def _handle_generate_plan(payload: dict) -> dict:
 
     if not isinstance(plan, dict):
         return {"ok": False, "error": "解析器返回的不是合法计划对象"}
+
+    # 增量模式：插件可在请求体带 active_document 描述“当前已打开的 SolidWorks 零件”
+    # （例如 {"has_solid_body": true, "part_name": "..."}）。当当前零件已有实体、且本
+    # 次生成的计划里没有任何创建底板的算子时，说明用户是在既有零件上做增量操作（如仅
+    # 开槽/开孔）。此时给计划 metadata 打上 assume_existing_base 标志，让规划阶段把当前
+    # 零件视为隐式的已完成实体，避免 cut_slot 等算子因“缺少 base solid”而失败。
+    _apply_incremental_base_flag(plan, payload.get("active_document"))
 
     # 生成成功后落盘会话(用户原始自然语言 + AI 计划摘要)
     if session_id:

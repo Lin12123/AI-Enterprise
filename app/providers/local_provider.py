@@ -946,7 +946,62 @@ def _normalize_featureplan_protocol(data: dict) -> dict:
 
 
 
+def _promote_top_level_single_operation(data: dict, operations: list[dict]) -> list[dict]:
+    """Promote a top-level single-operation object into the operations array.
+
+    本地模型对“只开一个/几个特征”的 prompt 偶尔把单个算子对象直接铺在顶层
+    （形如 {"id": "slot_001", "op": "cut_slot", "params": {...}, "operations": []}），
+    而不是放进 operations 数组，导致 operations 为空、Policy 报“至少需要一个 operation”而 500。
+    这里做纯结构修复：当顶层带有字符串 op + dict params，且 operations 里尚无同名算子时，
+    把顶层的 id/op/params/depends_on 收进 operations，并从顶层移除这些字段。不发明几何。
+    """
+
+    op_name = data.get("op")
+    params = data.get("params")
+    if not isinstance(op_name, str) or not op_name.strip():
+        return operations
+    if not isinstance(params, dict):
+        return operations
+
+    normalized_operations = list(operations)
+    existing_ops = {
+        str(operation.get("op", "")).strip()
+        for operation in normalized_operations
+        if isinstance(operation, dict)
+    }
+    if op_name.strip() in existing_ops:
+        # operations 里已有同名算子，顶层字段视为冗余，直接移除避免污染。
+        for key in ("id", "op", "params", "depends_on"):
+            data.pop(key, None)
+        return normalized_operations
+
+    used_ids = {
+        str(operation.get("id", "")).strip()
+        for operation in normalized_operations
+        if isinstance(operation, dict)
+    }
+    operation_id = str(data.get("id", "")).strip()
+    if not operation_id or operation_id in used_ids:
+        base_id = op_name.strip()
+        suffix = 1
+        operation_id = f"{base_id}_{suffix:03d}"
+        while operation_id in used_ids:
+            suffix += 1
+            operation_id = f"{base_id}_{suffix:03d}"
+
+    promoted = {"id": operation_id, "op": op_name.strip(), "params": dict(params)}
+    depends_on = data.get("depends_on")
+    if depends_on is not None:
+        promoted["depends_on"] = list(depends_on) if isinstance(depends_on, list) else depends_on
+    normalized_operations.append(promoted)
+
+    for key in ("id", "op", "params", "depends_on"):
+        data.pop(key, None)
+    return normalized_operations
+
+
 def _normalize_top_level_operation_fields(data: dict, operations: list[dict]) -> list[dict]:
+    operations = _promote_top_level_single_operation(data, operations)
     operation_fields = (
         "rebuild_model",
         "validate_rebuild",

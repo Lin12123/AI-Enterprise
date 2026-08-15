@@ -988,6 +988,59 @@ class TestApiExecutorPlanning(unittest.TestCase):
         self.assertEqual(result.status, "blocked")
         self.assertIn("requires a completed base solid", result.message + result.operations[0].message)
 
+    def test_cut_slot_without_base_allowed_in_incremental_mode(self):
+        # 增量模式：metadata.assume_existing_base=True 时，即使计划没有创建底板的算子，
+        # plan_operations 也应把当前打开的零件视为隐式已完成实体，不再抛
+        # "requires a completed base solid"。
+        from solidworks_api.operation_planner import plan_operations
+
+        plan = FeaturePlan.from_dict(
+            {
+                "version": "2.0",
+                "unit": "mm",
+                "document_type": "part",
+                "part_name": "incremental_slot",
+                "metadata": {"assume_existing_base": True},
+                "operations": [
+                    {
+                        "id": "slot_001",
+                        "op": "cut_slot",
+                        "params": {"plane": "top_face", "center": [0, 0], "length": 40, "width": 8, "direction": "y", "depth": 7.5},
+                    },
+                ],
+                "outputs": {},
+            }
+        )
+
+        planned = plan_operations(plan)
+        self.assertEqual(len(planned.operations), 1)
+        self.assertEqual(planned.operations[0].op, "cut_slot")
+
+    def test_cut_slot_without_base_still_blocked_without_incremental_flag(self):
+        # 未开启增量标志时，缺少 base solid 仍应报错（保持既有安全约束）。
+        from solidworks_api.operation_planner import plan_operations
+
+        plan = FeaturePlan.from_dict(
+            {
+                "version": "2.0",
+                "unit": "mm",
+                "document_type": "part",
+                "part_name": "no_base_no_flag",
+                "operations": [
+                    {
+                        "id": "slot_001",
+                        "op": "cut_slot",
+                        "params": {"plane": "top_face", "center": [0, 0], "length": 40, "width": 8, "direction": "y", "depth": 7.5},
+                    },
+                ],
+                "outputs": {},
+            }
+        )
+
+        with self.assertRaises(RuntimeError) as ctx:
+            plan_operations(plan)
+        self.assertIn("requires a completed base solid", str(ctx.exception))
+
     def test_model_builder_reorders_boss_before_boss_target_center_hole(self):
         app = FakeApp()
         plan = FeaturePlan.from_dict(

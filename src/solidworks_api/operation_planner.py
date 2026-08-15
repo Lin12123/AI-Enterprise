@@ -34,6 +34,12 @@ def plan_operations(plan: FeaturePlan) -> FeaturePlan:
     first_boss = _first_id(operations, "create_center_boss")
     seed_aliases = build_seed_feature_aliases(operations)
 
+    # 增量模式：插件在“当前已打开的 SolidWorks 零件”上继续操作（例如仅在已有安装板
+    # 上开槽/开孔）。此时 FeaturePlan 允许不包含创建底板的算子，规划阶段把当前零件视
+    # 为隐式的已完成实体，从而放宽 solid-body 依赖算子对 base 的硬性校验（不 raise、
+    # 也不为它们添加不存在的 base 依赖）。仅当计划本身没有任何底板算子时才生效。
+    assume_existing_base = bool(getattr(plan.metadata, "assume_existing_base", False)) and not first_base
+
     for operation in operations:
         if operation.op != "create_new_part" and first_new_part:
             prerequisites[operation.id].add(first_new_part)
@@ -56,7 +62,8 @@ def plan_operations(plan: FeaturePlan) -> FeaturePlan:
             prerequisites[operation.id].add(first_base)
 
         if operation.op in _solid_body_dependent_ops() and not first_base:
-            raise RuntimeError(f"{operation.op} requires a completed base solid before execution")
+            if not assume_existing_base:
+                raise RuntimeError(f"{operation.op} requires a completed base solid before execution")
 
         if operation.op in _solid_body_dependent_ops() and first_base:
             prerequisites[operation.id].add(first_base)
