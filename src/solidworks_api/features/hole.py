@@ -115,7 +115,7 @@ def cut_corner_holes(sw_model: object, params: dict, state: dict) -> None:
     _add_circle(sw_model, -offset_x, offset_y, diameter)
     _add_circle(sw_model, offset_x, offset_y, diameter)
     sw_model.SketchManager.InsertSketch(True)
-    _require_feature_result(_through_all_cut(sw_model), "cut_corner_holes")
+    _require_feature_result(_through_all_cut_any(sw_model), "cut_corner_holes")
 
 
 def cut_center_hole(sw_model: object, params: dict, state: dict) -> None:
@@ -157,7 +157,7 @@ def cut_center_hole(sw_model: object, params: dict, state: dict) -> None:
     has_depth = "depth" in params
     through_all = bool(params.get("through_all", not has_depth))
     if through_all:
-        _require_feature_result(_through_all_cut(sw_model), "cut_center_hole")
+        _require_feature_result(_through_all_cut_any(sw_model), "cut_center_hole")
     else:
         _require_feature_result(_blind_cut(sw_model, float(params["depth"])), "cut_center_hole")
 
@@ -173,7 +173,7 @@ def create_through_hole(sw_model: object, params: dict, state: dict) -> None:
     sw_model.SketchManager.InsertSketch(True)
     _add_circle(sw_model, float(center[0]), float(center[1]), diameter)
     sw_model.SketchManager.InsertSketch(True)
-    feature = _require_feature_result(_through_all_cut(sw_model), "create_through_hole")
+    feature = _require_feature_result(_through_all_cut_any(sw_model), "create_through_hole")
     _record_seed_hole(state, feature, params, through_all=True)
 
 
@@ -236,7 +236,7 @@ def create_counterbore_hole(sw_model: object, params: dict, state: dict) -> None
     _add_circle(sw_model, float(center[0]), float(center[1]), diameter)
     sw_model.SketchManager.InsertSketch(True)
     if through_all:
-        _require_feature_result(_through_all_cut(sw_model), "create_counterbore_hole")
+        _require_feature_result(_through_all_cut_any(sw_model), "create_counterbore_hole")
     else:
         _require_feature_result(_blind_cut(sw_model, depth), "create_counterbore_hole")
 
