@@ -73,6 +73,19 @@ const form = ref({ standard_no: '', standard_type: '', title: '', version: '', s
 const fileRef = ref(null)
 const importing = ref(false)
 
+// 类型下拉：值需能被分类正则识别（企业标准→enterprise，企业标准件→parts，国标/行业→industry）
+const typeOptions = [
+  { label: '国标 / 行业标准', value: '国标' },
+  { label: '企业标准', value: '企业标准' },
+  { label: '企业标准件', value: '企业标准件' },
+]
+// 版本建议：默认给出当天日期版本号，也允许手动输入
+const today = new Date()
+const defaultVersion = `v${today.getFullYear()}.${today.getMonth() + 1}.${today.getDate()}.1`
+const versionOptions = [defaultVersion]
+// 来源固定为文件格式
+const sourceOptions = ['PDF', 'Word', 'Excel', 'JSON', '图片']
+
 function onFileChange(file) {
   fileRef.value = file.raw
 }
@@ -184,16 +197,34 @@ onMounted(loadStandards)
           <el-input v-model="form.standard_no" />
         </el-form-item>
         <el-form-item label="类型">
-          <el-input v-model="form.standard_type" placeholder="如 国标 / 企标 / 标准件" />
+          <el-select v-model="form.standard_type" placeholder="请选择标准类型" style="width: 100%">
+            <el-option
+              v-for="opt in typeOptions"
+              :key="opt.value"
+              :label="opt.label"
+              :value="opt.value"
+            />
+          </el-select>
         </el-form-item>
         <el-form-item label="标题">
           <el-input v-model="form.title" />
         </el-form-item>
         <el-form-item label="版本">
-          <el-input v-model="form.version" placeholder="如 v2026.1" />
+          <el-select
+            v-model="form.version"
+            filterable
+            allow-create
+            default-first-option
+            placeholder="选择或输入版本，如 v2026.1"
+            style="width: 100%"
+          >
+            <el-option v-for="v in versionOptions" :key="v" :label="v" :value="v" />
+          </el-select>
         </el-form-item>
         <el-form-item label="来源">
-          <el-input v-model="form.source" placeholder="如 PDF / JSON / Word" />
+          <el-select v-model="form.source" placeholder="请选择文件来源" style="width: 100%">
+            <el-option v-for="s in sourceOptions" :key="s" :label="s" :value="s" />
+          </el-select>
         </el-form-item>
         <el-form-item label="文件">
           <el-upload :auto-upload="false" :limit="1" :on-change="onFileChange">
