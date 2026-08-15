@@ -101,20 +101,9 @@ def create_drawing_from_active_part(app: object, rules: list | None = None) -> d
     except Exception as exc:
         annotation_note = f"(尺寸/公差标注降级: {exc})"
 
-    # 3.2) 写入【技术要求】文本框。若模板/图框已自带技术要求，则不再重复写入，
-    #      避免图纸上出现两处技术要求。纯文本注释，失败不阻断出图。
-    tech_note = ""
-    try:
-        if _drawing_has_tech_requirements(draw_model):
-            tech_note = "，模板已含技术要求，跳过重复写入"
-        else:
-            tech_text = _build_tech_requirements_text(rules or [])
-            if _insert_tech_requirements_note(draw_model, tech_text):
-                tech_note = "，已写入技术要求文本框"
-            else:
-                tech_note = "(技术要求文本框写入未成功，可手动补充)"
-    except Exception as exc:
-        tech_note = f"(技术要求写入降级: {exc})"
+    # 3.2) 技术要求完全沿用模板/图框自带的那份，程序不再写入任何技术要求文本框，
+    #      避免与模板重复。企业模板已固化技术要求，出图无需额外补充。
+    tech_note = "，技术要求沿用模板"
 
     # 图幅信息(2.1 设置成功时)
     paper_note = f"，图幅 {paper_name}" if paper_name else ""
