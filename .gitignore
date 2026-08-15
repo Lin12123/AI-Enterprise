@@ -28,10 +28,9 @@ env/
 workspace/jobs/
 workspace/outputs/
 
-# 临时:纳入 workspace/logs 便于排查问题(排查完可删下面 3 行恢复忽略)
+# 临时:纳入 workspace/logs 便于排查问题(排查完可删本行及相关例外恢复忽略)
 !workspace/logs/
 !workspace/logs/**
-!workspace/logs/**/*.log
 
 # Keep the runtime workspace directory structure available for fresh clones
 !workspace/
@@ -62,6 +61,10 @@ workspace/outputs/
 *.log
 *.tmp
 *.bak
+# 临时:上面的 *.log/*.tmp/*.bak 会再次忽略 logs 目录内的日志文件，这里重新放行(排查完可删)
+!workspace/logs/**/*.log
+!workspace/logs/**/*.tmp
+!workspace/logs/**/*.bak
 *.orig
 .DS_Store
 Thumbs.db
