@@ -604,6 +604,16 @@ def _policy_repair_checklist(data: dict, prompt: str = "") -> str:
                 )
                 hints.append("The hole center plus its radius must stay inside the base boundary.")
                 hints.append(
+                    "This Policy message already states the exact valid numeric range, for example 'x within [a, b] and y within [c, d]'. "
+                    "You MUST rewrite params.center to a coordinate strictly inside that stated x and y range. Prefer a value near the middle of the range, "
+                    "not at either endpoint, so the hole keeps clearance from the edge."
+                )
+                hints.append(
+                    "The base center is the origin [0,0]. Positive x is toward the right/length+ edge, negative x toward the left; "
+                    "positive y is toward the back/width+edge, negative y toward the front. For four corner holes on a length x width base, "
+                    "use symmetric coordinates like [+X,+Y], [-X,+Y], [+X,-Y], [-X,-Y] where X and Y are both inside the stated valid range."
+                )
+                hints.append(
                     "If the invalid coordinate or size was inferred/recommended by the LLM, replace it with a safe recommendation and list the parameter path in metadata.inferred_parameters."
                 )
                 hints.append(

@@ -239,7 +239,22 @@ def _validate_circular_center_inside_base(
         abs(x) + radius >= half_length - _EDGE_SAFETY_MARGIN_MM
         or abs(y) + radius >= half_width - _EDGE_SAFETY_MARGIN_MM
     ):
-        errors.append(_boundary_message(operation_type, operation_id, "center", inferred_parameters, explicit_parameters))
+        # 给出明确合法数值区间(已扣除孔半径与安全余量)，帮助 LLM 一次生成/修复到位。
+        x_limit = half_length - _EDGE_SAFETY_MARGIN_MM - radius
+        y_limit = half_width - _EDGE_SAFETY_MARGIN_MM - radius
+        allowed_range = None
+        if x_limit > 0 and y_limit > 0:
+            allowed_range = (-x_limit, x_limit, -y_limit, y_limit)
+        errors.append(
+            _boundary_message(
+                operation_type,
+                operation_id,
+                "center",
+                inferred_parameters,
+                explicit_parameters,
+                allowed_range,
+            )
+        )
 
 
 
@@ -338,12 +353,21 @@ def _boundary_message(
     parameter: str,
     inferred_parameters: set[str],
     explicit_parameters: set[str],
+    allowed_range: tuple[float, float, float, float] | None = None,
 ) -> str:
     path = f"{operation_id}.params.{parameter}"
     base = (
         f"{operation_type} {parameter} is outside the current base boundary. "
         "For edge-distance intent, center must include the inward offset from the edge."
     )
+    # 为本地小模型给出明确的数值区间：底板中心在原点[0,0]，center=[x,y] 必须落在
+    # 下列闭区间内(已扣除孔半径与安全余量)，否则孔缘会触边导致 SOLIDWORKS 切除失败。
+    if allowed_range is not None:
+        x_min, x_max, y_min, y_max = allowed_range
+        base += (
+            f" The base center is the origin [0,0]; a valid center must satisfy"
+            f" x within [{x_min:.1f}, {x_max:.1f}] and y within [{y_min:.1f}, {y_max:.1f}] (mm)."
+        )
     if path in inferred_parameters:
         return base + f" Inferred parameter {path} must be re-recommended by the LLM."
     if path in explicit_parameters:
