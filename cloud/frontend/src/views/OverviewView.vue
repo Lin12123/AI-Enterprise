@@ -77,7 +77,9 @@ onMounted(load)
 .stat-card {
   position: relative;
   overflow: hidden;
-  min-height: 132px;
+  height: 100%;
+  min-height: 118px;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   justify-content: center;
