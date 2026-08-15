@@ -912,6 +912,18 @@ def _normalize_metadata_parameter_paths(metadata: dict, operations: object) -> N
     explicit_out: list[str] = []
     inferred_out: list[str] = []
 
+    # Local 7B models frequently emit the provenance buckets as an
+    # object/dict (``{"<op>.params.<param>": <value>}``) instead of the
+    # canonical list of path strings. The path itself lives in the *key*, so
+    # extract the keys and normalize them like a list. Without this, dict-shaped
+    # metadata bypassed normalization entirely and the malformed op-name+id
+    # joined paths (e.g. ``create_base_plate.001.params.plane``) reached the
+    # Policy Engine unchanged, producing "invalid parameter path" 500s.
+    if isinstance(explicit_paths, dict):
+        explicit_paths = list(explicit_paths.keys())
+    if isinstance(inferred_paths, dict):
+        inferred_paths = list(inferred_paths.keys())
+
     if isinstance(explicit_paths, list):
         for path in explicit_paths:
             normalized_path, bucket = _normalize_metadata_parameter_path(str(path), operations, default_bucket="explicit")
