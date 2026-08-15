@@ -301,18 +301,25 @@ namespace AiSwAddin
             board.SetResult(_lastFeatureCount);
             board.DrawClicked += async (s, e) =>
             {
-                AppendLog("[成果] 3D 转 2D 出图：正在把当前活动零件转成三视图工程图...");
-                AppendChat(ChatRole.Ai, "正在把当前 3D 模型转为工程图(三视图)，请稍候...");
+                AppendLog("[成果] 3D 转 2D 出图：正在从企业云平台获取标准与规范...");
+                AppendChat(ChatRole.Ai, "正在从企业云平台获取制图标准与规范(公差/投影法等)，请稍候...");
                 SetBusy(true);
                 try
                 {
+                    AppendLog("[成果] 已获取企业标准，正在把当前活动零件转成三视图工程图...");
+                    AppendChat(ChatRole.Ai, "标准已就绪，正在生成含尺寸与公差的工程图(三视图)...");
                     string resp = await _client.CreateDrawingAsync();
                     bool ok = resp.Contains("\"ok\": true") || resp.Contains("\"ok\":true");
                     string msg = ExtractMessage(resp);
+                    int ruleCount = ExtractRuleCount(resp);
+                    bool stale = resp.Contains("\"stale\": true") || resp.Contains("\"stale\":true");
+                    string kbNote = ruleCount >= 0
+                        ? ("(已应用 " + ruleCount + " 条企业标准" + (stale ? "，云平台暂不可达，沿用本地缓存" : "") + ")")
+                        : "";
                     if (ok)
                     {
-                        AppendLog("[出图完成] " + (msg ?? "工程图已生成。"));
-                        AppendChat(ChatRole.Ai, msg ?? "工程图已生成并保存。");
+                        AppendLog("[出图完成] " + (msg ?? "工程图已生成。") + " " + kbNote);
+                        AppendChat(ChatRole.Ai, (msg ?? "工程图已生成并保存。") + " " + kbNote);
                         ShowDrawingResult();
                     }
                     else
@@ -1372,6 +1379,25 @@ namespace AiSwAddin
             }
             string result = sb.ToString();
             return string.IsNullOrEmpty(result) ? null : result;
+        }
+
+        /// <summary>从响应体 JSON 的 knowledge 段轻量提取 "rule_count" 整数值。找不到返回 -1。</summary>
+        private static int ExtractRuleCount(string resp)
+        {
+            if (string.IsNullOrEmpty(resp)) return -1;
+            int keyIndex = resp.IndexOf("\"rule_count\"", StringComparison.Ordinal);
+            if (keyIndex < 0) return -1;
+            int colon = resp.IndexOf(':', keyIndex);
+            if (colon < 0) return -1;
+            var sb = new System.Text.StringBuilder();
+            for (int i = colon + 1; i < resp.Length; i++)
+            {
+                char c = resp[i];
+                if (char.IsDigit(c)) { sb.Append(c); continue; }
+                if (sb.Length > 0) break;
+            }
+            int val;
+            return int.TryParse(sb.ToString(), out val) ? val : -1;
         }
     }
 }

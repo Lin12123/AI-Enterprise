@@ -18,12 +18,13 @@ import os
 import threading
 import time
 import urllib.request
+from datetime import datetime
 
 
 # ---- 配置 ----------------------------------------------------------------------
 
 DEFAULT_BASE_URL = "http://127.0.0.1:8000"  # 云平台后端地址
-DEFAULT_TTL_SECONDS = 3600                  # 缓存有效期：1 小时
+DEFAULT_TTL_SECONDS = 1800                  # 缓存有效期：30 分钟(程序每 30 分钟刷新一次)
 DEFAULT_TIMEOUT = 5                         # 单次拉取超时(秒)
 
 
@@ -36,6 +37,12 @@ def _ttl_seconds() -> int:
         return int(os.environ.get("AI_SW_KNOWLEDGE_TTL", DEFAULT_TTL_SECONDS))
     except (TypeError, ValueError):
         return DEFAULT_TTL_SECONDS
+
+
+def _log(message: str) -> None:
+    """统一带时间戳打印知识库获取日志(获取前后均打印，便于溯源与排障)。"""
+    stamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    print(f"[{stamp}] [知识库] {message}", flush=True)
 
 
 class KnowledgeCache:
@@ -59,6 +66,7 @@ class KnowledgeCache:
     def _fetch_from_cloud(self) -> list[dict]:
         """从云平台拉取全部已发布规则。失败抛异常，由调用方兜底。"""
         url = f"{self._base_url}/api/knowledge/pull"
+        _log(f"开始从云平台获取标准与规范: {url}")
         req = urllib.request.Request(url, headers={"Accept": "application/json"})
         with urllib.request.urlopen(req, timeout=DEFAULT_TIMEOUT) as resp:
             raw = resp.read().decode("utf-8")
@@ -66,7 +74,9 @@ class KnowledgeCache:
         # 云平台返回 {"ok": true, "data": {"hits": [...], "count": N}} 或直接 {"hits": [...]}
         payload = data.get("data", data) if isinstance(data, dict) else {}
         hits = payload.get("hits", []) if isinstance(payload, dict) else []
-        return hits if isinstance(hits, list) else []
+        result = hits if isinstance(hits, list) else []
+        _log(f"云平台标准与规范获取成功: 共 {len(result)} 条规则")
+        return result
 
     def _is_expired(self) -> bool:
         if self._fetched_at <= 0:
@@ -92,7 +102,8 @@ class KnowledgeCache:
         # 拉取放在锁外，避免网络请求长时间占锁
         try:
             hits = self._fetch_from_cloud()
-        except Exception:
+        except Exception as exc:
+            _log(f"云平台标准与规范获取失败(将沿用旧缓存): {exc}")
             with self._lock:
                 return {
                     "refreshed": False,
@@ -147,3 +158,42 @@ def get_cache() -> KnowledgeCache:
             if _singleton is None:
                 _singleton = KnowledgeCache()
     return _singleton
+
+
+# ---- 启动预取 + 后台定时刷新 -----------------------------------------------------
+
+_prefetch_thread: threading.Thread | None = None
+_prefetch_lock = threading.Lock()
+
+
+def start_background_refresh(interval_seconds: int | None = None) -> None:
+    """程序启动时调用：立即预取一次标准与规范，之后每个 TTL(默认 30 分钟)后台刷新一次。
+
+    - interval_seconds: 可选，覆盖后台刷新间隔(秒)；默认取缓存 TTL(30 分钟)。
+    - 幂等：重复调用只会启动一个后台线程。
+    - 守护线程：不阻塞进程退出。
+    - 云平台不可达时不影响主流程(refresh 内部已兜底并打印日志)。
+    """
+    global _prefetch_thread
+    with _prefetch_lock:
+        if _prefetch_thread is not None and _prefetch_thread.is_alive():
+            return
+
+        def _loop() -> None:
+            cache = get_cache()
+            if interval_seconds and interval_seconds > 0:
+                interval = interval_seconds
+            else:
+                interval = cache._ttl if cache._ttl > 0 else DEFAULT_TTL_SECONDS
+            _log(f"启动预取：程序启动后立即获取一次标准与规范，之后每 {interval} 秒刷新一次")
+            while True:
+                try:
+                    cache.refresh(force=True)
+                except Exception as exc:  # 兜底，绝不让后台线程崩溃
+                    _log(f"后台刷新异常(忽略，等待下一轮): {exc}")
+                time.sleep(interval)
+
+        _prefetch_thread = threading.Thread(
+            target=_loop, name="knowledge-prefetch", daemon=True
+        )
+        _prefetch_thread.start()

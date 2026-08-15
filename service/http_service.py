@@ -433,8 +433,9 @@ def _handle_create_drawing(payload: dict) -> dict:
     与 /api/execute 一样，真正的 COM 调用必须在专用 STA 工作线程内执行，
     否则跨线程使用 SolidWorks COM 可能导致闪退。
 
-    出图前先从本地知识缓存(带 1 小时 TTL)取标准规则辅助生成 2D 工程图：
+    出图前先从本地知识缓存(带 30 分钟 TTL)取标准规则辅助生成 2D 工程图：
     缓存有效期内直接复用，不重复请求云平台；过期或首次才刷新一次。
+    取到的规则(公差等级/投影法等)会传入出图函数，驱动尺寸标注与公差应用。
     """
     material = str(payload.get("material", "")).strip() or None
     feature = str(payload.get("feature", "")).strip() or None
@@ -452,7 +453,7 @@ def _handle_create_drawing(payload: dict) -> dict:
         session = _shared_session()
         session.connect()
         app = session.require_connected()
-        return create_drawing_from_active_part(app)
+        return create_drawing_from_active_part(app, rules=rules)
 
     from service.sw_worker import SolidWorksWorker
     worker = SolidWorksWorker()
@@ -579,6 +580,13 @@ def serve() -> None:
         SolidWorksWorker().start()
     except Exception as exc:   # 未装 pythoncom 也不阻断服务启动
         sys.stderr.write("[service] 警告: SW 工作线程未能启动: " + str(exc) + "\n")
+
+    # 启动时预取企业标准与规范，并每 30 分钟后台刷新一次(供 3D 转 2D 出图使用)
+    try:
+        from service.knowledge_cache import start_background_refresh
+        start_background_refresh()
+    except Exception as exc:   # 云平台不可达也不阻断服务启动
+        sys.stderr.write("[service] 警告: 知识库预取线程未能启动: " + str(exc) + "\n")
 
     server = ThreadingHTTPServer((host, port), AiSwRequestHandler)
     print(f"AI-SW 本地服务已启动: http://{host}:{port}")

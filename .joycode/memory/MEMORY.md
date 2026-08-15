@@ -11,3 +11,5 @@
 - [通槽 through slot 语义约定](project_through_slot_semantics.md) — AI-Enterprise 项目对通槽的既定几何语义，处理 slot 深度/跨度时勿弄反
 
 - [增量模式 assume_existing_base](project_incremental_base_mode.md) — 在当前已打开 SW 零件上继续开槽、放宽 base solid 校验的全链路
+
+- [3D转2D企业标准出图链路](project_drawing_enterprise_standard.md) — AI-Enterprise 点击3D转2D时从云平台取标准并驱动尺寸+公差标注的全链路与关键约定

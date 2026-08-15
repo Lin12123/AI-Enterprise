@@ -22,12 +22,14 @@ _SW_DOC_PART = 1
 _SW_DOC_DRAWING = 3
 
 
-def create_drawing_from_active_part(app: object) -> dict:
+def create_drawing_from_active_part(app: object, rules: list | None = None) -> dict:
     """把当前活动的 3D 零件转为三视图工程图并保存。
 
     参数:
-        app: 已连接的 SolidWorks.Application COM 对象(SolidWorksSession.app)。
-
+        app: 已连接的 SolidWorks.Application COM对象(SolidWorksSession.app)。
+        rules: 从企业云平台获取的标准/规范规则列表(每条含 scope_feature/clause/
+               params_json)。用于依据企业标准生成尺寸标注与公差等级；为空时仅
+               导入模型尺寸(不加公差)。
     返回:
         {"ok": bool, "status": str, "message": str, "outputs": [工程图路径, ...]}
 
@@ -57,6 +59,17 @@ def create_drawing_from_active_part(app: object) -> dict:
     except RuntimeError as exc:
         return _fail(f"插入三视图失败: {exc}")
 
+    # 3.1) 依据企业标准/规范生成尺寸标注与公差(标注失败不阻断出图，只降级为无标注)
+    annotation_note = ""
+    try:
+        tol_grade = _apply_dimensions_and_tolerance(app, draw_model, rules or [])
+        if tol_grade:
+            annotation_note = f"，已按企业标准标注尺寸并应用公差等级 {tol_grade}"
+        else:
+            annotation_note = "，已导入模型尺寸标注"
+    except Exception as exc:
+        annotation_note = f"(尺寸/公差标注降级: {exc})"
+
     # 4) 保存工程图到 workspace/outputs/drawings
     try:
         out_path = _save_drawing(app, draw_model, model)
@@ -66,7 +79,7 @@ def create_drawing_from_active_part(app: object) -> dict:
     return {
         "ok": True,
         "status": "executed",
-        "message": f"已生成三视图工程图: {out_path}",
+        "message": f"已生成三视图工程图: {out_path}{annotation_note}",
         "outputs": [out_path],
     }
 
@@ -211,6 +224,133 @@ def _insert_three_views(draw_model: object, part_path: str) -> None:
         draw_model.ViewZoomtofit2()
     except Exception:
         pass
+
+
+# ISO 286 基本公差数值(单位 mm)，按 IT 等级取一个通用尺寸段(>18~30mm)的近似值，
+# 仅用于在没有逐尺寸精算时给工程图一个合理的默认对称公差。真机可按尺寸段细化。
+_IT_GRADE_DEFAULT_TOL_MM = {
+    "IT5": 0.009,
+    "IT6": 0.013,
+    "IT7": 0.021,
+    "IT8": 0.033,
+    "IT9": 0.052,
+    "IT10": 0.084,
+    "IT11": 0.130,
+    "IT12": 0.210,
+    "IT13": 0.330,
+}
+
+
+def _extract_tolerance_grade(rules:list) -> str:
+    """从企业标准规则的 params_json 中解析公差等级(如 IT8)。
+
+    规则字段约定: 每条 rule 含 params_json(可能是 dict 或 JSON 字符串)，
+    其中中文键 "公差等级" 给出 IT 等级。取第一条命中的等级。
+    找不到返回空字符串。
+    """
+    import json as _json
+
+    for rule in rules or []:
+        if not isinstance(rule, dict):
+            continue
+        params = rule.get("params_json")
+        if isinstance(params, str):
+            try:
+                params = _json.loads(params)
+            except Exception:
+                continue
+        if not isinstance(params, dict):
+            continue
+        grade = params.get("公差等级") or params.get("tolerance_grade")
+        if grade:
+            grade = str(grade).strip().upper()
+            if grade and not grade.startswith("IT"):
+                grade = "IT" + grade
+            return grade
+    return ""
+
+
+def _apply_dimensions_and_tolerance(app: object, draw_model: object, rules: list) -> str:
+    """在工程图上导入模型尺寸并按企业标准应用默认公差。
+
+    返回实际应用的公差等级字符串(如 "IT8")；未命中公差等级时返回空串。
+    该函数所有 COM 调用均在内部尽量兜底，异常上抛由主流程降级处理。
+    """
+    from solidworks_api.com_types import dispatch_none
+
+    # 1) 导入模型尺寸到所有视图
+    #    InsertModelAnnotations3(type, option, allViews, duplicateDimensions, sameEdges, ...)
+    #    type=0(swDimension) 导入模型尺寸; option=1(swInsertDimensionsMarkedForDrawing)
+    inserted = False
+    try:
+        ext = draw_model.Extension
+        # 优先在整个文档层面导入被标记为工程图用途的模型尺寸
+        ann = ext.InsertModelAnnotations3(0, 1, True, False, False, False)
+        inserted = ann is not None
+    except Exception:
+        inserted = False
+
+    if not inserted:
+        # 兜底: 逐视图导入
+        try:
+            view = draw_model.GetFirstView()
+            # 首视图通常是图纸页，从其下一个视图开始
+            view = view.GetNextView() if view is not None else None
+            while view is not None:
+                try:
+                    view.InsertModelAnnotations3(0, 1, False, False, False, False)
+                except Exception:
+                    pass
+                view = view.GetNextView()
+        except Exception:
+            pass
+
+    try:
+        draw_model.EditRebuild3()
+    except Exception:
+        pass
+
+    # 2) 依据企业标准的公差等级设置默认对称公差
+    grade = _extract_tolerance_grade(rules)
+    if not grade:
+        return ""
+
+    tol_value = _IT_GRADE_DEFAULT_TOL_MM.get(grade)
+    if tol_value is None:
+        # 未知等级也标注出来，但不改公差数值
+        return grade
+
+    # 遍历工程图各视图的显示尺寸，设置对称公差(swTolBILATERAL=3)
+    try:
+        view = draw_model.GetFirstView()
+        while view is not None:
+            try:
+                dim = view.GetFirstDisplayDimension5()
+            except Exception:
+                dim = None
+            while dim is not None:
+                try:
+                    disp = dim.GetDimension2(0)
+                    if disp is not None:
+                        # swTolBILATERAL=3; 单位 m，SolidWorks 尺寸内部为米
+                        disp.SetToleranceType(3)
+                        disp.SetToleranceValues(tol_value / 1000.0, -tol_value / 1000.0)
+                except Exception:
+                    pass
+                try:
+                    dim = dim.GetNext5()
+                except Exception:
+                    dim = None
+            view = view.GetNextView()
+    except Exception:
+        pass
+
+    try:
+        draw_model.EditRebuild3()
+    except Exception:
+        pass
+
+    return grade
 
 
 def _save_drawing(app: object, draw_model: object, part_model: object) -> str:
