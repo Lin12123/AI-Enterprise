@@ -1,6 +1,14 @@
 {
   "sessions": [
     {
+      "id": "20260815_204647_a1ee",
+      "title": "未命名会话",
+      "status": "active",
+      "started_at": "2026-08-15T20:46:47",
+      "updated_at": "2026-08-15T20:46:47",
+      "_seq": 1
+    },
+    {
       "id": "20260815_202854_86a5",
       "title": "未命名会话",
       "status": "active",
