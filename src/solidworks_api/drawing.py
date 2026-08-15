@@ -385,7 +385,52 @@ def _ensure_sw_early_module():
     return None
 
 
-def _ensure_early_bind(obj: object, iface: str = "IDrawingDoc") -> object:
+def _find_iface_cls_by_methods(mod: object, require_methods) -> object:
+    """v036: 遍历早绑定模块 mod 的所有接口包装类, 返回**类字典里同时定义了
+    require_methods 全部方法**的那个类(不是靠名字 getattr)。
+
+    根因(v035 真机): getattr(mod, "IModelDoc2") 拿到的类构造后实际类名是
+    NewDocument, 其 dispid 表里没有 AddHorizontalDimension2 →
+    NewDocument.InvokeTypes AttributeError。pywin32 makepy 生成的模块里,
+    接口"属性名"与真正含目标方法的"类"并不一定一致。改按能力探测:
+    makepy 为每个接口类的每个 dispid 方法都在 `cls.__dict__` 里生成同名函数,
+    所以 `all(m in cls.__dict__ for m in require_methods)` 能精确命中正确接口类。
+
+    找不到返回 None。
+    """
+    if mod is None or not require_methods:
+        return None
+    try:
+        candidates = []
+        for name in dir(mod):
+            try:
+                cls = getattr(mod, name, None)
+            except Exception:
+                continue
+            if not isinstance(cls, type):
+                continue
+            cls_dict = getattr(cls, "__dict__", {})
+            try:
+                if all(m in cls_dict for m in require_methods):
+                    candidates.append((name, cls))
+            except Exception:
+                continue
+        if not candidates:
+            return None
+        # 优先返回名字里含 IModelDoc / ModelDoc 的接口类(更贴近文档接口), 否则取第一个。
+        for name, cls in candidates:
+            if "ModelDoc" in name:
+                _dbg(f"early_bind: 能力探测命中接口类 {name}(含{require_methods})", summary=True)
+                return cls
+        name, cls = candidates[0]
+        _dbg(f"early_bind: 能力探测命中接口类 {name}(含{require_methods})", summary=True)
+        return cls
+    except Exception as exc:
+        _dbg(f"early_bind: 能力探测异常 {type(exc).__name__}: {exc}", summary=True)
+        return None
+
+
+def _ensure_early_bind(obj: object, iface: str = "IDrawingDoc", require_methods=None) -> object:
     """v031: 用早绑定模块的接口包装类**直接构造**, 绕开会做 makepy 反查的 CastTo。
 
     根因(见 last_run.log): pywin32 纯 late-bind(IDispatch.Invoke)把
@@ -416,6 +461,29 @@ def _ensure_early_bind(obj: object, iface: str = "IDrawingDoc") -> object:
     mod = _ensure_sw_early_module()
     if mod is None:
         return obj
+    # ①' v036 主路径: 能力探测——找类字典里真正含 require_methods 的接口类,
+    #    绕开 v035 "getattr(mod,'IModelDoc2') 拿到 NewDocument(无目标方法)" 的坑。
+    if require_methods:
+        probed_cls = _find_iface_cls_by_methods(mod, require_methods)
+        if probed_cls is not None:
+            try:
+                early = probed_cls(obj)
+                if early is not None:
+                    real = early.__class__.__name__
+                    has_all = all(hasattr(early, m) for m in require_methods)
+                    _dbg(
+                        f"early_bind: 能力探测构造成功 类名={real} "
+                        f"含{require_methods}={has_all}",
+                        summary=True,
+                    )
+                    if has_all:
+                        return early
+                    _dbg("early_bind: 能力探测类实例缺方法, 继续名字候选", summary=True)
+            except Exception as exc:
+                _dbg(
+                    f"early_bind: 能力探测构造失败({type(exc).__name__}:{exc}), 继续名字候选",
+                    summary=True,
+                )
     # ① 主路径: 用早绑定模块里的接口包装类直接构造, 不走 makepy 反查。
     # pywin32 生成的接口类名可能带/不带 I 前缀(IDrawingDoc / DrawingDoc), 逐个试。
     iface_candidates = [iface]
@@ -430,7 +498,15 @@ def _ensure_early_bind(obj: object, iface: str = "IDrawingDoc") -> object:
                 continue
             early = iface_cls(obj)
             if early is not None:
-                _dbg(f"early_bind: {cand} 包装类直接构造成功, 走早绑定接口", summary=True)
+                real = early.__class__.__name__
+                # v036: 打印真实类名; 若指定了 require_methods 且缺方法则不采纳该候选。
+                if require_methods and not all(hasattr(early, m) for m in require_methods):
+                    _dbg(
+                        f"early_bind: {cand} 构造得到 {real} 但缺{require_methods}, 跳过",
+                        summary=True,
+                    )
+                    continue
+                _dbg(f"early_bind: {cand} 包装类构造成功 类名={real}, 走早绑定接口", summary=True)
                 return early
         except Exception as exc:
             _dbg(
@@ -1909,7 +1985,11 @@ def _early_bound_doc(draw_model: object) -> object:
     cached = _EARLY_DOC_CACHE.get(id(draw_model))
     if cached is not None:
         return cached
-    early = _ensure_early_bind(draw_model, "IModelDoc2")
+    early = _ensure_early_bind(
+        draw_model,
+        "IModelDoc2",
+        require_methods=("AddHorizontalDimension2", "AddVerticalDimension2"),
+    )
     _EARLY_DOC_CACHE[id(draw_model)] = early
     return early
 
@@ -1933,7 +2013,17 @@ def _select_edge_at(draw_model: object, view: object, x: float, y: float) -> boo
         early_doc = _early_bound_doc(draw_model)
         ext_early = getattr(early_doc, "Extension", None)
         if ext_early is not None and early_doc is not draw_model:
+            # v036: early_doc.Extension 可能仍是 late-bind 对象, 再对它做一次
+            # 针对 SelectByID2 的能力探测早绑定, 确保按 dispid 编组可选 callout 参数。
+            if not hasattr(ext_early, "InvokeTypes"):
+                ext_probe = _ensure_early_bind(
+                    ext_early, "IModelDocExtension", require_methods=("SelectByID2",)
+                )
+                if ext_probe is not None and ext_probe is not ext_early:
+                    ext_early = ext_probe
             try:
+                real = ext_early.__class__.__name__
+                _dbg(f"select_edge: 早绑定 Extension 类名={real}")
                 ok = bool(ext_early.SelectByID2("", "EDGE", x, y, 0.0, True, 0, None, 0))
                 if ok:
                     return True
