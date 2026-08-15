@@ -23,7 +23,7 @@ from datetime import datetime
 
 # ---- 配置 ----------------------------------------------------------------------
 
-DEFAULT_BASE_URL = "http://127.0.0.1:8000"  # 云平台后端地址
+DEFAULT_BASE_URL = "http://127.0.0.1:8800"  # 云平台后端地址(与 cloud/backend uvicorn --port 8800 一致)
 DEFAULT_TTL_SECONDS = 1800                  # 缓存有效期：30 分钟(程序每 30 分钟刷新一次)
 DEFAULT_TIMEOUT = 5                         # 单次拉取超时(秒)
 

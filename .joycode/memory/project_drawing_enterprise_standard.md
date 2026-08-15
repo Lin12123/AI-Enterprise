@@ -12,4 +12,4 @@ type: project
 
 **公差等级**：params_json 中文键"公差等级"(IT8)或 tolerance_grade;_extract_tolerance_grade 取首命中,裸数字补IT;_IT_GRADE_DEFAULT_TOL_MM 给默认对称公差(mm)。
 
-**How to apply**：COM 必须 except 兜底不阻断;真机 API 只能 Windows+SW 验证。日志 WinError 10061"积极拒绝"是云平台后端(8000)未启动的环境问题,非代码 bug。
+**How to apply**：COM 必须 except 兜底不阻断;真机 API 只能 Windows+SW 验证。云平台后端约定端口=8800(cloud/backend uvicorn --port 8800),knowledge_cache DEFAULT_BASE_URL 必须同为 8800,可用环境变量 AI_SW_CLOUD_URL 覆盖;端口不一致会 WinError 10061"积极拒绝"。
