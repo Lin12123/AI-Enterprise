@@ -328,6 +328,105 @@ def _clamp_inferred_out_of_bounds_holes(data: dict) -> dict:
     return data
 
 
+def _clamp_inferred_out_of_bounds_slots(data: dict) -> dict:
+    """确定性几何钳制：把 inferred（或缺 provenance）的越界矩形切除 center 钳到合法区间内。
+
+    专门处理 cut_slot / cut_rectangle_pocket 这类矩形切除——圆孔钳制函数只认
+    diameter，不覆盖用 length/width/direction 描述的矩形切除，导致越界的通槽
+    center 无法被确定性修复而抛 500。此处按 Policy 同款 extent 映射做几何钳制：
+    - direction='y' 时槽跨度沿 Y，故 extent_x=width, extent_y=length；否则相反；
+    - 若切除尺寸本身超过底板对应边长，几何无解，交由 Policy 拒绝 / 用户确认；
+    - 用户 explicit 的 center 不动；保留原象限 sign，左右两槽不会挤到重叠。
+    """
+    if not isinstance(data, dict):
+        return data
+    base_size = _plan_base_size(data)
+    if base_size is None:
+        return data
+    operations = data.get("operations")
+    if not isinstance(operations, list):
+        return data
+
+    metadata = data.get("metadata") if isinstance(data.get("metadata"), dict) else {}
+    explicit_paths = set(
+        str(p)
+        for p in metadata.get("explicit_parameters", [])
+        if isinstance(metadata.get("explicit_parameters"), list)
+    )
+
+    half_length = base_size[0] / 2
+    half_width = base_size[1] / 2
+    rect_ops = {"cut_slot", "cut_rectangle_pocket"}
+
+    for operation in operations:
+        if not isinstance(operation, dict):
+            continue
+        op_name = str(operation.get("op", "")).strip()
+        if op_name not in rect_ops:
+            continue
+        params = operation.get("params") if isinstance(operation.get("params"), dict) else None
+        if not isinstance(params, dict):
+            continue
+        center = params.get("center")
+        if not isinstance(center, (list, tuple)) or len(center) != 2:
+            continue
+        try:
+            x = float(center[0])
+            y = float(center[1])
+            length = float(params.get("length", 0))
+            width = float(params.get("width", 0))
+        except (TypeError, ValueError):
+            continue
+        if length <= 0 or width <= 0:
+            continue
+
+        direction = str(params.get("direction", "x")).strip().lower()
+        if op_name == "cut_slot" and direction == "y":
+            extent_x = width
+            extent_y = length
+        else:
+            extent_x = length
+            extent_y = width
+
+        operation_id = str(operation.get("id", "")).strip()
+        center_path = f"{operation_id}.params.center" if operation_id else ""
+        if center_path and center_path in explicit_paths:
+            continue
+
+        half_x = extent_x / 2
+        half_y = extent_y / 2
+        # 严格小于 Policy 边界，多减 epsilon，避免钳到边界值仍被判死。
+        x_limit = half_length - _CLAMP_SAFETY_MARGIN_MM - half_x - _CLAMP_BOUNDARY_EPSILON_MM
+        y_limit = half_width - _CLAMP_SAFETY_MARGIN_MM - half_y - _CLAMP_BOUNDARY_EPSILON_MM
+        if x_limit <= 0 or y_limit <= 0:
+            # 切除尺寸放不下底板，几何无解，交由 Policy 拒绝。
+            continue
+
+        x_out = abs(x) + half_x >= half_length - _CLAMP_SAFETY_MARGIN_MM
+        y_out = abs(y) + half_y >= half_width - _CLAMP_SAFETY_MARGIN_MM
+        if not (x_out or y_out):
+            continue
+
+        new_x = x
+        new_y = y
+        if x_out:
+            new_x = 0.0 if x == 0 else (x_limit if x > 0 else -x_limit)
+        if y_out:
+            new_y = 0.0 if y == 0 else (y_limit if y > 0 else -y_limit)
+        params["center"] = [round(new_x, 3), round(new_y, 3)]
+
+        if center_path:
+            inferred = metadata.get("inferred_parameters")
+            if not isinstance(inferred, list):
+                inferred = []
+            if center_path not in inferred:
+                inferred.append(center_path)
+            metadata["inferred_parameters"] = inferred
+            data["metadata"] = metadata
+
+    return data
+
+
 def _attempt_semantic_salvage(prompt: str, rejected_data: dict) -> dict | None:
     if not isinstance(rejected_data, dict):
         return None
@@ -342,6 +441,10 @@ def _attempt_semantic_salvage(prompt: str, rejected_data: dict) -> dict | None:
     # 纯 prompt 教育对本地小模型不可靠：即使消息给出精确合法区间，qwen2.5-coder 仍
     # 反复越界。此处对 inferred 越界孔 center 做确定性几何钳制（非语义推断，合规）。
     salvaged = _clamp_inferred_out_of_bounds_holes(salvaged)
+    salvaged = _normalize_featureplan_protocol(salvaged)
+    # 圆孔钳制只认 diameter，通槽/矩形切除用 length/width/direction 描述，需单独做
+    # 确定性 center 钳制，否则本地小模型推断的越界通槽 center 无法修复而抛 500。
+    salvaged = _clamp_inferred_out_of_bounds_slots(salvaged)
     salvaged = _normalize_featureplan_protocol(salvaged)
     policy_errors = _policy_error_summary(salvaged, prompt)
     if not policy_errors:
