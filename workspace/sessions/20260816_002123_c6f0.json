@@ -1,0 +1,125 @@
+{
+  "id": "20260816_002123_c6f0",
+  "title": "画一个120mm*80mm*15mm的安装板，四",
+  "status": "active",
+  "started_at": "2026-08-16T00:21:23",
+  "updated_at": "2026-08-16T00:21:46",
+  "messages": [
+    {
+      "role": "user",
+      "text": "画一个120mm*80mm*15mm的安装板，四角加直径为10的通孔四周边距10，安装板上加直径20的中心凸台，中心开直径20的通孔。在安装板上表面加宽度为8mm通槽，左右各一个，边距20mm。",
+      "ts": "2026-08-16T00:21:46"
+    },
+    {
+      "role": "ai",
+      "text": "已生成建模计划",
+      "ts": "2026-08-16T00:21:46",
+      "type": "plan"
+    }
+  ],
+  "context": {
+    "last_plan": {
+      "version": "2.0",
+      "unit": "mm",
+      "document_type": "part",
+      "part_name": "Installation_Plate",
+      "metadata": {
+        "explicit_parameters": [
+          "1.params.length",
+          "1.params.width",
+          "1.params.thickness",
+          "2.params.diameter",
+          "3.params.diameter",
+          "3.params.height",
+          "4.params.diameter",
+          "5.params.plane",
+          "5.params.center",
+          "5.params.length",
+          "5.params.width",
+          "5.params.direction",
+          "6.params.diameter"
+        ],
+        "inferred_parameters": [
+          "1.params.plane",
+          "2.params.center",
+          "2.params.plane",
+          "5.params.depth",
+          "6.params.edge_margin"
+        ],
+        "name": "Installation_Plate",
+        "description": "",
+        "source": "local"
+      },
+      "operations": [
+        {
+          "id": "1",
+          "op": "create_base_plate",
+          "params": {
+            "length": 120,
+            "width": 80,
+            "thickness": 15,
+            "plane": "Top"
+          }
+        },
+        {
+          "id": "2",
+          "op": "create_through_hole",
+          "params": {
+            "plane": "top_face",
+            "center": [
+              10.0,
+              10.0
+            ],
+            "diameter": 10,
+            "host": "base"
+          }
+        },
+        {
+          "id": "3",
+          "op": "create_center_boss",
+          "params": {
+            "diameter": 20.0,
+            "height": 15,
+            "host": "base"
+          }
+        },
+        {
+          "id": "4",
+          "op": "cut_center_hole",
+          "params": {
+            "diameter": 20.0,
+            "target": "boss",
+            "through_all": true
+          }
+        },
+        {
+          "id": "5",
+          "op": "cut_slot",
+          "params": {
+            "plane": "top_face",
+            "center": [
+              0,
+              0
+            ],
+            "length": 80.0,
+            "width": 2,
+            "direction": "y",
+            "host": "base",
+            "depth": 2.0
+          }
+        },
+        {
+          "id": "6",
+          "op": "cut_corner_holes",
+          "params": {
+            "diameter": 10,
+            "edge_margin": 10
+          }
+        }
+      ],
+      "outputs": {
+        "save_sldprt": true
+      }
+    }
+  }
+}

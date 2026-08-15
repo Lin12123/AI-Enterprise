@@ -1,381 +1,68 @@
 {
-  "create_new_part": {
-    "part_name": "InstallationPlate"
+  "version": "2.0",
+  "unit": "mm",
+  "document_type": "part",
+  "part_name": "Part1",
+  "metadata": {
+    "explicit_parameters": ["create_new_part.params.part_name"],
+    "inferred_parameters": ["cut_slot.params.center", "cut_slot_2.params.center"],
+    "name": "Part1",
+    "description": "",
+    "source": "local"
   },
   "operations": [
     {
-      "create_sketch": {
-        "plane": "XY",
-        "sketch_elements": [
-          {
-            "create_rectangle": {
-              "length": 120,
-              "width": 80
-            }
-          },
-          {
-            "create_circle": {
-              "center": [0, 0],
-              "radius": 10
-            }
-          },
-          {
-            "create_circle": {
-              "center": [-60, 0],
-              "radius": 10
-            }
-          },
-          {
-            "create_circle": {
-              "center": [60, 0],
-              "radius": 10
-            }
-          },
-          {
-            "create_circle": {
-              "center": [0, 40],
-              "radius": 10
-            }
-          },
-          {
-            "create_circle": {
-              "center": [0, -40],
-              "radius": 10
-            }
-          },
-          {
-            "create_circle": {
-              "center": [0, 0],
-              "radius": 20,
-              "target": "boss"
-            }
-          },
-          {
-            "create_circle": {
-              "center": [0, 0],
-              "radius": 20
-            }
-          },
-          {
-            "create_slot": {
-              "center": [0, 40],
-              "length": 10,
-              "width": 8
-            }
-          },
-          {
-            "create_slot": {
-              "center": [0, -40],
-              "length": 10,
-              "width": 8
-            }
-          },
-          {
-            "create_through_hole": {
-              "center": [0, 0],
-              "diameter": 20
-            }
-          },
-          {
-            "create_through_hole": {
-              "center": [0, 0],
-              "diameter": 20
-            }
-          },
-          {
-            "create_slot": {
-              "center": [0, 40],
-              "length": 10,
-              "width": 8
-            }
-          },
-          {
-            "create_slot": {
-              "center": [0, -40],
-              "length": 10,
-              "width": 8
-            }
-          },
-          {
-            "create_slot": {
-              "center": [0, 40],
-              "length": 10,
-              "width": 8
-            }
-          },
-          {
-            "create_slot": {
-              "center": [0, -40],
-              "length": 10,
-              "width": 8
-            }
-          },
-          {
-            "create_slot": {
-              "center": [0, 40],
-              "length": 10,
-              "width": 8
-            }
-          },
-          {
-            "create_slot": {
-              "center": [0, -40],
-              "length": 10,
-              "width": 8
-            }
-          },
-          {
-            "create_slot": {
-              "center": [0, 40],
-              "length": 10,
-              "width": 8
-            }
-          },
-          {
-            "create_slot": {
-              "center": [0, -40],
-              "length": 10,
-              "width": 8
-            }
-          },
-          {
-            "create_slot": {
-              "center": [0, 40],
-              "length": 10,
-              "width": 8
-            }
-          },
-          {
-            "create_slot": {
-              "center": [0, -40],
-              "length": 10,
-              "width": 8
-            }
-          },
-          {
-            "create_slot": {
-              "center": [0, 40],
-              "length": 10,
-              "width": 8
-            }
-          },
-          {
-            "create_slot": {
-              "center": [0, -40],
-              "length": 10,
-              "width": 8
-            }
-          },
-          {
-            "create_slot": {
-              "center": [0, 40],
-              "length": 10,
-              "width": 8
-            }
-          },
-          {
-            "create_slot": {
-              "center": [0, -40],
-              "length": 10,
-              "width": 8
-            }
-          },
-          {
-            "create_slot": {
-              "center": [0, 40],
-              "length": 10,
-              "width": 8
-            }
-          },
-          {
-            "create_slot": {
-              "center": [0, -40],
-              "length": 10,
-              "width": 8
-            }
-          },
-          {
-            "create_slot": {
-              "center": [0, 40],
-              "length": 10,
-              "width": 8
-            }
-          },
-          {
-            "create_slot": {
-              "center": [0, -40],
-              "length": 10,
-              "width": 8
-            }
-          },
-          {
-            "create_slot": {
-              "center": [0, 40],
-              "length": 10,
-              "width": 8
-            }
-          },
-          {
-            "create_slot": {
-              "center": [0, -40],
-              "length": 10,
-              "width": 8
-            }
-          },
-          {
-            "create_slot": {
-              "center": [0, 40],
-              "length": 10,
-              "width": 8
-            }
-          },
-          {
-            "create_slot": {
-              "center": [0, -40],
-              "length": 10,
-              "width": 8
-            }
-          },
-          {
-            "create_slot": {
-              "center": [0, 40],
-              "length": 10,
-              "width": 8
-            }
-          },
-          {
-            "create_slot": {
-              "center": [0, -40],
-              "length": 10,
-              "width": 8
-            }
-          },
-          {
-            "create_slot": {
-              "center": [0, 40],
-              "length": 10,
-              "width": 8
-            }
-          },
-          {
-            "create_slot": {
-              "center": [0, -40],
-              "length": 10,
-              "width": 8
-            }
-          },
-          {
-            "create_slot": {
-              "center": [0, 40],
-              "length": 10,
-              "width": 8
-            }
-          },
-          {
-            "create_slot": {
-              "center": [0, -40],
-              "length": 10,
-              "width": 8
-            }
-          },
-          {
-            "create_slot": {
-              "center": [0, 40],
-              "length": 10,
-              "width": 8
-            }
-          },
-          {
-            "create_slot": {
-              "center": [0, -40],
-              "length": 10,
-              "width": 8
-            }
-          },
-          {
-            "create_slot": {
-              "center": [0, 40],
-              "length": 10,
-              "width": 8
-            }
-          },
-          {
-            "create_slot": {
-              "center": [0, -40],
-              "length": 10,
-              "width": 8
-            }
-          },
-          {
-            "create_slot": {
-              "center": [0, 40],
-              "length": 10,
-              "width": 8
-            }
-          },
-          {
-            "create_slot": {
-              "center": [0, -40],
-              "length": 10,
-              "width": 8
-            }
-          },
-          {
-            "create_slot": {
-              "center": [0, 40],
-              "length": 10,
-              "width": 8
-            }
-          },
-          {
-            "create_slot": {
-              "center": [0, -40],
-              "length": 10,
-              "width": 8
-            }
-          },
-          {
-            "create_slot": {
-              "center": [0, 40],
-              "length": 10,
-              "width": 8
-            }
-          },
-          {
-            "create_slot": {
-              "center": [0, -40],
-              "length": 10,
-              "width": 8
-            }
-          },
-          {
-            "create_slot": {
-              "center": [0, 40],
-              "length": 10,
-              "width": 8
-            }
-          },
-          {
-            "create_slot": {
-              "center": [0, -40],
-              "length": 10,
-              "width": 8
-            }
-          },
-          {
-            "create_slot": {
-              "center": [0, 40],
-              "length": 10,
-              "width": 8
-            }
-          },
-          {
-            "create_slot": {
-              "center": [0, -40],
-              "length": 10,
-              "width": 8
-            }
-          },
-          {
-            "create_slot": {
-              "center": [
+      "id": "create_new_part",
+      "op": "create_new_part",
+      "params": {
+        "part_name": "Part1"
+      }
+    },
+    {
+      "id": "create_base_plate",
+      "op": "create_base_plate",
+      "params": {
+        "length": 100,
+        "width": 100,
+        "thickness": 10
+      }
+    },
+    {
+      "id": "cut_slot",
+      "op": "cut_slot",
+      "params": {
+        "plane": "top_face",
+        "center": [-40, 0],
+        "length": 100.0,
+        "width": 2,
+        "direction": "x",
+        "host": "base",
+        "depth": 2.0
+      }
+    },
+    {
+      "id": "cut_slot_2",
+      "op": "cut_slot",
+      "params": {
+        "plane": "top_face",
+        "center": [40, 0],
+        "length": 100.0,
+        "width": 2,
+        "direction": "x",
+        "host": "base",
+        "depth": 2.0
+      }
+    },
+    {
+      "id": "rebuild_model",
+      "op": "rebuild_model",
+      "params": {}
+    },
+    {
+      "id": "save_sldprt",
+      "op": "save_sldprt",
+      "params": {}
+    }
+  ],
+  "outputs": {}
+}
