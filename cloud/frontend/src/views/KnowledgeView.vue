@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { standardsApi, knowledgeApi } from '@/api'
+import { standardsApi, knowledgeApi, rulesApi } from '@/api'
 import { knowledgeCategories } from '@/api/mock'
 
 const categories = knowledgeCategories
@@ -57,13 +57,95 @@ function statusTag(status) {
   return { type: 'warning', text: '未发布' }
 }
 
-async function publish(row) {
+// ---------- 发布弹窗：确认并发布某标准下抽取出的规则 ----------
+const publishVisible = ref(false)
+const publishRow = ref(null)
+const publishRules = ref([])
+const publishLoading = ref(false)
+const publishing = ref(false)
+
+// 打开发布弹窗：拉取该标准关联的抽取规则供人工确认
+async function openPublish(row) {
+  publishRow.value = row
+  publishVisible.value = true
+  publishRules.value = []
+  publishLoading.value = true
   try {
-    await standardsApi.update(row.id, { ...row, status: 'published' })
+    publishRules.value = await rulesApi.list({ standard_id: row.id })
+  } catch (e) {
+    ElMessage.error(e.message)
+  } finally {
+    publishLoading.value = false
+  }
+}
+
+// 规则状态标签：draft 草稿 / confirmed 已确认 / 其余按已发布处理
+function ruleStatusTag(status) {
+  if (status === 'confirmed') return { type: 'success', text: '已确认' }
+  if (status === 'published') return { type: 'success', text: '已发布' }
+  return { type: 'warning', text: '草稿' }
+}
+
+// 逐条确认单条规则(draft → confirmed)
+async function confirmRule(rule) {
+  try {
+    await rulesApi.update(rule.id, { ...rule, status: 'confirmed' })
+    rule.status = 'confirmed'
+    ElMessage.success('规则已确认')
+  } catch (e) {
+    ElMessage.error(e.message)
+  }
+}
+
+// 删除误抽取的规则
+async function removeRule(rule) {
+  try {
+    await ElMessageBox.confirm('确定删除该条抽取规则？', '删除确认', {
+      type: 'warning',
+      confirmButtonText: '确定删除',
+      cancelButtonText: '取消',
+    })
+  } catch {
+    return
+  }
+  try {
+    await rulesApi.remove(rule.id)
+    publishRules.value = publishRules.value.filter((r) => r.id !== rule.id)
+    ElMessage.success('已删除')
+  } catch (e) {
+    ElMessage.error(e.message)
+  }
+}
+
+// 待确认(草稿)规则数量：用于发布前拦截
+const draftRuleCount = computed(
+  () => publishRules.value.filter((r) => r.status !== 'confirmed' && r.status !== 'published').length,
+)
+
+// 弹窗内一键发布：先提示未确认草稿，再把标准置为 published
+async function doPublish() {
+  if (!publishRow.value) return
+  if (draftRuleCount.value > 0) {
+    try {
+      await ElMessageBox.confirm(
+        `还有 ${draftRuleCount.value} 条规则未确认，发布后这些草稿规则将随标准一并生效。是否继续发布？`,
+        '发布确认',
+        { type: 'warning', confirmButtonText: '仍然发布', cancelButtonText: '返回确认' },
+      )
+    } catch {
+      return
+    }
+  }
+  publishing.value = true
+  try {
+    await standardsApi.update(publishRow.value.id, { ...publishRow.value, status: 'published' })
     ElMessage.success('已发布')
+    publishVisible.value = false
     await loadStandards()
   } catch (e) {
     ElMessage.error(e.message)
+  } finally {
+    publishing.value = false
   }
 }
 
@@ -96,7 +178,15 @@ async function removeStandard(row) {
 const dialogVisible = ref(false)
 const form = ref({ standard_no: '', standard_type: '', title: '', version: '', source: '' })
 const fileRef = ref(null)
+const uploadRef = ref(null)
 const importing = ref(false)
+
+// 弹窗关闭后重置表单与已选文件，避免下次打开残留上一次的输入
+function resetUploadForm() {
+  form.value = { standard_no: '', standard_type: '', title: '', version: '', source: '' }
+  fileRef.value = null
+  if (uploadRef.value) uploadRef.value.clearFiles()
+}
 
 // 类型下拉：值需能被分类正则识别（企业标准→enterprise，企业标准件→parts，国标/行业→industry）
 const typeOptions = [
@@ -271,7 +361,7 @@ onMounted(loadStandards)
               size="small"
               type="primary"
               link
-              @click="publish(row)"
+              @click="openPublish(row)"
             >发布</el-button>
             <el-button size="small" link @click="downloadStandard(row)">下载</el-button>
             <el-button size="small" type="danger" link @click="removeStandard(row)">删除</el-button>
@@ -280,7 +370,7 @@ onMounted(loadStandards)
       </el-table>
     </div>
 
-    <el-dialog v-model="dialogVisible" title="上传知识 / 规则文件" width="560px">
+    <el-dialog v-model="dialogVisible" title="上传知识 / 规则文件" width="560px" @close="resetUploadForm">
       <el-form :model="form" label-width="90px">
         <el-form-item label="标准号">
           <el-input v-model="form.standard_no" />
@@ -328,7 +418,7 @@ onMounted(loadStandards)
           </el-button>
         </el-form-item>
         <el-form-item label="文件">
-          <el-upload :auto-upload="false" :limit="1" :on-change="onFileChange">
+          <el-upload :auto-upload="false" :limit="1" :on-change="onFileChange" ref="uploadRef">
             <el-button>选择文件（Excel/JSON/Word/PDF/图片）</el-button>
           </el-upload>
         </el-form-item>
@@ -336,6 +426,51 @@ onMounted(loadStandards)
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
         <el-button type="primary" :loading="importing" @click="doImport">开始导入</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog
+      v-model="publishVisible"
+      :title="`确认并发布 · ${publishRow?.title || publishRow?.standard_no || ''}`"
+      width="720px"
+    >
+      <div class="publish-hint">
+        以下为该标准由本地大模型抽取的规则草稿，请逐条核对无误后确认；确认完毕点击「发布标准」即可对全厂设计终端生效。
+      </div>
+      <el-table :data="publishRules" v-loading="publishLoading" border max-height="420" style="width: 100%">
+        <el-table-column type="index" label="#" width="50" />
+        <el-table-column prop="scope_material" label="适用材料" width="100" />
+        <el-table-column prop="scope_feature" label="适用特征" width="100" />
+        <el-table-column prop="clause" label="规则条款" min-width="240" show-overflow-tooltip />
+        <el-table-column label="状态" width="90">
+          <template #default="{ row }">
+            <el-tag :type="ruleStatusTag(row.status).type" size="small">
+              {{ ruleStatusTag(row.status).text }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="130" fixed="right">
+          <template #default="{ row }">
+            <el-button
+              v-if="row.status !== 'confirmed' && row.status !== 'published'"
+              size="small"
+              type="primary"
+              link
+              @click="confirmRule(row)"
+            >确认</el-button>
+            <el-button size="small" type="danger" link @click="removeRule(row)">删除</el-button>
+          </template>
+        </el-table-column>
+        <template #empty>
+          <span>该标准暂无抽取规则（可能仍在后台抽取，或为纯归档文件）。</span>
+        </template>
+      </el-table>
+      <template #footer>
+        <span class="publish-footer-tip" v-if="draftRuleCount > 0">
+          待确认草稿 {{ draftRuleCount }} 条
+        </span>
+        <el-button @click="publishVisible = false">取消</el-button>
+        <el-button type="primary" :loading="publishing" @click="doPublish">发布标准</el-button>
       </template>
     </el-dialog>
   </div>
@@ -357,4 +492,6 @@ onMounted(loadStandards)
 }
 .cat-tab.active .cat-count { color: #fff; background: #6366f1; }
 .cat-desc { font-size: 12px; color: #94a3b8; margin-top: 4px; }
+.publish-hint { font-size: 13px; color: #64748b; margin-bottom: 12px; line-height: 1.6; }
+.publish-footer-tip { margin-right: 12px; font-size: 12px; color: #d97706; }
 </style>
