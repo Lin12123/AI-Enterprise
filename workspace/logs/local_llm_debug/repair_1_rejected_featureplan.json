@@ -34,8 +34,8 @@
       "params": {
         "plane": "top_face",
         "center": [
-          0.0,
-          0.0
+          -40.0,
+          -20.0
         ],
         "diameter": 10,
         "host": "base"
@@ -47,8 +47,8 @@
       "params": {
         "plane": "top_face",
         "center": [
-          -54.5,
-          0.0
+          -40.0,
+          20.0
         ],
         "diameter": 10,
         "host": "base"
@@ -60,8 +60,8 @@
       "params": {
         "plane": "top_face",
         "center": [
-          0.0,
-          -34.5
+          40.0,
+          -20.0
         ],
         "diameter": 10,
         "host": "base"
@@ -73,33 +73,75 @@
       "params": {
         "plane": "top_face",
         "center": [
-          -54.5,
-          -34.5
+          40.0,
+          20.0
         ],
         "diameter": 10,
         "host": "base"
       }
     },
     {
-      "id": "create_center_boss.006",
+      "id": "create_center_boss.001",
       "op": "create_center_boss",
       "params": {
+        "plane": "top_face",
         "diameter": 20.0,
-        "height": 15,
-        "host": "base",
-        "plane": "top_face"
+        "host": "base"
       }
     },
     {
-      "id": "create_through_hole.007",
+      "id": "create_through_hole.006",
       "op": "create_through_hole",
       "params": {
         "plane": "top_face",
         "center": [
-          -49.5,
-          -29.5
+          0.0,
+          0.0
         ],
         "diameter": 20,
+        "host": "boss"
+      }
+    },
+    {
+      "id": "create_slot.001",
+      "op": "create_slot",
+      "params": {
+        "plane": "top_face",
+        "center": [
+          -40.0,
+          0.0
+        ],
+        "length": 8,
+        "width": 20,
+        "host": "base"
+      }
+    },
+    {
+      "id": "create_slot.002",
+      "op": "create_slot",
+      "params": {
+        "plane": "top_face",
+        "center": [
+          40.0,
+          0.0
+        ],
+        "length": 8,
+        "width": 20,
+        "host": "base"
+      }
+    },
+    {
+      "id": "create_pocket.001",
+      "op": "create_pocket",
+      "params": {
+        "plane": "top_face",
+        "center": [
+          0.0,
+          40.0
+        ],
+        "length": 10,
+        "width": 10,
+        "depth": 10,
         "host": "base"
       }
     }

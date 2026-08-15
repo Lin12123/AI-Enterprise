@@ -34,8 +34,8 @@
       "params": {
         "plane": "top_face",
         "center": [
-          0.0,
-          0.0
+          10.0,
+          10.0
         ],
         "diameter": 10,
         "host": "base"
@@ -47,8 +47,8 @@
       "params": {
         "plane": "top_face",
         "center": [
-          55.0,
-          0.0
+          10.0,
+          35.0
         ],
         "diameter": 10,
         "host": "base"
@@ -60,8 +60,8 @@
       "params": {
         "plane": "top_face",
         "center": [
-          0.0,
-          35.0
+          55.0,
+          10.0
         ],
         "diameter": 10,
         "host": "base"
@@ -77,29 +77,6 @@
           35.0
         ],
         "diameter": 10,
-        "host": "base"
-      }
-    },
-    {
-      "id": "create_center_boss.006",
-      "op": "create_center_boss",
-      "params": {
-        "diameter": 20.0,
-        "height": 15,
-        "host": "base",
-        "plane": "top_face"
-      }
-    },
-    {
-      "id": "create_through_hole.007",
-      "op": "create_through_hole",
-      "params": {
-        "plane": "top_face",
-        "center": [
-          50.0,
-          30.0
-        ],
-        "diameter": 20,
         "host": "base"
       }
     }
