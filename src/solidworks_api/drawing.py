@@ -611,6 +611,151 @@ def _build_tech_requirements_text(rules: list) -> str:
     return "\n".join(lines)
 
 
+def _iter_model_views(draw_model: object) -> list:
+    """遍历工程图，返回所有引用模型的视图对象列表(跳过图纸页视图)。
+
+    第三角布局 Create3rdAngleViews2 生成 前/上/右 + 等轴测。首个视图是图纸页,
+    从其下一个视图开始收集。任何异常都保守返回已收集到的部分。
+    """
+    views = []
+    try:
+        view = draw_model.GetFirstView()
+        view = view.GetNextView() if view is not None else None
+    except Exception:
+        return views
+    while view is not None:
+        views.append(view)
+        try:
+            view = view.GetNextView()
+        except Exception:
+            break
+    return views
+
+
+def _view_outline(view: object) -> tuple:
+    """取视图在图纸坐标系下的外轮廓 (xmin, ymin, xmax, ymax, cx, cy)(米)。取不到返回 None。"""
+    try:
+        box = view.GetOutline()
+    except Exception:
+        return None
+    try:
+        xmin, ymin, xmax, ymax = (float(v) for v in box[:4])
+    except Exception:
+        return None
+    if abs(xmax - xmin) + abs(ymax - ymin) <= 0.0:
+        return None
+    return (xmin, ymin, xmax, ymax, (xmin + xmax) / 2.0, (ymin + ymax) / 2.0)
+
+
+def _classify_three_views(draw_model: object) -> dict:
+    """按图纸坐标位置把三视图分类为 front/top/right(等轴测忽略)。
+
+    第三角: 前视图为基准(通常最左下的正投影视图), 俯视图在其正上方,
+    右视图在其正右方。用各视图外轮廓中心的相对位置判定, 不依赖视图命名(更稳)。
+    返回 {"front": view, "top": view|None, "right": view|None}, 取不到为 None。
+    """
+    ortho = []
+    for v in _iter_model_views(draw_model):
+        # 等轴测/轴测图排除: swDrawingIsometricView=4 等; 保守用轮廓近似方形+无法水平/竖直对齐再排除
+        ol = _view_outline(v)
+        if ol is None:
+            continue
+        ortho.append((v, ol))
+    if not ortho:
+        return {"front": None, "top": None, "right": None}
+    # 前视图: 取最靠左下(x 最小, 其次 y 最小)的正投影视图作为基准
+    front, front_ol = min(ortho, key=lambda t: (t[1][4], t[1][5]))
+    fcx, fcy = front_ol[4], front_ol[5]
+    top = right = None
+    top_ol = right_ol = None
+    for v, ol in ortho:
+        if v is front:
+            continue
+        cx, cy = ol[4], ol[5]
+        dx, dy = cx - fcx, cy - fcy
+        # 正上方: y 明显更大且 x 基本对齐
+        if dy > abs(dx) and abs(dx) <= max(front_ol[2] - front_ol[0], 1e-6):
+            if top is None or cy > top_ol[5]:
+                top, top_ol = v, ol
+        # 正右方: x 明显更大且 y 基本对齐
+        elif dx > abs(dy) and abs(dy) <= max(front_ol[3] - front_ol[1], 1e-6):
+            if right is None or cx > right_ol[4]:
+                right, right_ol = v, ol
+    return {"front": front, "top": top, "right": right}
+
+
+def _add_h_dim(draw_model: object, x1: float, x2: float, y: float, y_text: float) -> bool:
+    """在图纸坐标 (x1..x2, y) 处放置水平尺寸(米)。成功返回 True。"""
+    try:
+        dim = draw_model.AddHorizontalDimension2((x1 + x2) / 2.0, y_text, 0.0)
+        return dim is not None
+    except Exception:
+        return False
+
+
+def _add_v_dim(draw_model: object, y1: float, y2: float, x: float, x_text: float) -> bool:
+    """在图纸坐标 (x, y1..y2) 处放置竖直尺寸(米)。成功返回 True。"""
+    try:
+        dim = draw_model.AddVerticalDimension2(x_text, (y1 + y2) / 2.0, 0.0)
+        return dim is not None
+    except Exception:
+        return False
+
+
+def _insert_overall_view_dimensions(draw_model: object) -> int:
+    """在俯视图标注长/宽、在右视图标注高(厚度)的整体轮廓尺寸。
+
+    仅补充"整体外形长宽高"三个基本尺寸(不重复模型自动导入的孔距/孔径等)。
+    做法: 识别三视图方位, 取俯视图轮廓打水平(长)+竖直(宽)尺寸, 取右视图轮廓
+    打竖直(高)尺寸。选边+放尺寸都逐个兜底, 返回成功放置的尺寸条数。
+
+    注意: 真机需先选中轮廓边再 AddDimension 才最稳; 这里用视图轮廓包围框的边界
+    坐标近似放置尺寸标注线, 具体落边由 SolidWorks 就近吸附。异常一律吞掉不阻断。
+    """
+    placed = 0
+    try:
+        cls = _classify_three_views(draw_model)
+    except Exception:
+        return 0
+    margin = 0.012  # 尺寸线离轮廓的偏移量(米, ≈12mm)
+
+    top = cls.get("top") or cls.get("front")
+    if top is not None:
+        ol = _view_outline(top)
+        if ol is not None:
+            xmin, ymin, xmax, ymax, _, _ = ol
+            try:
+                draw_model.ActivateView(str(top.GetName2()))
+            except Exception:
+                pass
+            # 长: 俯视图底部水平尺寸
+            if _add_h_dim(draw_model, xmin, xmax, ymin, ymin - margin):
+                placed += 1
+            # 宽: 俯视图右侧竖直尺寸
+            if _add_v_dim(draw_model, ymin, ymax, xmax, xmax + margin):
+                placed += 1
+
+    right = cls.get("right")
+    if right is not None:
+        ol = _view_outline(right)
+        if ol is not None:
+            xmin, ymin, xmax, ymax, _, _ = ol
+            try:
+                draw_model.ActivateView(str(right.GetName2()))
+            except Exception:
+                pass
+            # 高(厚度): 右视图右侧竖直尺寸
+            if _add_v_dim(draw_model, ymin, ymax, xmax, xmax + margin):
+                placed += 1
+
+    if placed:
+        try:
+            draw_model.EditRebuild3()
+        except Exception:
+            pass
+    return placed
+
+
 def _count_display_dimensions(draw_model: object) -> int:
     """统计整张工程图当前已导入的显示尺寸总数(遍历所有视图)。
 
@@ -690,6 +835,16 @@ def _apply_dimensions_and_tolerance(app: object, draw_model: object, rules: list
 
     # 用实际显示尺寸数核实是否真的画进了图纸(返回值非 None 不可靠)
     dim_count = _count_display_dimensions(draw_model)
+
+    # 1.1) 补打整体外形长/宽/高: InsertModelAnnotations3 常导入的是孔距/孔径等
+    #      特征尺寸, 整体轮廓长宽高不一定齐全。主动在俯视图打长/宽、右视图打高,
+    #      与期望的"俯视图标长宽、侧视图标厚度"一致。补打失败不影响已导入尺寸。
+    try:
+        overall = _insert_overall_view_dimensions(draw_model)
+    except Exception:
+        overall = 0
+    if overall:
+        dim_count = _count_display_dimensions(draw_model)
 
     # 2) 依据企业标准的公差等级设置默认对称公差
     grade = _extract_tolerance_grade(rules)
