@@ -1894,6 +1894,29 @@ def _classify_three_views(draw_model: object, app: object = None) -> dict:
     return {"front": front, "top": top, "right": right}
 
 
+def _early_bound_doc(draw_model: object) -> object:
+    """v035: 返回早绑定的 IModelDoc2 包装(用于选边/加尺寸), 进程内缓存。
+
+    视图已建完后, 把 draw_model 早绑定成 IModelDoc2 只用于 SelectByID2 +
+    AddHorizontalDimension2/AddVerticalDimension2, 不会再触发 Create3rdAngleViews2
+    (v031 崩溃点), 所以安全。早绑定按 dispid 调用能正确编组 SelectByID2 的
+    可选 callout 参数(late-bind 无论传什么都 arg8 类型不匹配)。
+    早绑定失败(EnsureModule 全失败 / 无 pywin32)则原样返回 late-bind 对象。
+    """
+    global _EARLY_DOC_CACHE
+    if draw_model is None:
+        return draw_model
+    cached = _EARLY_DOC_CACHE.get(id(draw_model))
+    if cached is not None:
+        return cached
+    early = _ensure_early_bind(draw_model, "IModelDoc2")
+    _EARLY_DOC_CACHE[id(draw_model)] = early
+    return early
+
+
+_EARLY_DOC_CACHE: dict = {}
+
+
 def _select_edge_at(draw_model: object, view: object, x: float, y: float) -> bool:
     """在工程图坐标 (x, y) 处用 SelectByID2 吸附选中一条投影边。
 
@@ -1905,14 +1928,24 @@ def _select_edge_at(draw_model: object, view: object, x: float, y: float) -> boo
     选中成功返回 True。任何异常一律吞掉返回 False。
     """
     try:
+        # v035: 优先用早绑定 IModelDoc2.Extension 调 SelectByID2, 从根上解决
+        # late-bind arg8(callout) 类型不匹配。早绑定包装类允许省略尾部可选参数。
+        early_doc = _early_bound_doc(draw_model)
+        ext_early = getattr(early_doc, "Extension", None)
+        if ext_early is not None and early_doc is not draw_model:
+            try:
+                ok = bool(ext_early.SelectByID2("", "EDGE", x, y, 0.0, True, 0, None, 0))
+                if ok:
+                    return True
+                _dbg(f"select_edge: 早绑定 SelectByID2 未命中 EDGE @ ({x:.4f},{y:.4f})")
+            except Exception as exc:
+                _dbg(f"select_edge: 早绑定 SelectByID2 抛 {type(exc).__name__}: {exc}, 回退 late-bind")
+
         ext = getattr(draw_model, "Extension", None)
         if ext is None:
             _dbg("select_edge: draw_model.Extension 为 None")
             return False
-        # v034: 真机 late-bind 下 SelectByID2 第 8 个参数 callout=None 编组成
-        # VT_NULL 被 SW 拒绝, 报 com_error -2147352571(类型不匹配, arg 8)。
-        # 可选对象参数在 pywin32 late-bind 里应传 pythoncom.Empty(VT_EMPTY)
-        # 占位, 而非 None。逐个候选调用形态尝试, 命中即返回。
+        # late-bind 兜底(真机已证 arg8 全失败, 仅作最后挣扎)。
         callouts = []
         try:
             import pythoncom  # type: ignore
@@ -1921,7 +1954,7 @@ def _select_edge_at(draw_model: object, view: object, x: float, y: float) -> boo
             callouts.append(pythoncom.Missing)
         except Exception:
             pass
-        callouts.append(None)  # 保底再试原 None(部分版本 late-bind 能接受)
+        callouts.append(None)
 
         last_exc = None
         for co in callouts:
@@ -1929,10 +1962,6 @@ def _select_edge_at(draw_model: object, view: object, x: float, y: float) -> boo
                 ok = bool(ext.SelectByID2("", "EDGE", x, y, 0.0, True, 0, co, 0))
                 if ok:
                     return True
-                _dbg(
-                    f"select_edge: SelectByID2 未命中 EDGE @ ({x:.4f},{y:.4f}) "
-                    f"callout={type(co).__name__}"
-                )
             except Exception as exc:
                 last_exc = exc
                 continue
@@ -1958,8 +1987,17 @@ def _add_h_dim(draw_model: object, view: object, x1: float, x2: float, y_edge: f
             pass
         x_mid = (x1 + x2) / 2.0
         picked = _select_edge_at(draw_model, view, x_mid, y_edge)
-        # v034: AddHorizontalDimension2 带参方法在 late-bind 下也可能被属性化,
-        # 直接 `draw_model.AddHorizontalDimension2(...)` 报 not callable, 走 _sw_call。
+        # v035: 优先用早绑定 IModelDoc2 调 AddHorizontalDimension2(和选边同一文档对象,
+        # 共享选择集), late-bind 兜底走 _sw_call。
+        early_doc = _early_bound_doc(draw_model)
+        if early_doc is not draw_model:
+            try:
+                dim = early_doc.AddHorizontalDimension2(x_mid, y_text, 0.0)
+                if dim is not None:
+                    return True
+                _dbg(f"add_h_dim: 早绑定 AddHorizontalDimension2 返回 None (picked={picked})")
+            except Exception as exc:
+                _dbg(f"add_h_dim: 早绑定 AddHorizontalDimension2 抛 {type(exc).__name__}: {exc}")
         called, dim = _sw_call(draw_model, "AddHorizontalDimension2", x_mid, y_text, 0.0)
         if not called:
             _dbg(f"add_h_dim: AddHorizontalDimension2 调用失败(late-bind) picked={picked}")
@@ -1987,6 +2025,15 @@ def _add_v_dim(draw_model: object, view: object, y1: float, y2: float, x_edge: f
             pass
         y_mid = (y1 + y2) / 2.0
         picked = _select_edge_at(draw_model, view, x_edge, y_mid)
+        early_doc = _early_bound_doc(draw_model)
+        if early_doc is not draw_model:
+            try:
+                dim = early_doc.AddVerticalDimension2(x_text, y_mid, 0.0)
+                if dim is not None:
+                    return True
+                _dbg(f"add_v_dim: 早绑定 AddVerticalDimension2 返回 None (picked={picked})")
+            except Exception as exc:
+                _dbg(f"add_v_dim: 早绑定 AddVerticalDimension2 抛 {type(exc).__name__}: {exc}")
         called, dim = _sw_call(draw_model, "AddVerticalDimension2", x_text, y_mid, 0.0)
         if not called:
             _dbg(f"add_v_dim: AddVerticalDimension2 调用失败(late-bind) picked={picked}")
