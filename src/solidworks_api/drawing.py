@@ -89,9 +89,12 @@ _SW_INSERT_ALL_DIMENSIONS = 3
 # swCommands_e.swCommands_InsertModelItems: 触发 SW 主 UI 的"模型项目"命令,
 # 让 SW 自己把当前激活视图的模型尺寸/注解按 UI 上下文导入。作为路径 E: 当
 # InsertModelAnnotations3 走 late-bind 挂 DISP_E_MEMBERNOTFOUND 时的兜底。
-# SW 2019 常量值 = 1497 (swCommands_e), 若不同版本值有偏差, RunCommand
-# 静默失败也不会破坏主流程。
-_SW_CMD_INSERT_MODEL_ITEMS = 1497
+# SW 2019 里 swCommands_InsertModelItems 官方值为 1668;  1497 是历史备份 ID;
+# 部分中文版模板会用 2062。真机 v022 弹"试图执行系统不支持的操作"表示 1497
+# 上下文不合法, 因此按 [1668, 2062, 1497] 顺序 fallback。RunCommand 静默失败
+# 不破坏主流程。
+_SW_CMD_INSERT_MODEL_ITEMS = 1668
+_SW_CMD_INSERT_MODEL_ITEMS_ALTS = (1668, 2062, 1497)
 
 
 def create_drawing_from_active_part(app: object, rules: list | None = None) -> dict:
@@ -1691,6 +1694,29 @@ def _apply_dimensions_and_tolerance(app: object, draw_model: object, rules: list
         )
         run_cmd_ok = 0
         run_cmd_tried = 0
+        # 定义一个"发一次 RunCommand + 多命令ID fallback"闭包, 逐个尝试直到成功
+        def _try_run_cmd() -> tuple[int, int]:
+            tried = 0
+            succ = 0
+            for cmd_id in _SW_CMD_INSERT_MODEL_ITEMS_ALTS:
+                tried += 1
+                try:
+                    ok_c = bool(app.RunCommand(cmd_id, ""))
+                except BaseException as exc:
+                    _dbg(
+                        f"apply_dim: 路径E RunCommand(cmd={cmd_id}) 抛 {type(exc).__name__}:{exc}",
+                        summary=True,
+                    )
+                    continue
+                _dbg(
+                    f"apply_dim: 路径E RunCommand(cmd={cmd_id}) 返回={ok_c}",
+                    summary=True,
+                )
+                if ok_c:
+                    succ += 1
+                    break  # 命中一个命令ID就够, 别的可能会重复标注
+            return tried, succ
+
         if fallback_views:
             for view in fallback_views:
                 try:
@@ -1699,29 +1725,45 @@ def _apply_dimensions_and_tolerance(app: object, draw_model: object, rules: list
                         draw_model.ActivateView(name)
                 except BaseException:
                     pass
-                try:
-                    run_cmd_tried += 1
-                    ok = bool(app.RunCommand(_SW_CMD_INSERT_MODEL_ITEMS, ""))
-                    if ok:
-                        run_cmd_ok += 1
-                except BaseException as exc:
-                    _dbg(
-                        f"apply_dim: 路径E RunCommand(逐视图) 抛 {type(exc).__name__}:{exc}",
-                        summary=True,
-                    )
-                    break
+                t, s = _try_run_cmd()
+                run_cmd_tried += t
+                run_cmd_ok += s
+                if s == 0:
+                    break  # 某视图上所有 cmd_id 都不认, 后续视图也别浪费
         else:
-            # 视图列表拿不到就直接跑一次: SW 会用当前 UI 激活的视图(默认前视图)
+            # 视图列表拿不到就用 SelectByID2 类型选先把一个 DRAWINGVIEW 选中作为命令上下文
+            # (v022 真机反馈: "试图执行系统不支持的操作" 弹窗根因 = RunCommand 无激活视图上下文)。
+            # SelectByID2 允许 name="" + type="DRAWINGVIEW" 走类型选择, 把当前图纸上第一个
+            # 匹配类型的视图选中, 这就是 SW 主命令通道所需的 UI 上下文。
+            selected_for_cmd = False
             try:
-                run_cmd_tried += 1
-                ok = bool(app.RunCommand(_SW_CMD_INSERT_MODEL_ITEMS, ""))
-                if ok:
-                    run_cmd_ok += 1
+                draw_model.ClearSelection2(True)
+            except BaseException:
+                pass
+            try:
+                selected_for_cmd = bool(
+                    draw_model.Extension.SelectByID2(
+                        "", "DRAWINGVIEW", 0.0, 0.0, 0.0, False, 0, None, 0
+                    )
+                )
             except BaseException as exc:
                 _dbg(
-                    f"apply_dim: 路径E RunCommand(无视图直发) 抛 {type(exc).__name__}:{exc}",
+                    f"apply_dim: 路径E 类型选 DRAWINGVIEW 抛 {type(exc).__name__}:{exc}",
                     summary=True,
                 )
+                selected_for_cmd = False
+            _dbg(
+                f"apply_dim: 路径E 类型选 DRAWINGVIEW={'ok' if selected_for_cmd else 'fail'}, "
+                f"准备直发 RunCommand",
+                summary=True,
+            )
+            t, s = _try_run_cmd()
+            run_cmd_tried += t
+            run_cmd_ok += s
+            try:
+                draw_model.ClearSelection2(True)
+            except BaseException:
+                pass
         try:
             draw_model.EditRebuild3()
         except BaseException:
