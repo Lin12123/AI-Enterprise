@@ -1,0 +1,119 @@
+"""知识库联动：拉取 + 导入。/api/knowledge
+
+- GET  /api/knowledge/pull   本地服务出图未命中时按 material/feature 拉取匹配规则打包
+- POST /api/knowledge/import 上传 Excel/JSON/Word/PDF/图片，解析入库(高置信)或存草稿
+"""
+import json
+import os
+import uuid
+
+from fastapi import APIRouter, UploadFile, File, Form
+
+from app import db
+from app.schemas import ok, fail
+from app.services import importer
+
+router = APIRouter(prefix="/api/knowledge", tags=["knowledge"])
+
+
+@router.get("/pull")
+def pull(material: str = "", feature: str = "", standard_no: str = ""):
+    """按范围返回已发布规则，供本地服务落地缓存。命中为空时 data.hits=[]。"""
+    conn = db.get_conn()
+    try:
+        sql = (
+            "SELECT r.*, s.standard_no, s.standard_type, s.version"
+            " FROM standard_rule r JOIN standard s ON r.standard_id = s.id"
+            " WHERE r.status = 'published'"
+        )
+        args: list = []
+        if material:
+            sql += " AND (r.scope_material = ? OR r.scope_material IS NULL OR r.scope_material = '')"
+            args.append(material)
+        if feature:
+            sql += " AND (r.scope_feature = ? OR r.scope_feature IS NULL OR r.scope_feature = '')"
+            args.append(feature)
+        if standard_no:
+            sql += " AND s.standard_no = ?"
+            args.append(standard_no)
+        rows = conn.execute(sql, args).fetchall()
+        hits = []
+        for r in rows:
+            d = db.row_to_dict(r)
+            if d.get("params_json"):
+                try:
+                    d["params_json"] = json.loads(d["params_json"])
+                except (ValueError, TypeError):
+                    pass
+            hits.append(d)
+        return ok({"hits": hits, "count": len(hits)})
+    finally:
+        conn.close()
+
+
+@router.post("/import")
+async def import_knowledge(
+    file: UploadFile = File(...),
+    standard_no: str = Form(...),
+    standard_type: str = Form(""),
+    title: str = Form(""),
+    version: str = Form(""),
+    source: str = Form("import"),
+):
+    """导入知识文件。Excel/JSON 高置信直接 published；文档类留草稿(阶段一返回0条)。"""
+    ext = os.path.splitext(file.filename or "")[1].lstrip(".").lower()
+    content = await file.read()
+
+    # 原文落地附件目录溯源
+    os.makedirs(db.UPLOAD_DIR, exist_ok=True)
+    stored_name = f"{uuid.uuid4().hex}.{ext}" if ext else uuid.uuid4().hex
+    abs_path = os.path.join(db.UPLOAD_DIR, stored_name)
+    with open(abs_path, "wb") as f:
+        f.write(content)
+
+    try:
+        parsed, high_conf = importer.dispatch(ext, abs_path, content)
+    except Exception as exc:
+        return fail(f"解析失败: {exc}")
+
+    conn = db.get_conn()
+    try:
+        # upsert 标准主表
+        row = conn.execute(
+            "SELECT id FROM standard WHERE standard_no = ? AND IFNULL(version,'') = ?",
+            (standard_no, version or ""),
+        ).fetchone()
+        if row:
+            standard_id = row["id"]
+        else:
+            cur = conn.execute(
+                "INSERT INTO standard(standard_no, standard_type, title, version, source)"
+                " VALUES(?,?,?,?,?)",
+                (standard_no, standard_type or None, title or None, version or None, source),
+            )
+            standard_id = cur.lastrowid
+
+        # 附件溯源登记
+        conn.execute(
+            "INSERT INTO import_attachment(standard_id, file_name, stored_path, fmt)"
+            " VALUES(?,?,?,?)",
+            (standard_id, file.filename, stored_name, ext),
+        )
+
+        inserted = 0
+        for item in parsed:
+            params = json.dumps(item.get("params_json") or {}, ensure_ascii=False)
+            conn.execute(
+                "INSERT INTO standard_rule(standard_id, scope_material, scope_feature, clause, params_json, status)"
+                " VALUES(?,?,?,?,?,?)",
+                (standard_id, item.get("scope_material"), item.get("scope_feature"),
+                 item.get("clause"), params, item.get("status", "published")),
+            )
+            inserted += 1
+        conn.commit()
+        msg = "导入完成" if high_conf else "已受理，文档类需人工确认(阶段一暂未抽取)"
+        return ok({"standard_id": standard_id, "inserted": inserted, "high_conf": high_conf}, msg)
+    except Exception as exc:
+        return fail(f"入库失败: {exc}")
+    finally:
+        conn.close()

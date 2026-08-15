@@ -1,0 +1,8 @@
+# 云平台后端依赖（独立 venv，与内网离线本地服务 service/app/src 隔离）
+fastapi>=0.110
+uvicorn[standard]>=0.29
+python-multipart>=0.0.9
+# 知识导入解析（按需启用）
+openpyxl>=3.1
+python-docx>=1.1
+pdfplumber>=0.11
