@@ -34,6 +34,9 @@ export const knowledgeApi = {
   // 轮询后台抽取进度
   importStatus: (attachmentId) =>
     get('/knowledge/import/status', { attachment_id: attachmentId }),
+  // 原始附件下载(二进制流，直连 URL，避开 axios JSON 拦截)
+  downloadUrl: (standardId) =>
+    `/api/knowledge/import/download?standard_id=${standardId}`,
 }
 
 // ---------- 基础数据：材料 ----------

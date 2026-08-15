@@ -9,6 +9,7 @@ import threading
 import uuid
 
 from fastapi import APIRouter, UploadFile, File, Form
+from fastapi.responses import FileResponse
 
 from app import db
 from app.schemas import ok, fail
@@ -220,3 +221,26 @@ def import_status(attachment_id: int):
         })
     finally:
         conn.close()
+
+
+@router.get("/import/download")
+def download_attachment(standard_id: int):
+    """下载某标准的原始附件(取最新一个)。返回二进制流，不走 ok/fail 封装。"""
+    conn = db.get_conn()
+    try:
+        row = conn.execute(
+            "SELECT file_name, stored_path FROM import_attachment"
+            " WHERE standard_id=? ORDER BY created_at DESC, id DESC LIMIT 1",
+            (standard_id,),
+        ).fetchone()
+    finally:
+        conn.close()
+
+    if not row or not row["stored_path"]:
+        return fail("该标准没有可下载的原始附件")
+
+    abs_path = os.path.join(db.UPLOAD_DIR, row["stored_path"])
+    if not os.path.exists(abs_path):
+        return fail("原始附件已不存在")
+
+    return FileResponse(abs_path, filename=row["file_name"] or row["stored_path"])

@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { standardsApi, knowledgeApi } from '@/api'
 import { knowledgeCategories } from '@/api/mock'
 
@@ -61,6 +61,31 @@ async function publish(row) {
   try {
     await standardsApi.update(row.id, { ...row, status: 'published' })
     ElMessage.success('已发布')
+    await loadStandards()
+  } catch (e) {
+    ElMessage.error(e.message)
+  }
+}
+
+// 下载原始附件(直连 URL 触发浏览器下载)
+function downloadStandard(row) {
+  window.open(knowledgeApi.downloadUrl(row.id), '_blank')
+}
+
+// 删除标准(级联删除其下所有抽取规则，二次确认)
+async function removeStandard(row) {
+  try {
+    await ElMessageBox.confirm(
+      `删除标准「${row.title || row.standard_no}」将同时删除其下所有已抽取的规则，且不可恢复。确定删除？`,
+      '删除确认',
+      { type: 'warning', confirmButtonText: '确定删除', cancelButtonText: '取消' },
+    )
+  } catch {
+    return
+  }
+  try {
+    const res = await standardsApi.remove(row.id)
+    ElMessage.success(res?.message || '已删除')
     await loadStandards()
   } catch (e) {
     ElMessage.error(e.message)
@@ -248,8 +273,8 @@ onMounted(loadStandards)
               link
               @click="publish(row)"
             >发布</el-button>
-            <el-button size="small" link>下载</el-button>
-            <el-button size="small" type="danger" link>删除</el-button>
+            <el-button size="small" link @click="downloadStandard(row)">下载</el-button>
+            <el-button size="small" type="danger" link @click="removeStandard(row)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>

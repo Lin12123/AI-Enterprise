@@ -1,4 +1,6 @@
 """标准主表 CRUD 路由。/api/standards"""
+import os
+
 from fastapi import APIRouter
 
 from app import db
@@ -72,10 +74,41 @@ def update_standard(sid: int, body: StandardIn):
 
 @router.delete("/{sid}")
 def delete_standard(sid: int):
+    """删除标准：级联删除其规则(standard_rule ON DELETE CASCADE)，
+    并清理导入附件记录与物理文件。"""
     conn = db.get_conn()
     try:
+        row = conn.execute("SELECT id FROM standard WHERE id = ?", (sid,)).fetchone()
+        if not row:
+            return fail("标准不存在")
+
+        # 先取该标准的附件物理文件，删库后再清盘
+        atts = conn.execute(
+            "SELECT stored_path FROM import_attachment WHERE standard_id = ?", (sid,)
+        ).fetchall()
+
+        rule_cnt = conn.execute(
+            "SELECT COUNT(*) AS c FROM standard_rule WHERE standard_id = ?", (sid,)
+        ).fetchone()["c"]
+
+        # 删附件登记(ON DELETE SET NULL 不会自动删记录，这里显式清理)
+        conn.execute("DELETE FROM import_attachment WHERE standard_id = ?", (sid,))
+        # 删标准主表 -> standard_rule 随 ON DELETE CASCADE 一并删除
         conn.execute("DELETE FROM standard WHERE id = ?", (sid,))
         conn.commit()
-        return ok({"id": sid}, "已删除")
+
+        # 清理物理文件(尽力而为，失败不阻断)
+        for a in atts:
+            sp = a["stored_path"]
+            if not sp:
+                continue
+            abs_path = os.path.join(db.UPLOAD_DIR, sp)
+            try:
+                if os.path.exists(abs_path):
+                    os.remove(abs_path)
+            except OSError:
+                pass
+
+        return ok({"id": sid, "deleted_rules": rule_cnt}, f"已删除标准及其 {rule_cnt} 条规则")
     finally:
         conn.close()
