@@ -89,11 +89,143 @@ def _debug_dump_local_provider_json(filename: str, payload) -> None:
         pass
 
 
+_CLAMP_SAFETY_MARGIN_MM = 0.5  # 与 policy_engine._EDGE_SAFETY_MARGIN_MM 保持一致的材料余量
+
+
+def _plan_base_size(data: dict) -> tuple[float, float] | None:
+    """从 plan 中提取底板尺寸 (length, width)，与 policy_engine 的取值逻辑一致。"""
+    operations = data.get("operations") if isinstance(data, dict) else None
+    if not isinstance(operations, list):
+        return None
+    sketch_rectangles: dict[str, tuple[float, float]] = {}
+    base_size: tuple[float, float] | None = None
+    for operation in operations:
+        if not isinstance(operation, dict):
+            continue
+        params = operation.get("params") if isinstance(operation.get("params"), dict) else {}
+        op_name = str(operation.get("op", "")).strip()
+        if op_name == "sketch_center_rectangle":
+            sketch_name = str(params.get("name", params.get("sketch", ""))).strip()
+            try:
+                length = float(params.get("length", 0))
+                width = float(params.get("width", 0))
+            except (TypeError, ValueError):
+                length = width = 0.0
+            if sketch_name and length > 0 and width > 0:
+                sketch_rectangles[sketch_name] = (length, width)
+        if op_name == "create_base_plate":
+            try:
+                base_size = (float(params.get("length", 0)), float(params.get("width", 0)))
+            except (TypeError, ValueError):
+                base_size = None
+        if op_name == "extrude_boss" and base_size is None:
+            sketch_name = str(params.get("sketch", "")).strip()
+            if sketch_name in sketch_rectangles:
+                base_size = sketch_rectangles[sketch_name]
+    if base_size and base_size[0] > 0 and base_size[1] > 0:
+        return base_size
+    return None
+
+
+def _clamp_inferred_out_of_bounds_holes(data: dict) -> dict:
+    """确定性几何钳制：把 inferred（或缺 provenance）的越界孔 center 钳到合法区间内。
+
+    这是纯几何修正而非语义推断，不违反离线约束：
+    - 仅钳制 metadata.inferred_parameters 中登记或缺失 provenance 的 center；
+    - metadata.explicit_parameters（用户明确给的）保持不动，交由用户确认；
+    - 保留原坐标象限（sign(x)/sign(y)），四角孔不会全部挤到中心重叠。
+    """
+    if not isinstance(data, dict):
+        return data
+    base_size = _plan_base_size(data)
+    if base_size is None:
+        return data
+    operations = data.get("operations")
+    if not isinstance(operations, list):
+        return data
+
+    metadata = data.get("metadata") if isinstance(data.get("metadata"), dict) else {}
+    explicit_paths = set(str(p) for p in metadata.get("explicit_parameters", []) if isinstance(metadata.get("explicit_parameters"), list))
+
+    half_length = base_size[0] / 2
+    half_width = base_size[1] / 2
+
+    circular_ops = {
+        "create_through_hole": "diameter",
+        "create_blind_hole": "diameter",
+        "create_counterbore_hole": "hole_diameter",
+        "create_countersink_hole": "hole_diameter",
+    }
+
+    for operation in operations:
+        if not isinstance(operation, dict):
+            continue
+        op_name = str(operation.get("op", "")).strip()
+        diameter_name = circular_ops.get(op_name)
+        if diameter_name is None:
+            continue
+        params = operation.get("params") if isinstance(operation.get("params"), dict) else None
+        if not isinstance(params, dict):
+            continue
+        center = params.get("center")
+        if not isinstance(center, (list, tuple)) or len(center) != 2:
+            continue
+        try:
+            x = float(center[0])
+            y = float(center[1])
+            diameter = float(params.get(diameter_name, 0))
+        except (TypeError, ValueError):
+            continue
+        if diameter <= 0:
+            continue
+
+        operation_id = str(operation.get("id", "")).strip()
+        center_path = f"{operation_id}.params.center" if operation_id else ""
+        # 用户明确给出的坐标不钳制，保持走用户确认。
+        if center_path and center_path in explicit_paths:
+            continue
+
+        radius = diameter / 2
+        x_limit = half_length - _CLAMP_SAFETY_MARGIN_MM - radius
+        y_limit = half_width - _CLAMP_SAFETY_MARGIN_MM - radius
+        if x_limit <= 0 or y_limit <= 0:
+            # 孔太大，底板放不下，几何无解，交由 Policy 拒绝 / 用户确认。
+            continue
+
+        out_of_bounds = (
+            abs(x) + radius >= half_length - _CLAMP_SAFETY_MARGIN_MM
+            or abs(y) + radius >= half_width - _CLAMP_SAFETY_MARGIN_MM
+        )
+        if not out_of_bounds:
+            continue
+
+        # 保留象限：坐标为 0 时留在中心轴，否则钳到同侧的合法极限内侧。
+        new_x = 0.0 if x == 0 else (x_limit if x > 0 else -x_limit)
+        new_y = 0.0 if y == 0 else (y_limit if y > 0 else -y_limit)
+        params["center"] = [round(new_x, 3), round(new_y, 3)]
+
+        # 钳制后的坐标是确定性几何修正，标记为 inferred。
+        if center_path:
+            inferred = metadata.get("inferred_parameters")
+            if not isinstance(inferred, list):
+                inferred = []
+            if center_path not in inferred:
+                inferred.append(center_path)
+            metadata["inferred_parameters"] = inferred
+            data["metadata"] = metadata
+
+    return data
+
+
 def _attempt_semantic_salvage(prompt: str, rejected_data: dict) -> dict | None:
     if not isinstance(rejected_data, dict):
         return None
     salvaged = _normalize_featureplan_protocol(rejected_data)
     salvaged = bind_featureplan_semantics(prompt, salvaged)
+    salvaged = _normalize_featureplan_protocol(salvaged)
+    # 纯 prompt 教育对本地小模型不可靠：即使消息给出精确合法区间，qwen2.5-coder 仍
+    # 反复越界。此处对 inferred 越界孔 center 做确定性几何钳制（非语义推断，合规）。
+    salvaged = _clamp_inferred_out_of_bounds_holes(salvaged)
     salvaged = _normalize_featureplan_protocol(salvaged)
     policy_errors = _policy_error_summary(salvaged, prompt)
     if not policy_errors:
