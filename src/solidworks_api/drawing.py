@@ -430,6 +430,55 @@ def _find_iface_cls_by_methods(mod: object, require_methods) -> object:
         return None
 
 
+def _construct_iface(iface_cls, obj, require_methods=None, tag: str = "接口"):
+    """v037: 用**裸 PyIDispatch**(QueryInterface 到接口 IID)构造 pywin32 早绑定包装类。
+
+    根因(v036 真机): 能力探测已选对类 IModelDoc(hasattr 校验 True), 但 IModelDoc(obj)
+    调用 AddHorizontalDimension2 时报 NewDocument.InvokeTypes AttributeError ——
+    因为传入的 obj 本身是"类名为 NewDocument 的早绑定包装对象", 被当成 self._oleobj_
+    存下, 而包装对象没有 InvokeTypes(那是裸 PyIDispatch 才有的)。pywin32 接口方法
+    执行 self._oleobj_.InvokeTypes(dispid,...) 就崩。
+
+    修复: 先取 obj 的裸 IDispatch(obj._oleobj_, 若无则 obj 自身), 用接口类 CLSID(IID)
+    QueryInterface 到目标接口的 IDispatch, 再传给包装类。这样 self._oleobj_ 是裸
+    PyIDispatch, InvokeTypes 可用。QueryInterface 失败则回退用裸 _oleobj_ 直接构造。
+    """
+    try:
+        import pythoncom  # type: ignore
+    except Exception:
+        pythoncom = None
+    base = getattr(obj, "_oleobj_", None) or obj
+    oleobj = base
+    iid = getattr(iface_cls, "CLSID", None)
+    if pythoncom is not None and iid is not None and hasattr(base, "QueryInterface"):
+        try:
+            oleobj = base.QueryInterface(iid, pythoncom.IID_IDispatch)
+            _dbg(f"early_bind: {tag} QueryInterface 到接口 IID 成功", summary=True)
+        except Exception as exc:
+            _dbg(f"early_bind: {tag} QueryInterface 失败({type(exc).__name__}:{exc}), 用裸_oleobj_", summary=True)
+            oleobj = base
+    try:
+        early = iface_cls(oleobj)
+    except Exception as exc:
+        _dbg(f"early_bind: {tag} 构造失败({type(exc).__name__}:{exc})", summary=True)
+        return None
+    if early is None:
+        return None
+    real = early.__class__.__name__
+    inner = getattr(early, "_oleobj_", None)
+    has_invoke = hasattr(inner, "InvokeTypes") if inner is not None else False
+    has_all = True
+    if require_methods:
+        has_all = all(hasattr(early, m) for m in require_methods)
+    _dbg(
+        f"early_bind: {tag} 构造 类名={real} _oleobj_有InvokeTypes={has_invoke} 含{require_methods}={has_all}",
+        summary=True,
+    )
+    if has_all and has_invoke:
+        return early
+    return None
+
+
 def _ensure_early_bind(obj: object, iface: str = "IDrawingDoc", require_methods=None) -> object:
     """v031: 用早绑定模块的接口包装类**直接构造**, 绕开会做 makepy 反查的 CastTo。
 
@@ -466,24 +515,9 @@ def _ensure_early_bind(obj: object, iface: str = "IDrawingDoc", require_methods=
     if require_methods:
         probed_cls = _find_iface_cls_by_methods(mod, require_methods)
         if probed_cls is not None:
-            try:
-                early = probed_cls(obj)
-                if early is not None:
-                    real = early.__class__.__name__
-                    has_all = all(hasattr(early, m) for m in require_methods)
-                    _dbg(
-                        f"early_bind: 能力探测构造成功 类名={real} "
-                        f"含{require_methods}={has_all}",
-                        summary=True,
-                    )
-                    if has_all:
-                        return early
-                    _dbg("early_bind: 能力探测类实例缺方法, 继续名字候选", summary=True)
-            except Exception as exc:
-                _dbg(
-                    f"early_bind: 能力探测构造失败({type(exc).__name__}:{exc}), 继续名字候选",
-                    summary=True,
-                )
+            early = _construct_iface(probed_cls, obj, require_methods, tag="能力探测")
+            if early is not None:
+                return early
     # ① 主路径: 用早绑定模块里的接口包装类直接构造, 不走 makepy 反查。
     # pywin32 生成的接口类名可能带/不带 I 前缀(IDrawingDoc / DrawingDoc), 逐个试。
     iface_candidates = [iface]
@@ -496,17 +530,8 @@ def _ensure_early_bind(obj: object, iface: str = "IDrawingDoc", require_methods=
             iface_cls = getattr(mod, cand, None)
             if iface_cls is None:
                 continue
-            early = iface_cls(obj)
+            early = _construct_iface(iface_cls, obj, require_methods, tag=cand)
             if early is not None:
-                real = early.__class__.__name__
-                # v036: 打印真实类名; 若指定了 require_methods 且缺方法则不采纳该候选。
-                if require_methods and not all(hasattr(early, m) for m in require_methods):
-                    _dbg(
-                        f"early_bind: {cand} 构造得到 {real} 但缺{require_methods}, 跳过",
-                        summary=True,
-                    )
-                    continue
-                _dbg(f"early_bind: {cand} 包装类构造成功 类名={real}, 走早绑定接口", summary=True)
                 return early
         except Exception as exc:
             _dbg(

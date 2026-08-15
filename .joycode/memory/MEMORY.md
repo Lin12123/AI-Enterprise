@@ -14,4 +14,4 @@
 
 - [3D转2D企业标准出图链路](project_drawing_enterprise_standard.md) — AI-Enterprise 点击3D转2D的全链路:尺寸+公差+图幅+技术要求+长宽高兜底关键约定
 
-- [出图早绑定迭代与自绘转向 v035](project_drawing_early_bind_v029.md) — AI-Enterprise 3D转2D出图迭代链 v029→v035；建视图用late-bind，自绘尺寸阶段局部早绑定IModelDoc2调SelectByID2
+- [出图早绑定迭代与自绘转向 v037](project_drawing_early_bind_v029.md) — AI-Enterprise 3D转2D出图迭代链 v029→v037；早绑定=能力探测选类+QueryInterface取裸IDispatch构造
