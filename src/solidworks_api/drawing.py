@@ -83,7 +83,7 @@ def create_drawing_from_active_part(app: object, rules: list | None = None) -> d
     # 3.1) 依据企业标准/规范生成尺寸标注与公差(标注失败不阻断出图，只降级为无标注)
     annotation_note = ""
     try:
-        ann = _apply_dimensions_and_tolerance(app, draw_model, rules or [])
+        ann = _apply_dimensions_and_tolerance(app, draw_model, rules or [], model)
         dim_count = ann.get("dim_count", 0)
         grade = ann.get("grade", "")
         tol_applied = ann.get("tol_applied", 0)
@@ -96,7 +96,7 @@ def create_drawing_from_active_part(app: object, rules: list | None = None) -> d
             except Exception:
                 pass
             try:
-                ann_retry = _apply_dimensions_and_tolerance(app, draw_model, rules or [])
+                ann_retry = _apply_dimensions_and_tolerance(app, draw_model, rules or [], model)
                 dim_count = ann_retry.get("dim_count", 0)
                 grade = ann_retry.get("grade", grade)
                 tol_applied = ann_retry.get("tol_applied", tol_applied)
@@ -831,6 +831,84 @@ def _insert_overall_view_dimensions(draw_model: object) -> int:
     return placed
 
 
+def _draw_all_dimensions_by_ourselves(draw_model: object, part_model: object) -> int:
+    """出图端自绘策略：不依赖模型 DisplayDimension，直接在三视图上补齐外形尺寸。
+
+    真机现象：程序化 API 建模 (create_base_plate / cut_corner_holes 等)
+    不会调 SketchManager.AddDimension，零件里 DisplayDimension 数为 0，
+    所以 InsertModelAnnotations3 无论如何都拉不到任何尺寸。走"自绘为主"路线：
+    识别三视图后，用零件包围盒的三向跨度自绘外形尺寸。
+
+    绘制策略（第三角，X=长/Y=宽/Z=高）:
+      - 俯视图 (Top):    底部水平尺寸=X跨(长), 右侧竖直尺寸=Y跨(宽)
+      - 前视图 (Front):  底部水平尺寸=X跨(长), 右侧竖直尺寸=Z跨(高)
+      - 右视图 (Right):  底部水平尺寸=Y跨(宽), 右侧竖直尺寸=Z跨(高)
+
+    注意：AddHorizontalDimension2/AddVerticalDimension2 的实际数值由 SolidWorks
+    从选中的投影边自动计算，所以我们只负责"在正确位置选边+放尺寸线"，
+    不需要传入长/宽/高的数值。零件包围盒仅用于日志/图幅决策。
+
+    返回成功放置的尺寸条数。任何异常一律吞掉不阻断出图流程。
+    """
+    placed = 0
+    if draw_model is None:
+        return 0
+
+    # 补打之前强制重建，保证 GetOutline 拿到真实的视图轮廓框
+    try:
+        draw_model.ForceRebuild3(False)
+    except Exception:
+        pass
+    try:
+        draw_model.EditRebuild3()
+    except Exception:
+        pass
+
+    try:
+        cls = _classify_three_views(draw_model)
+    except Exception:
+        return 0
+
+    margin = 0.012  # 尺寸线离轮廓的偏移(米, ≈12mm)
+
+    def _draw_pair(view: object, want_h: bool, want_v: bool) -> int:
+        """在单个视图上按 outline 打水平/竖直尺寸，返回落地数。"""
+        if view is None:
+            return 0
+        ol = _view_outline(view)
+        if ol is None:
+            return 0
+        xmin, ymin, xmax, ymax, _, _ = ol
+        try:
+            draw_model.ActivateView(str(view.GetName2()))
+        except Exception:
+            pass
+        n = 0
+        if want_h:
+            # 底部水平尺寸：吸附底边中点选边，尺寸线放到 outline 下方
+            if _add_h_dim(draw_model, view, xmin, xmax, ymin, ymin - margin):
+                n += 1
+        if want_v:
+            # 右侧竖直尺寸：吸附右边中点选边，尺寸线放到 outline 右侧
+            if _add_v_dim(draw_model, view, ymin, ymax, xmax, xmax + margin):
+                n += 1
+        return n
+
+    # 俯视图: 长 + 宽
+    placed += _draw_pair(cls.get("top"), want_h=True, want_v=True)
+    # 前视图: 长 + 高
+    placed += _draw_pair(cls.get("front"), want_h=True, want_v=True)
+    # 右视图: 宽 + 高
+    placed += _draw_pair(cls.get("right"), want_h=True, want_v=True)
+
+    if placed:
+        try:
+            draw_model.EditRebuild3()
+        except Exception:
+            pass
+    return placed
+
+
 def _count_display_dimensions(draw_model: object) -> int:
     """统计整张工程图当前已导入的显示尺寸总数(遍历所有视图)。
 
@@ -890,7 +968,7 @@ def _mark_all_display_dimensions(part_model: object) -> None:
         pass
 
 
-def _apply_dimensions_and_tolerance(app: object, draw_model: object, rules: list) -> dict:
+def _apply_dimensions_and_tolerance(app: object, draw_model: object, rules: list, part_model: object = None) -> dict:
     """在工程图上导入模型尺寸并按企业标准应用默认公差。
 
     返回 {"dim_count": int, "grade": str, "tol_applied": int}:
@@ -946,15 +1024,25 @@ def _apply_dimensions_and_tolerance(app: object, draw_model: object, rules: list
     # 用实际显示尺寸数核实是否真的画进了图纸(返回值非 None 不可靠)
     dim_count = _count_display_dimensions(draw_model)
 
-    # 1.1) 补打整体外形长/宽/高: InsertModelAnnotations3 常导入的是孔距/孔径等
-    #      特征尺寸, 整体轮廓长宽高不一定齐全。主动在俯视图打长/宽、右视图打高,
-    #      与期望的"俯视图标长宽、侧视图标厚度"一致。补打失败不影响已导入尺寸。
+    # 1.1) 出图端自绘策略：程序化 API 建模的零件里 DisplayDimension 恒为 0,
+    #      InsertModelAnnotations3 拉不到任何尺寸。直接在三视图上按 outline 边
+    #      自绘长/宽/高六条外形尺寸(俯视图长宽、前视图长高、右视图宽高)。
+    #      自绘条数直接计入 dim_count，取代之前"再数一次 display dimension"的做法。
+    try:
+        drawn = _draw_all_dimensions_by_ourselves(draw_model, part_model)
+    except Exception:
+        drawn = 0
+    if drawn:
+        dim_count += drawn
+
+    # 1.2) 兼容旧路径：模型自带 DisplayDimension 的场景(如手工建模+AddDimension),
+    #      再走一遍"整体外形长/宽/高补打"，与自绘互补不冲突(SW 会去重)。
     try:
         overall = _insert_overall_view_dimensions(draw_model)
     except Exception:
         overall = 0
     if overall:
-        dim_count = _count_display_dimensions(draw_model)
+        dim_count += overall
 
     # 2) 依据企业标准的公差等级设置默认对称公差
     grade = _extract_tolerance_grade(rules)
