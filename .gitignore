@@ -26,8 +26,12 @@ env/
 
 # Generated Enterprise runtime files
 workspace/jobs/
-workspace/logs/
 workspace/outputs/
+
+# 临时:纳入 workspace/logs 便于排查问题(排查完可删下面 3 行恢复忽略)
+!workspace/logs/
+!workspace/logs/**
+!workspace/logs/**/*.log
 
 # Keep the runtime workspace directory structure available for fresh clones
 !workspace/
