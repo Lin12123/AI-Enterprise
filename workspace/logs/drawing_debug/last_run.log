@@ -1,29 +1,37 @@
-[04:29:54] create_drawing: 入口
-[04:29:57] iter_views: draw_model.GetFirstView 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[04:29:57] apply_dim: 逐视图导入前, 拿到模型视图数=0
-[04:29:57] iter_views: draw_model.GetFirstView 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[04:29:57] apply_dim: InsertModelAnnotations3 后计数 DisplayDimension=0
-[04:29:57] draw_self: EditRebuild3 抛异常 TypeError: 'bool' object is not callable
-[04:29:57] iter_views: draw_model.GetFirstView 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[04:29:57] classify_views: 未找到任何正投影视图(ortho=0)
-[04:29:57] draw_self[top]: 视图缺失, 跳过
-[04:29:57] draw_self[front]: 视图缺失, 跳过
-[04:29:57] draw_self[right]: 视图缺失, 跳过
-[04:29:57] draw_self: 累计自绘 0 条
-[04:29:57] iter_views: draw_model.GetFirstView 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[04:29:57] classify_views: 未找到任何正投影视图(ortho=0)
-[04:29:57] apply_dim: dim_count 汇总 = 模型导入0 + 自绘0 + 兜底0 合计=0
-[04:29:57] iter_views: draw_model.GetFirstView 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[04:29:57] apply_dim: 逐视图导入前, 拿到模型视图数=0
-[04:29:57] iter_views: draw_model.GetFirstView 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[04:29:57] apply_dim: InsertModelAnnotations3 后计数 DisplayDimension=0
-[04:29:58] draw_self: EditRebuild3 抛异常 TypeError: 'bool' object is not callable
-[04:29:58] iter_views: draw_model.GetFirstView 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[04:29:58] classify_views: 未找到任何正投影视图(ortho=0)
-[04:29:58] draw_self[top]: 视图缺失, 跳过
-[04:29:58] draw_self[front]: 视图缺失, 跳过
-[04:29:58] draw_self[right]: 视图缺失, 跳过
-[04:29:58] draw_self: 累计自绘 0 条
-[04:29:58] iter_views: draw_model.GetFirstView 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[04:29:58] classify_views: 未找到任何正投影视图(ortho=0)
-[04:29:58] apply_dim: dim_count 汇总 = 模型导入0 + 自绘0 + 兜底0 合计=0
+[04:34:53] create_drawing: 入口
+[04:34:56] iter_views: GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[04:34:56] iter_views: 路径3 draw_model.GetFirstView 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[04:34:56] apply_dim: 逐视图导入前, 拿到模型视图数=0
+[04:34:56] iter_views: GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[04:34:56] iter_views: 路径3 draw_model.GetFirstView 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[04:34:56] apply_dim: InsertModelAnnotations3 后计数 DisplayDimension=0
+[04:34:56] draw_self: EditRebuild3 抛异常 TypeError: 'bool' object is not callable
+[04:34:56] iter_views: GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[04:34:56] iter_views: 路径3 draw_model.GetFirstView 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[04:34:56] classify_views: 未找到任何正投影视图(ortho=0)
+[04:34:56] draw_self[top]: 视图缺失, 跳过
+[04:34:56] draw_self[front]: 视图缺失, 跳过
+[04:34:56] draw_self[right]: 视图缺失, 跳过
+[04:34:56] draw_self: 累计自绘 0 条
+[04:34:56] iter_views: GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[04:34:56] iter_views: 路径3 draw_model.GetFirstView 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[04:34:56] classify_views: 未找到任何正投影视图(ortho=0)
+[04:34:56] apply_dim: dim_count 汇总 = 模型导入0 + 自绘0 + 兜底0 合计=0
+[04:34:57] iter_views: GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[04:34:57] iter_views: 路径3 draw_model.GetFirstView 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[04:34:57] apply_dim: 逐视图导入前, 拿到模型视图数=0
+[04:34:57] iter_views: GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[04:34:57] iter_views: 路径3 draw_model.GetFirstView 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[04:34:57] apply_dim: InsertModelAnnotations3 后计数 DisplayDimension=0
+[04:34:57] draw_self: EditRebuild3 抛异常 TypeError: 'bool' object is not callable
+[04:34:57] iter_views: GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[04:34:58] iter_views: 路径3 draw_model.GetFirstView 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[04:34:58] classify_views: 未找到任何正投影视图(ortho=0)
+[04:34:58] draw_self[top]: 视图缺失, 跳过
+[04:34:58] draw_self[front]: 视图缺失, 跳过
+[04:34:58] draw_self[right]: 视图缺失, 跳过
+[04:34:58] draw_self: 累计自绘 0 条
+[04:34:58] iter_views: GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[04:34:58] iter_views: 路径3 draw_model.GetFirstView 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[04:34:58] classify_views: 未找到任何正投影视图(ortho=0)
+[04:34:58] apply_dim: dim_count 汇总 = 模型导入0 + 自绘0 + 兜底0 合计=0
