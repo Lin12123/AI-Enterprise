@@ -62,9 +62,9 @@ namespace AiSwAddin
         /// 追加一个自定义 Control 作为一条 AI 侧消息(如"执行面板卡片"、"诊断清单卡片")。
         /// 该控件应已设置合适的 Width/Height；本方法会用 wrapper row 把它挂到会话流里。
         /// </summary>
-        public void AppendControl(ChatRole role, Control content)
+        public Panel AppendControl(ChatRole role, Control content)
         {
-            if (content == null) return;
+            if (content == null) return null;
 
             // row 的最终宽度 = ChatView 可用内容宽度(此时 row 尚未加入容器，不能用 row.ClientSize.Width，否则为 0)
             int rowWidth = ClientSize.Width - Padding.Horizontal;
@@ -124,6 +124,31 @@ namespace AiSwAddin
                 // 内容不足一屏：保持顶部，避免消息整体下沉、顶部留白
                 AutoScrollPosition = new Point(0, 0);
             }
+
+            return row;
+        }
+
+        /// <summary>移除指定的消息 row(如临时"思考中"气泡)，并重排剩余会话。</summary>
+        public void RemoveRow(Panel row)
+        {
+            if (row == null) return;
+            if (InvokeRequired) { BeginInvoke(new Action<Panel>(RemoveRow), row); return; }
+            if (!Controls.Contains(row)) return;
+
+            Controls.Remove(row);
+            row.Dispose();
+
+            // 重排剩余 row 的 Top
+            int y = Padding.Top;
+            foreach (Control c in Controls)
+            {
+                c.Top = y;
+                c.Left = 0;
+                c.Width = ClientSize.Width - Padding.Horizontal;
+                y += c.Height;
+            }
+            int visible = ClientSize.Height - Padding.Vertical;
+            if (y <= visible) AutoScrollPosition = new Point(0, 0);
         }
 
         /// <summary>清空所有会话。</summary>

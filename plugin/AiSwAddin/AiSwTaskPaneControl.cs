@@ -44,6 +44,8 @@ namespace AiSwAddin
         private FeatureCard _cardNew3d, _card3dTo2d, _cardUpload;
         private RoundButton _sendBtn;
         private LoadingDots _loadingDots;   // AI 调用期间的加载动效(三渐变圆点)
+        private Panel _thinkingRow;         // 会话流中的"AI 正在思考"临时气泡 row
+        private LoadingDots _thinkingDots;  // 思考气泡内的动效实例
 
         // 输入框提示文字（placeholder）状态
         private const string InputPlaceholderText = "请描述建模需求，例如：做一个长100宽80厚10的底板，四角各开一个直径6的通孔";
@@ -762,6 +764,51 @@ namespace AiSwAddin
             else _loadingDots.Stop();
         }
 
+        /// <summary>在会话流中插入一条 AI 侧"正在思考"气泡(带动效)，让用户直观看到 AI 正在处理。可跨线程调用。</summary>
+        private void ShowThinking(string label)
+        {
+            if (_chatView == null) return;
+            if (_chatView.InvokeRequired)
+            {
+                _chatView.BeginInvoke(new Action<string>(ShowThinking), label);
+                return;
+            }
+            // 已有思考气泡则只更新文字
+            if (_thinkingRow != null && _thinkingDots != null)
+            {
+                _thinkingDots.Label = label;
+                return;
+            }
+
+            var bubble = new Panel
+            {
+                BackColor = Color.White,
+                Height = 34,
+                Width = 150,
+                Padding = new Padding(10, 0, 10, 0)
+            };
+            _thinkingDots = new LoadingDots { Dock = DockStyle.Fill };
+            bubble.Controls.Add(_thinkingDots);
+
+            _thinkingRow = _chatView.AppendControl(ChatRole.Ai, bubble);
+            _thinkingDots.Start(label);
+        }
+
+        /// <summary>移除会话流中的"正在思考"气泡。可跨线程调用。</summary>
+        private void HideThinking()
+        {
+            if (_chatView == null) return;
+            if (_chatView.InvokeRequired)
+            {
+                _chatView.BeginInvoke(new Action(HideThinking));
+                return;
+            }
+            if (_thinkingDots != null) { _thinkingDots.Stop(); }
+            if (_thinkingRow != null) { _chatView.RemoveRow(_thinkingRow); }
+            _thinkingRow = null;
+            _thinkingDots = null;
+        }
+
         // ==== 业务逻辑：发送 = 生成→校验→预演→执行(带确认) 的一体化流程 ====
 
         /// <summary>"发送"按钮：解析→校验→预演，通过后把计划展示到面板中，等用户确认执行。</summary>
@@ -788,16 +835,22 @@ namespace AiSwAddin
             }
 
             SetBusy(true);
+            ShowThinking("解析中");
             try
             {
                 if (!await GeneratePlanAsync(prompt)) { AppendChat(ChatRole.Ai, "抱歉，需求解析失败，可查看底部「📄 日志」了解详情。"); return; }
+                ShowThinking("校验中");
                 if (!await ValidateAsync()) { AppendChat(ChatRole.Ai, "该需求未通过安全/规则校验，请调整参数后再试。"); return; }
+                ShowThinking("预演中");
                 if (!await DryRunAsync()) { AppendChat(ChatRole.Ai, "预演失败，请检查参数或稍后重试。"); return; }
 
                 // 生成/校验/预演通过：解析步骤 → 填充 PlanReviewPanel，等用户点"确认并执行"
                 var steps = ExtractSteps(_currentPlanJson);
                 string partName = ExtractStringField(_currentPlanJson, "part_name") ?? "AI-Part";
                 _lastFeatureCount = steps.Count;   // 记录特征数，供建模成功后的成果看板展示
+
+                // 计划就绪，先移除"思考中"气泡，再插入执行面板卡片
+                HideThinking();
 
                 // 每次都新建一个 PlanReviewPanel 实例, 作为 AI 侧的一条消息卡片挂到 ChatView
                 _planPanel = new PlanReviewPanel();
@@ -818,6 +871,7 @@ namespace AiSwAddin
             }
             finally
             {
+                HideThinking();   // 兜底：无论成功/失败/提前 return，都移除思考气泡
                 SetBusy(false);
             }
         }
