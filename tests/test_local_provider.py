@@ -559,7 +559,6 @@ class TestLocalProvider(unittest.TestCase):
     def test_local_boundary_rejected_featureplan_is_repaired_by_local_llm(self):
         FakeOpenAIClient.response_queue = [
             featureplan_left_edge_hole_on_boundary_json(),
-            featureplan_repaired_offcenter_hole_json(),
         ]
         output = io.StringIO()
 
@@ -568,21 +567,16 @@ class TestLocalProvider(unittest.TestCase):
                 with redirect_stdout(output):
                     plan = parse_featureplan_with_provider("create a 120x80x12 plate with a 6mm hole 20mm from the left edge")
 
+        # Deterministic binding repairs the out-of-bounds (non-explicit) hole
+        # center on the first pass, so no LLM repair round-trip is needed.
         self.assertEqual(plan["operations"][4]["op"], "create_through_hole")
         self.assertEqual(plan["operations"][4]["params"]["center"], [-40, 0])
-        self.assertIn("Local LLM FeaturePlan rejected by Policy Engine", output.getvalue())
-        repair_prompt = FakeOpenAIClient.captured["create_kwargs"]["messages"][1]["content"]
-        self.assertIn("left edge x=-length/2+distance", repair_prompt)
-        self.assertIn("hole center plus its radius", repair_prompt)
-        self.assertIn("metadata.inferred_parameters", repair_prompt)
-        self.assertIn("abs(x)+diameter/2 <= length/2", repair_prompt)
-        self.assertIn("replace it with a safer recommendation inside the boundary", repair_prompt)
+        self.assertIn("5.params.center", plan["metadata"]["inferred_parameters"])
+        self.assertNotIn("Local LLM FeaturePlan rejected by Policy Engine", output.getvalue())
 
     def test_local_boundary_repair_gets_second_attempt_when_provenance_is_still_missing(self):
         FakeOpenAIClient.response_queue = [
             featureplan_left_edge_hole_on_boundary_json(),
-            featureplan_left_edge_hole_on_boundary_json(),
-            featureplan_repaired_offcenter_hole_json(),
         ]
         output = io.StringIO()
 
@@ -591,9 +585,11 @@ class TestLocalProvider(unittest.TestCase):
                 with redirect_stdout(output):
                     plan = parse_featureplan_with_provider("create a 120x80x12 plate with a 6mm hole 20mm from the left edge")
 
+        # The deterministic center fix is recorded as an inferred parameter so
+        # the Policy Engine boundary/provenance check passes without any repair.
         self.assertEqual(plan["operations"][4]["params"]["center"], [-40, 0])
         self.assertIn("5.params.center", plan["metadata"]["inferred_parameters"])
-        self.assertIn("Local LLM repair still invalid", output.getvalue())
+        self.assertNotIn("Local LLM repair still invalid", output.getvalue())
 
     def test_local_create_axis_policy_error_repair_prompt_removes_unrequested_reference_geometry(self):
         FakeOpenAIClient.response_queue = [
@@ -716,7 +712,7 @@ class TestLocalProvider(unittest.TestCase):
 
         self.assertEqual(plan["operations"][4]["params"]["center"], [-40, 0])
         self.assertIn("5.params.center", plan["metadata"]["inferred_parameters"])
-        self.assertIn("Local LLM FeaturePlan rejected by Policy Engine", output.getvalue())
+        self.assertNotIn("Local LLM FeaturePlan rejected by Policy Engine", output.getvalue())
 
     def test_local_protocol_normalizes_unique_metadata_operation_name_paths(self):
         FakeOpenAIClient.response_queue = [featureplan_with_operation_name_metadata_paths_json()]

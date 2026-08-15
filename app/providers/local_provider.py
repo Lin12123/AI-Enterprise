@@ -1241,7 +1241,15 @@ def parse_featureplan(prompt: str) -> dict:
                     _debug_dump_local_provider_json(f"repair_{attempt + 1}_rejected_featureplan.json", rejected_data)
                     if attempt < repair_attempts - 1:
                         print("Local LLM repair still invalid; requesting one more local model repair.")
-            if "cut_slot center is outside the current base boundary" in str(last_error):
+            last_error_text = str(last_error)
+            salvage_triggers = (
+                "cut_slot center is outside the current base boundary",
+                "create_through_hole center is outside the current base boundary",
+                "create_blind_hole center is outside the current base boundary",
+                "missing source provenance",
+                "plane must be exactly",
+            )
+            if any(trigger in last_error_text for trigger in salvage_triggers):
                 salvaged = _attempt_semantic_salvage(prompt, rejected_data)
                 if salvaged is not None:
                     return salvaged

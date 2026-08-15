@@ -145,6 +145,24 @@ def _prompt_mentions_any(prompt: str, lowered: str, hints: tuple[str, ...]) -> b
 
 
 
+def _merge_inferred_parameters(metadata: Any, new_paths: list[str]) -> dict[str, Any]:
+    """Add newly inferred parameter provenance paths into metadata.inferred_parameters.
+
+    Deterministic center repairs are LLM-inferred (not user-provided), so their
+    provenance must be recorded as inferred to satisfy the Policy Engine and to
+    keep the execution layer honest about what was computed vs. user-specified.
+    """
+
+    merged = dict(metadata) if isinstance(metadata, dict) else {}
+    existing = merged.get("inferred_parameters")
+    paths: list[str] = [str(item) for item in existing] if isinstance(existing, (list, tuple)) else []
+    for path in new_paths:
+        if path not in paths:
+            paths.append(path)
+    merged["inferred_parameters"] = paths
+    return merged
+
+
 def bind_featureplan_semantics(
     prompt: str,
     plan_data: dict[str, Any],
@@ -175,13 +193,28 @@ def bind_featureplan_semantics(
     pocket_total = len(pocket_ids)
     pocket_index_map = {op_id: index for index, op_id in enumerate(pocket_ids)}
 
+    # Centers the user explicitly requested must never be silently rewritten by
+    # deterministic binding: an out-of-bounds explicit center has to bubble up as
+    # a confirmation-required violation instead of being clamped away.
+    explicit_center_ids: set[str] = set()
+    metadata = normalized.get("metadata")
+    if isinstance(metadata, dict):
+        explicit_list = metadata.get("explicit_parameters")
+        if isinstance(explicit_list, list):
+            for path in explicit_list:
+                match = re.match(r"^(?P<op>.+)\.params\.center$", str(path))
+                if match:
+                    explicit_center_ids.add(match.group("op"))
+
     bound_operations: list[dict[str, Any]] = []
+    inferred_center_paths: list[str] = []
     for operation in operations:
         if not isinstance(operation, dict):
             continue
         op_name = str(operation.get("op", "")).strip()
         operation_id = str(operation.get("id", "")).strip()
         params = dict(operation.get("params") or {})
+        original_center = _coerce_xy(params.get("center")) if isinstance(params.get("center"), (list, tuple)) else None
         params = _bind_operation_params(
             prompt,
             operation_id,
@@ -195,6 +228,21 @@ def bind_featureplan_semantics(
             pocket_index=pocket_index_map.get(operation_id),
             pocket_total=pocket_total,
         )
+        if op_name in {"create_through_hole", "create_blind_hole"} and operation_id:
+            if operation_id in explicit_center_ids:
+                # User explicitly specified this center; do not rewrite it. Restore
+                # the original value so an out-of-bounds explicit center still fails
+                # Policy validation and prompts the user for confirmation.
+                if original_center is not None:
+                    params["center"] = [original_center[0], original_center[1]]
+            else:
+                bound_center = _coerce_xy(params.get("center")) if isinstance(params.get("center"), (list, tuple)) else None
+                if bound_center is not None and (
+                    original_center is None
+                    or abs(bound_center[0] - original_center[0]) > 1e-9
+                    or abs(bound_center[1] - original_center[1]) > 1e-9
+                ):
+                    inferred_center_paths.append(f"{operation_id}.params.center")
         definition = registry.get(op_name)
         if definition is not None:
             allowed = definition.allowed_parameters
@@ -205,6 +253,8 @@ def bind_featureplan_semantics(
     bound_operations = _bind_pattern_seed_references(bound_operations)
     bound_operations = _expand_symmetric_pockets(prompt, bound_operations, base_size)
     normalized["operations"] = bound_operations
+    if inferred_center_paths:
+        normalized["metadata"] = _merge_inferred_parameters(normalized.get("metadata"), inferred_center_paths)
     return canonicalize_featureplan_structure(normalized)
 
 
@@ -401,10 +451,13 @@ def _bind_operation_params(
         if normalized_center is not None:
             normalized["center"] = normalized_center
 
-    elif op_name == "create_through_hole":
+    elif op_name in {"create_through_hole", "create_blind_hole"}:
         if "plane" not in normalized and base_size is not None:
             normalized["plane"] = "top_face"
         normalized.setdefault("host", "base")
+        normalized_center = _normalize_hole_center(prompt, normalized, base_size)
+        if normalized_center is not None:
+            normalized["center"] = normalized_center
 
     elif op_name == "create_linear_pattern":
         direction = str(normalized.get("direction", "")).strip().lower()
@@ -1003,6 +1056,95 @@ def _infer_symmetric_side_from_id(operation_id: str, index: int | None, total: i
     if total == 2 and index is not None:
         return "left" if index == 0 else "right"
     return None
+
+
+def _normalize_hole_center(
+    prompt: str,
+    params: dict[str, Any],
+    base_size: tuple[float, float] | None,
+) -> list[float] | None:
+    """Normalize a through/blind hole center into the centered base frame.
+
+    Deterministic repair (no LLM): converts an edge-distance intent into a
+    concrete center coordinate and clamps any center that would push the hole
+    outside the base boundary back to the nearest safe position, so the Policy
+    Engine boundary check can pass. Returns the normalized center, or None when
+    there is nothing to fix.
+    """
+
+    if base_size is None:
+        return None
+    center = _coerce_xy(params.get("center"))
+    if center is None:
+        return None
+
+    x, y = float(center[0]), float(center[1])
+    base_length, base_width = base_size
+    diameter = _coerce_float(params.get("diameter"))
+    if diameter is None:
+        diameter = _coerce_float(params.get("hole_diameter"))
+    radius = diameter / 2 if diameter is not None and diameter > 0 else 0.0
+
+    # Edge-distance intent: convert "<n>mm from the <side> edge" into a concrete
+    # inward center coordinate. The distance is measured to the hole center, so no
+    # radius offset is added here (radius only matters for the boundary clamp).
+    side, edge_distance = _infer_hole_edge_distance(prompt)
+    if edge_distance is not None:
+        if side == "left":
+            x = -base_length / 2 + edge_distance
+        elif side == "right":
+            x = base_length / 2 - edge_distance
+        elif side == "front":
+            y = -base_width / 2 + edge_distance
+        elif side == "back":
+            y = base_width / 2 - edge_distance
+        elif abs(abs(x) - base_length / 2) < 1e-6:
+            # Unknown side but center sits on a length boundary: pull it inward.
+            x = base_length / 2 - edge_distance if x >= 0 else -base_length / 2 + edge_distance
+        elif abs(abs(y) - base_width / 2) < 1e-6:
+            y = base_width / 2 - edge_distance if y >= 0 else -base_width / 2 + edge_distance
+
+    # Clamp so hole (center +/- radius) stays fully inside the base boundary.
+    max_x = max(0.0, base_length / 2 - radius)
+    max_y = max(0.0, base_width / 2 - radius)
+    x = min(max(x, -max_x), max_x)
+    y = min(max(y, -max_y), max_y)
+    return [x, y]
+
+
+def _infer_hole_edge_distance(prompt: str) -> tuple[str | None, float | None]:
+    """Parse a "<n>mm from the <side> edge" (or 距/离<side>边<n>) intent.
+
+    Returns (side, distance) where side is one of left/right/front/back or None
+    when the side cannot be determined, and distance is the numeric edge offset.
+    """
+
+    if not isinstance(prompt, str):
+        return (None, None)
+    lowered = prompt.lower()
+
+    # English: "20mm from the left edge" / "20 mm from left edge"
+    en = re.search(
+        r"(\d+(?:\.\d+)?)\s*(?:mm)?\s*from\s+(?:the\s+)?(left|right|front|back|top|bottom)\s+edge",
+        lowered,
+    )
+    if en:
+        side_map = {"left": "left", "right": "right", "front": "front", "back": "back", "top": "back", "bottom": "front"}
+        return (side_map.get(en.group(2)), float(en.group(1)))
+
+    # Chinese: 距左边20 / 离右边15mm / 距边20 (no side)
+    zh = re.search(r"(?:距|离)\s*([左右前后])?\s*边\s*(\d+(?:\.\d+)?)", prompt)
+    if zh:
+        side_map = {"左": "left", "右": "right", "前": "front", "后": "back"}
+        side = side_map.get(zh.group(1)) if zh.group(1) else None
+        return (side, float(zh.group(2)))
+
+    # Fallback: generic edge-distance marker without side info.
+    generic = _infer_edge_distance_after_markers(
+        prompt,
+        ("from edge", "from the edge", "距离边", "距边", "边距"),
+    )
+    return (None, generic)
 
 
 def _expand_symmetric_pockets(
