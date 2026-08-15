@@ -1,0 +1,33 @@
+{
+  "rules": [
+    {
+      "scope_material": "Q235",
+      "scope_feature": "hole",
+      "clause": "普通螺栓过孔直径按 GB/T 5277 选取，M8 对应 φ9",
+      "params_json": {
+        "bolt": "M8",
+        "hole_diameter_mm": 9,
+        "tolerance": "H12"
+      }
+    },
+    {
+      "scope_material": "Q235",
+      "scope_feature": "chamfer",
+      "clause": "板边默认倒角 C1，去毛刺",
+      "params_json": {
+        "chamfer_mm": 1,
+        "angle_deg": 45
+      }
+    },
+    {
+      "scope_material": "",
+      "scope_feature": "drawing",
+      "clause": "2D 工程图默认标注标准：第一角投影，单位 mm，未注公差按 GB/T 1804-m",
+      "params_json": {
+        "projection": "first_angle",
+        "unit": "mm",
+        "general_tolerance": "GB/T 1804-m"
+      }
+    }
+  ]
+}

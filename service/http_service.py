@@ -128,6 +128,13 @@ class AiSwRequestHandler(BaseHTTPRequestHandler):
             self._send_json(200, {"ok": True, "session": session})
             return
 
+        # GET /api/knowledge/status  -> 查看本地知识规则缓存状态(不触发刷新)
+        if route == "/api/knowledge/status":
+            from service.knowledge_cache import get_cache
+            rules = get_cache().get_rules()
+            self._send_json(200, {"ok": True, "rule_count": len(rules)})
+            return
+
         self._send_json(404, {"ok": False, "error": f"未知路径: {self.path}"})
 
     def do_POST(self) -> None:  # noqa: N802
@@ -139,6 +146,7 @@ class AiSwRequestHandler(BaseHTTPRequestHandler):
             "/api/execute": _handle_execute,
             "/api/diagnose": _handle_diagnose,
             "/api/create_drawing": _handle_create_drawing,
+            "/api/knowledge/refresh": _handle_knowledge_refresh,
             "/api/sessions/create": _handle_session_create,
             "/api/sessions/append": _handle_session_append,
             "/api/sessions/status": _handle_session_status,
@@ -363,12 +371,27 @@ def _handle_diagnose(payload: dict) -> dict:
 def _handle_create_drawing(payload: dict) -> dict:
     """把当前活动的 3D 零件转为三视图工程图并保存(3D 转 2D出图)。
 
-    请求体: {} (无需参数，直接对当前 SolidWorks 活动零件出图)
-    返回:   {"ok": bool, "status": str, "message": str, "outputs": [工程图路径, ...]}
+    请求体: {} 或 {"material": "Q235", "feature": "hole", "force_refresh": false}
+            material/feature 用于筛选辅助出图的标准规则；force_refresh 为真时
+            忽略缓存 TTL 强制从云平台拉取最新规则。
+    返回:   {"ok": bool, "status": str, "message": str, "outputs": [工程图路径, ...],
+             "knowledge": {"rule_count": int, "stale": bool, "age": float}}
 
     与 /api/execute 一样，真正的 COM 调用必须在专用 STA 工作线程内执行，
     否则跨线程使用 SolidWorks COM 可能导致闪退。
+
+    出图前先从本地知识缓存(带 1 小时 TTL)取标准规则辅助生成 2D 工程图：
+    缓存有效期内直接复用，不重复请求云平台；过期或首次才刷新一次。
     """
+    material = str(payload.get("material", "")).strip() or None
+    feature = str(payload.get("feature", "")).strip() or None
+    force_refresh = bool(payload.get("force_refresh", False))
+
+    # 取规则(带 TTL 缓存，云平台不可达时用旧缓存兜底，不阻断出图)
+    from service.knowledge_cache import get_cache
+    cache = get_cache()
+    meta = cache.refresh(force=force_refresh)
+    rules = cache.get_rules(material=material, feature=feature)
 
     def _do_create_drawing():
         from solidworks_api.drawing import create_drawing_from_active_part
@@ -382,7 +405,36 @@ def _handle_create_drawing(payload: dict) -> dict:
     worker = SolidWorksWorker()
     worker.start()
     # 出图涉及新建工程图 + 生成视图，给一个宽松超时(5 分钟)
-    return worker.submit(_do_create_drawing, timeout=300)
+    result = worker.submit(_do_create_drawing, timeout=300)
+
+    # 附带本次出图用到的知识规则信息(供插件展示 / 溯源)
+    if isinstance(result, dict):
+        result["knowledge"] = {
+            "rule_count": len(rules),
+            "stale": meta.get("stale", False),
+            "age": meta.get("age", -1),
+            "rules": rules,
+        }
+    return result
+
+
+def _handle_knowledge_refresh(payload: dict) -> dict:
+    """强制从云平台刷新本地知识规则缓存。
+
+    请求体: {} (可选)
+    返回:   {"ok": bool, "refreshed": bool, "count": int, "stale": bool}
+
+    正常情况下缓存按 TTL(默认 1 小时)自动过期刷新，无需手动调用；
+    此接口用于用户在云平台补录规则后希望立即生效的场景。
+    """
+    from service.knowledge_cache import get_cache
+    meta = get_cache().refresh(force=True)
+    return {
+        "ok": not meta.get("stale", False),
+        "refreshed": meta.get("refreshed", False),
+        "count": meta.get("count", 0),
+        "stale": meta.get("stale", False),
+    }
 
 
 def _handle_session_create(payload: dict) -> dict:

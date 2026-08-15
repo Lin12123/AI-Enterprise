@@ -86,6 +86,37 @@ const versionOptions = [defaultVersion]
 // 来源固定为文件格式
 const sourceOptions = ['PDF', 'Word', 'Excel', 'JSON', '图片']
 
+// 规则导入模板：与后端 importer.parse_json 期望结构一致（高置信直接发布）。
+// PDF/Word 目前只归档溯源、不自动抽取规则；供出图调用的规则请用此 JSON（或同列名 Excel）导入。
+const ruleTemplate = {
+  rules: [
+    {
+      scope_material: 'Q235',
+      scope_feature: 'hole',
+      clause: '普通螺栓过孔直径按 GB/T 5277 选取，M8 对应 φ9',
+      params_json: { bolt: 'M8', hole_diameter_mm: 9, tolerance: 'H12' },
+    },
+    {
+      scope_material: '',
+      scope_feature: 'drawing',
+      clause: '2D 工程图默认标注：第一角投影，单位 mm，未注公差按 GB/T 1804-m',
+      params_json: { projection: 'first_angle', unit: 'mm', general_tolerance: 'GB/T 1804-m' },
+    },
+  ],
+}
+
+function downloadTemplate() {
+  const blob = new Blob([JSON.stringify(ruleTemplate, null, 2)], {
+    type: 'application/json',
+  })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = 'knowledge_rules_template.json'
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 function onFileChange(file) {
   fileRef.value = file.raw
 }
@@ -225,6 +256,17 @@ onMounted(loadStandards)
           <el-select v-model="form.source" placeholder="请选择文件来源" style="width: 100%">
             <el-option v-for="s in sourceOptions" :key="s" :label="s" :value="s" />
           </el-select>
+        </el-form-item>
+        <el-form-item>
+          <el-alert type="info" :closable="false" show-icon>
+            <template #title>
+              文档类（PDF / Word / 图片）仅归档溯源，不会自动拆解成出图可调用的规则；
+              供 3D 转 2D 出图调用的规则，请用 <b>Excel / JSON</b> 导入（自动入库并发布）。
+            </template>
+          </el-alert>
+          <el-button link type="primary" style="margin-top: 6px" @click="downloadTemplate">
+            下载 JSON 规则模板
+          </el-button>
         </el-form-item>
         <el-form-item label="文件">
           <el-upload :auto-upload="false" :limit="1" :on-change="onFileChange">
