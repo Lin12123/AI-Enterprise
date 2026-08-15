@@ -833,6 +833,54 @@ class TestLocalProvider(unittest.TestCase):
             self.assertEqual(len(segments), 3)
             self.assertEqual(segments[1], "params")
 
+    def test_local_protocol_normalizes_dict_shaped_provenance_metadata(self):
+        # Local 7B frequently emits the provenance buckets as an object/dict
+        # (``{"<op>.params.<param>": <value>}``) instead of a list of path
+        # strings. The path lives in the *key*; without extracting the keys the
+        # dict bypassed normalization entirely and the malformed op-name+id
+        # joined paths reached the Policy Engine unchanged (invalid path 500s).
+        data = {
+            "version": "2.0",
+            "unit": "mm",
+            "document_type": "part",
+            "part_name": "dict_provenance",
+            "metadata": {
+                "explicit_parameters": {
+                    "create_base_plate.001.params.length": 120,
+                    "add_fillet.011.params.radius": 3,
+                },
+                "inferred_parameters": {
+                    "create_base_plate.001.params.plane": "Top",
+                    "create_center_boss.006.params.host": "bogus",
+                },
+            },
+            "operations": [
+                {"id": "001", "op": "create_base_plate", "params": {"length": 120, "width": 80, "thickness": 10, "plane": "Top"}},
+                {"id": "006", "op": "create_center_boss", "params": {"diameter": 30, "height": 20}},
+                {"id": "011", "op": "add_fillet", "params": {"radius": 3, "target": "edges"}},
+            ],
+            "outputs": {},
+        }
+
+        normalized = local_provider._normalize_featureplan_protocol(data)
+        explicit = normalized["metadata"]["explicit_parameters"]
+        inferred = normalized["metadata"]["inferred_parameters"]
+
+        # Buckets are normalized back to lists of canonical path strings.
+        self.assertIsInstance(explicit, list)
+        self.assertIsInstance(inferred, list)
+        # Valid dict-keyed paths survive, compressed to canonical 3-segment form.
+        self.assertIn("001.params.length", explicit)
+        self.assertIn("011.params.radius", explicit)
+        self.assertIn("001.params.plane", inferred)
+        # Reference to a param the op does not carry (host) is dropped.
+        self.assertNotIn("006.params.host", inferred + explicit)
+        # Every surviving path is a valid 3-segment ``<id>.params.<param>`` form.
+        for path in explicit + inferred:
+            segments = path.split(".")
+            self.assertEqual(len(segments), 3)
+            self.assertEqual(segments[1], "params")
+
     def test_local_protocol_normalizes_center_object_and_metadata_center_components(self):
         data = {
             "version": "2.0",
