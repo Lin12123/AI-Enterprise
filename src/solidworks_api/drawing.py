@@ -2011,6 +2011,14 @@ def _apply_dimensions_and_tolerance(app: object, draw_model: object, rules: list
     # early-bind, 不受 IDispatch 白名单影响。跟路径 5 dump 视图名同一个原理,
     # 只是这里不是 dump 名字, 而是直接把 InsertModelAnnotations3 的活儿也放到
     # 宏里干完, 再把 imported 数写回来。
+    #
+    # v027 加固: 不管条件是否满足, 先无条件落一条"路径F 前置状态"日志。真机 v026
+    # 反馈里 30 条摘要完全看不到任何 path_F 行, 需要区分 "分支被跳过" vs
+    # "分支进了但 dbg 被 UI 截了"。
+    _dbg(
+        f"apply_dim: 路径F 前置状态 imported={imported} app_is_none={app is None}",
+        summary=True,
+    )
     if imported == 0 and app is not None:
         _dbg(
             f"apply_dim: 进入路径F 判定 imported={imported} app_available=True",
