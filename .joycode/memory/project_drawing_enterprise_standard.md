@@ -1,15 +1,17 @@
 ---
 name: 3D转2D企业标准出图链路
-description: AI-Enterprise 点击3D转2D时从云平台取标准并驱动尺寸+公差标注的全链路与关键约定
+description: 'AI-Enterprise 点击3D转2D的全链路:尺寸+公差+图幅+技术要求+长宽高兜底关键约定'
 type: project
 ---
 
-3D转2D出图为"企业级智能工程图"：三视图+导入模型尺寸+依企业标准公差。
+3D转2D=三视图+导入模型尺寸+企业标准公差+图幅+技术要求+长宽高兜底。
 
-**链路**：插件 DrawClicked → POST /api/create_drawing → _handle_create_drawing 从 KnowledgeCache 取 rules → create_drawing_from_active_part(app,rules) → _insert_three_views 后 _apply_dimensions_and_tolerance → 存 DRAWINGS_DIR。知识缓存 TTL=1800,守护线程幂等,云平台不可达沿用旧缓存不阻断。
+链路:插件→POST /api/create_drawing→从 KnowledgeCache 取 rules→create_drawing_from_active_part(app,rules)。云端口=8800,knowledge_cache DEFAULT_BASE_URL 须同为8800(env AI_SW_CLOUD_URL 覆盖),不一致报 WinError 10061。缓存TTL=1800守护幂等,不可达沿用旧缓存。
 
-**InsertModelAnnotations3 option 坑(关键)**：option 是位标志,1=仅"标记为工程图用途"尺寸,2=未标记。程序化/AI/宏建模零件尺寸默认全"未标记",只传1一条都导不进图(图空白),但返回非None会误判成功谎报"已标注"。必须传 1|2=3(_SW_INSERT_ALL_DIMENSIONS);成败用 _count_display_dimensions 遍历视图数实际尺寸条数核实。_apply_dimensions_and_tolerance 返回 {dim_count,grade,tol_applied} 供卡片如实展示。
+InsertModelAnnotations3 option 位标志:1=标记为工程图尺寸,2=未标记。程序化/AI建模零件默认全未标记,只传1一条都导不进但返回非None误判成功。必须传 1|2=3;用 _count_display_dimensions 遍历实际条数核实。返回{dim_count,grade,tol_applied}。
 
-**公差等级**：params_json 中文键"公差等级"(IT8)或 tolerance_grade;_extract_tolerance_grade 取首命中,裸数字补IT;_IT_GRADE_DEFAULT_TOL_MM 给默认对称公差(mm)。
+图幅:模板走SW默认.drwdot不切换,用 Sheet.SetSize 按包围盒最长边选(≤150 A4/≤300 A3/≤600 A2/≤1200 A1,超A1,取不到A3)。枚举 A4=8/A3=6/A2=4/A1=2/A0=0。
 
-**How to apply**：COM 必须 except 兜底不阻断;真机 API 只能 Windows+SW 验证。云平台后端约定端口=8800(cloud/backend uvicorn --port 8800),knowledge_cache DEFAULT_BASE_URL 必须同为 8800,可用环境变量 AI_SW_CLOUD_URL 覆盖;端口不一致会 WinError 10061"积极拒绝"。
+公差:params_json"公差等级"(IT8)/tolerance_grade,裸数字补IT。技术要求:_build_tech_requirements_text 读未注公差三档(默认±0.02/0.05/0.10)+粗糙度五级+技术要求列表,无配置默认兜底,InsertNote 左下(0.02,0.02)米。
+
+长宽高兜底(最低要求):dim_count<=0 触发,_get_part_bbox_dims_mm 取 GetBox(0) 三向跨度(米×1000,从大到小 L/W/H),InsertNote 右下(0.18,0.02)米。兜底覆盖不了圆直径。COM 全 except 兜底;真机只能 Windows+SW 验证。

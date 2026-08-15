@@ -60,6 +60,16 @@ def create_drawing_from_active_part(app: object, rules: list | None = None) -> d
     except RuntimeError as exc:
         return _fail(f"新建工程图失败: {exc}")
 
+    # 2.1) 按零件包围盒最长边选择图幅(A4~A1)并设置到图纸；失败不阻断，沿用模板默认图幅
+    paper_name = ""
+    try:
+        max_edge = _get_part_bounding_box_max_edge_mm(model)
+        paper_code, paper_name = _choose_paper_size(max_edge)
+        if not _apply_sheet_size(draw_model, paper_code):
+            paper_name = ""  # 未成功设置就不在卡片里声称图幅
+    except Exception:
+        paper_name = ""
+
     # 3) 生成标准三视图(前/上/右 + 等轴测)
     try:
         _insert_three_views(draw_model, part_path)
@@ -74,8 +84,12 @@ def create_drawing_from_active_part(app: object, rules: list | None = None) -> d
         grade = ann.get("grade", "")
         tol_applied = ann.get("tol_applied", 0)
         if dim_count <= 0:
-            # 一条尺寸都没画进图: 如实告知，不再谎报"已标注"
-            annotation_note = "(未能导入模型尺寸: 零件尺寸可能未标记为工程图用途，图纸暂无尺寸标注)"
+            # 一条模型尺寸都没画进图: 用包围盒总体尺寸兜底，保证图上有长宽高基本尺寸
+            bbox_note = _insert_bbox_fallback_note(draw_model, model)
+            if bbox_note:
+                annotation_note = f"，模型尺寸未标记，已按包围盒兜底标注 {bbox_note}"
+            else:
+                annotation_note = "(未能导入模型尺寸且无法取得包围盒: 图纸暂无尺寸标注)"
         elif grade and tol_applied > 0:
             annotation_note = (
                 f"，已标注 {dim_count} 处尺寸并按企业标准对 {tol_applied} 处应用公差等级 {grade}"
@@ -87,6 +101,21 @@ def create_drawing_from_active_part(app: object, rules: list | None = None) -> d
     except Exception as exc:
         annotation_note = f"(尺寸/公差标注降级: {exc})"
 
+    # 3.2) 写入【技术要求】文本框(未注公差三档 + 表面粗糙度 + 通用工艺要求)。
+    #      纯文本注释，失败不阻断出图。
+    tech_note = ""
+    try:
+        tech_text = _build_tech_requirements_text(rules or [])
+        if _insert_tech_requirements_note(draw_model, tech_text):
+            tech_note = "，已写入技术要求文本框"
+        else:
+            tech_note = "(技术要求文本框写入未成功，可手动补充)"
+    except Exception as exc:
+        tech_note = f"(技术要求写入降级: {exc})"
+
+    # 图幅信息(2.1 设置成功时)
+    paper_note = f"，图幅 {paper_name}" if paper_name else ""
+
     # 4) 保存工程图到 workspace/outputs/drawings
     try:
         out_path = _save_drawing(app, draw_model, model)
@@ -96,7 +125,7 @@ def create_drawing_from_active_part(app: object, rules: list | None = None) -> d
     return {
         "ok": True,
         "status": "executed",
-        "message": f"已生成三视图工程图: {out_path}{annotation_note}",
+        "message": f"已生成三视图工程图: {out_path}{paper_note}{annotation_note}{tech_note}",
         "outputs": [out_path],
     }
 
@@ -228,6 +257,115 @@ def _new_drawing_doc(app: object) -> object:
     return draw
 
 
+# SolidWorks 图幅规格常量(swDwgPaperSizes_e)。国标图幅按最长边(mm)从大到小匹配。
+# A0=841×1189, A1=594×841, A2=420×594, A3=297×420, A4=210×297。
+# swDwgPapersUserDefined=12 用于自定义；这里优先用标准枚举。
+_SW_PAPER_A4 = 8   # swDwgPaperA4size (横向)
+_SW_PAPER_A3 = 6   # swDwgPaperA3size
+_SW_PAPER_A2 = 4   # swDwgPaperA2size
+_SW_PAPER_A1 = 2   # swDwgPaperA1size
+_SW_PAPER_A0 = 0   # swDwgPaperA0size
+
+# 图幅可容纳的零件最长边阈值(mm)。留出视图间距与标注余量，按较保守取值。
+# 零件最长边 <= 阈值 即选用该图幅；超过 A1 上限一律用 A1(A0 慎用，多数厂不常备)。
+_PAPER_BY_MAX_EDGE_MM = (
+    (150.0, _SW_PAPER_A4, "A4"),
+    (300.0, _SW_PAPER_A3, "A3"),
+    (600.0, _SW_PAPER_A2, "A2"),
+    (1200.0, _SW_PAPER_A1, "A1"),
+)
+
+
+def _get_part_bounding_box_max_edge_mm(part_model: object) -> float:
+    """取零件包围盒最长边(mm)，用于按零件大小选图幅。取不到返回 0。
+
+    GetBox(0) 返回 6 元组(xmin,ymin,zmin,xmax,ymax,zmax)，单位为米(SolidWorks 内部)，
+    换算成 mm 后取三个方向跨度的最大值。任何异常都返回 0，由上层兜底用 A3。
+    """
+    try:
+        ext = part_model.Extension
+        box = ext.GetBox(0)
+    except Exception:
+        try:
+            box = part_model.GetBox(0)
+        except Exception:
+            return 0.0
+    try:
+        xmin, ymin, zmin, xmax, ymax, zmax = (float(v) for v in box[:6])
+    except Exception:
+        return 0.0
+    dx = abs(xmax - xmin) * 1000.0
+    dy = abs(ymax - ymin) * 1000.0
+    dz = abs(zmax - zmin) * 1000.0
+    return max(dx, dy, dz)
+
+
+def _get_part_bbox_dims_mm(part_model: object) -> tuple:
+    """取零件包围盒三个方向跨度(长/宽/高, mm)，从大到小排序返回 (L, W, H)。
+
+    用于在模型尺寸导入不足时兜底标注总体尺寸。取不到返回 (0,0,0)。
+    """
+    try:
+        ext = part_model.Extension
+        box = ext.GetBox(0)
+    except Exception:
+        try:
+            box = part_model.GetBox(0)
+        except Exception:
+            return (0.0, 0.0, 0.0)
+    try:
+        xmin, ymin, zmin, xmax, ymax, zmax = (float(v) for v in box[:6])
+    except Exception:
+        return (0.0, 0.0, 0.0)
+    dims = sorted(
+        [abs(xmax - xmin) * 1000.0, abs(ymax - ymin) * 1000.0, abs(zmax - zmin) * 1000.0],
+        reverse=True,
+    )
+    return (round(dims[0], 2), round(dims[1], 2), round(dims[2], 2))
+
+
+def _fmt_mm(v: float) -> str:
+    """把 mm 数值格式化成简洁字符串(整数不带小数点)。"""
+    if abs(v - round(v)) < 1e-6:
+        return str(int(round(v)))
+    return f"{v:.2f}".rstrip("0").rstrip(".")
+
+
+def _choose_paper_size(max_edge_mm: float) -> tuple:
+    """按零件最长边选择图幅，返回 (swDwgPaperSizes_e 值, 图幅名如 'A3')。
+
+    取不到尺寸(<=0)时用 A3 兜底(常见通用图幅)。超过 A1 上限用 A1。
+    """
+    if max_edge_mm <= 0:
+        return _SW_PAPER_A3, "A3"
+    for limit, code, name in _PAPER_BY_MAX_EDGE_MM:
+        if max_edge_mm <= limit:
+            return code, name
+    return _SW_PAPER_A1, "A1"
+
+
+def _apply_sheet_size(draw_model: object, paper_code: int) -> bool:
+    """把工程图当前图纸设置为指定图幅规格。成功返回 True。
+
+    优先 Sheet.SetSize(paperSize, templateIn, ...)；不同版本签名有差异，做多重兜底：
+      1) draw_model.SetupSheet5 全参重设(带图幅枚举)；
+      2) 取当前 Sheet 调 SetSize；
+    任一成功即返回 True，全部失败返回 False(不阻断出图，沿用模板默认图幅)。
+    """
+    # 方式一: 直接对当前 Sheet 设图幅(标准枚举, width/height 传 0 由枚举决定)
+    try:
+        sheet = draw_model.GetCurrentSheet()
+        if sheet is not None:
+            try:
+                sheet.SetSize(paper_code, 0.0, 0.0)
+                return True
+            except Exception:
+                pass
+    except Exception:
+        pass
+    return False
+
+
 def _insert_three_views(draw_model: object, part_path: str) -> None:
     """在工程图上放置标准三视图(前/上/右)+ 等轴测。"""
     try:
@@ -285,6 +423,157 @@ def _extract_tolerance_grade(rules:list) -> str:
                 grade = "IT" + grade
             return grade
     return ""
+
+
+def _iter_rule_params(rules: list):
+    """遍历规则，逐条产出可用的 params_json dict(字符串自动 json 解析)。"""
+    import json as _json
+
+    for rule in rules or []:
+        if not isinstance(rule, dict):
+            continue
+        params = rule.get("params_json")
+        if isinstance(params, str):
+            try:
+                params = _json.loads(params)
+            except Exception:
+                continue
+        if isinstance(params, dict):
+            yield rule, params
+
+
+# 未注尺寸公差三档默认值(mm)与适用场景，作为知识库未配置时的兜底文案。
+_DEFAULT_GENERAL_TOL = [
+    ("高精度", "±0.02mm", "精密配合、密封面、定位基准"),
+    ("中精度", "±0.05mm", "常规装配、一般配合"),
+    ("低精度", "±0.10mm", "非关键外形、自由尺寸"),
+]
+
+# 表面粗糙度默认取值规范(功能面→Ra)，知识库未配置时的兜底。
+_DEFAULT_ROUGHNESS = [
+    ("非接触自由面(默认)", "Ra12.5~25μm"),
+    ("螺栓贴合端面/箱体外观非功能面", "Ra6.3μm"),
+    ("普通轴孔间隙配合/安装定位面", "Ra3.2μm"),
+    ("滑动配合面/轴承安装位/油封密封面", "Ra1.6μm"),
+    ("精密轴颈/液压密封工作面", "Ra0.8μm"),
+]
+
+
+def _normalize_tiers(raw) -> list:
+    """把 dict / list 形式的未注公差配置规整成 [(档位, 公差, 适用场景), ...]。"""
+    out = []
+    if isinstance(raw, dict):
+        for lvl, v in raw.items():
+            if isinstance(v, dict):
+                out.append((str(lvl), str(v.get("tol") or v.get("公差") or ""),
+                            str(v.get("scope") or v.get("适用") or "")))
+            else:
+                out.append((str(lvl), str(v), ""))
+    elif isinstance(raw, list):
+        for item in raw:
+            if isinstance(item, dict):
+                out.append((str(item.get("level") or item.get("档位") or ""),
+                            str(item.get("tol") or item.get("公差") or ""),
+                            str(item.get("scope") or item.get("适用") or "")))
+    return [t for t in out if t[0] and t[1]]
+
+
+def _extract_general_tolerance_tiers(rules: list) -> list:
+    """从规则解析未注尺寸公差三档，解析不到返回企业标准默认三档。
+
+    约定 params_json 键 "未注公差":
+      {"高精度": {"tol":"±0.02mm","scope":"..."}, ...}
+      或 [{"level":"高精度","tol":"±0.02mm","scope":"..."}, ...]
+    """
+    for _rule, params in _iter_rule_params(rules):
+        raw = params.get("未注公差") or params.get("general_tolerance_tiers")
+        tiers = _normalize_tiers(raw)
+        if tiers:
+            return tiers
+    return list(_DEFAULT_GENERAL_TOL)
+
+
+def _extract_roughness_spec(rules: list) -> list:
+    """从规则解析表面粗糙度规范，解析不到返回企业标准默认规范。
+
+    约定 params_json 键 "表面粗糙度": {"功能面": "Ra值", ...}
+    或 [{"face":"...","ra":"Ra1.6μm"}, ...]
+    """
+    for _rule, params in _iter_rule_params(rules):
+        raw = params.get("表面粗糙度") or params.get("roughness")
+        out = []
+        if isinstance(raw, dict):
+            out = [(str(k), str(v)) for k, v in raw.items() if k and v]
+        elif isinstance(raw, list):
+            for item in raw:
+                if isinstance(item, dict):
+                    face = str(item.get("face") or item.get("功能面") or "")
+                    ra = str(item.get("ra") or item.get("Ra") or "")
+                    if face and ra:
+                        out.append((face, ra))
+        if out:
+            return out
+    return list(_DEFAULT_ROUGHNESS)
+
+
+def _extract_extra_tech_notes(rules: list) -> list:
+    """从规则解析额外技术要求条目(自由文本列表)。约定 params_json 键 "技术要求"
+    为字符串列表或单条字符串。去重保序返回。
+    """
+    notes = []
+    for _rule, params in _iter_rule_params(rules):
+        items = params.get("技术要求") or params.get("tech_notes")
+        if isinstance(items, list):
+            notes.extend(str(x).strip() for x in items if str(x).strip())
+        elif isinstance(items, str) and items.strip():
+            notes.append(items.strip())
+    seen = set()
+    uniq = []
+    for n in notes:
+        if n not in seen:
+            seen.add(n)
+            uniq.append(n)
+    return uniq
+
+
+def _build_tech_requirements_text(rules: list) -> str:
+    """按企业标准拼装【技术要求】文本框内容(编号条目)。
+
+    固定包含: 未注尺寸公差三档、表面粗糙度规范、知识库补充条目，
+    再补通用兜底项(未注圆角/去毛刺/表面处理/焊接)。返回多行字符串。
+    """
+    lines = ["技术要求"]
+    idx = 1
+
+    tiers = _extract_general_tolerance_tiers(rules)
+    if tiers:
+        tier_txt = "；".join(
+            f"{lvl}{tol}({scope})" if scope else f"{lvl}{tol}"
+            for lvl, tol, scope in tiers
+        )
+        lines.append(f"{idx}. 未注尺寸公差按公司统一精度标准分档管控：{tier_txt}。")
+        idx += 1
+
+    rough = _extract_roughness_spec(rules)
+    if rough:
+        rough_txt = "；".join(f"{face} {ra}" for face, ra in rough)
+        lines.append(f"{idx}. 表面粗糙度未注处按功能面取值：{rough_txt}。")
+        idx += 1
+
+    for note in _extract_extra_tech_notes(rules):
+        lines.append(f"{idx}. {note}")
+        idx += 1
+
+    defaults = [
+        "未注圆角 R1，未注倒角 C1，锐边去毛刺。",
+        "表面处理方式按图纸标题栏或工艺文件执行。",
+        "焊接件焊缝按 GB/T 985 执行，焊后去除焊渣、飞溅。",
+        "装配检验特殊要求见工艺文件。",
+    ]
+    for d in defaults:
+        lines.append(f"{idx}. {d}")
+        idx += 1
+    return "\n".join(lines)
 
 
 def _count_display_dimensions(draw_model: object) -> int:
@@ -403,6 +692,93 @@ def _apply_dimensions_and_tolerance(app: object, draw_model: object, rules: list
         pass
 
     return {"dim_count": dim_count, "grade": grade, "tol_applied": tol_applied}
+
+
+def _build_bbox_dims_text(part_model: object) -> str:
+    """把零件总体尺寸拼成一条兜底标注文本(总长×总宽×总高)。取不到返回空串。
+
+    程序化/AI 建模的零件尺寸常\"未标记\"，InsertModelAnnotations3 可能一条也导不进
+    图纸。为满足\"图纸上必须有长宽高等基本尺寸\"的最低要求，用包围盒总体尺寸兜底：
+    保证图上至少有长/宽/高三个基本尺寸数据。
+    """
+    l, w, h = _get_part_bbox_dims_mm(part_model)
+    if l <= 0 and w <= 0 and h <= 0:
+        return ""
+    return (
+        "总体尺寸(mm)\n"
+        f"总长 L = {_fmt_mm(l)}\n"
+        f"总宽 W = {_fmt_mm(w)}\n"
+        f"总高 H = {_fmt_mm(h)}"
+    )
+
+
+def _insert_bbox_fallback_note(draw_model: object, part_model: object) -> str:
+    """当模型尺寸未能导入时，在图纸上写入总体尺寸(长宽高)兜底注释。
+
+    返回实际写入图纸的总体尺寸文本(单行, 供卡片回显)，未写入返回空串。
+    坐标放在图纸右下 (0.18, 0.02) 米，避开左下角技术要求文本框。
+    """
+    text = _build_bbox_dims_text(part_model)
+    if not text:
+        return ""
+    try:
+        draw_model.ActivateSheet(draw_model.GetCurrentSheet().GetName())
+    except Exception:
+        pass
+    note = None
+    try:
+        note = draw_model.InsertNote(text)
+    except Exception:
+        note = None
+    if note is None:
+        return ""
+    try:
+        ann = note.GetAnnotation()
+        if ann is not None:
+            ann.SetPosition(0.18, 0.02, 0.0)
+    except Exception:
+        pass
+    l, w, h = _get_part_bbox_dims_mm(part_model)
+    return f"总长{_fmt_mm(l)}×总宽{_fmt_mm(w)}×总高{_fmt_mm(h)}mm"
+
+
+def _insert_tech_requirements_note(draw_model: object, text: str) -> bool:
+    """在工程图左下角(图框内)插入【技术要求】文本框注释。成功返回 True。
+
+    优先激活图纸页视图后用 IModelDocExtension/ISketchManager 无关的 InsertNote；
+    不同版本 InsertNote 签名有差异，做多重兜底：
+      1) draw_model.InsertNote(text) 返回 Note 对象，再 SetTextFormat/定位；
+      2) 失败则忽略(不阻断出图)。
+    坐标单位为米(SolidWorks 内部)，放在图纸左下 (0.02, 0.02) 附近。
+    """
+    if not text:
+        return False
+    # 先确保当前激活的是图纸而非某个视图，注释才落在图纸空间
+    try:
+        draw_model.ActivateSheet(draw_model.GetCurrentSheet().GetName())
+    except Exception:
+        pass
+
+    note = None
+    try:
+        note = draw_model.InsertNote(text)
+    except Exception:
+        note = None
+    if note is None:
+        return False
+
+    # 定位到图纸左下角(米)。部分版本 note 有 GetAnnotation→SetPosition
+    try:
+        ann = note.GetAnnotation()
+        if ann is not None:
+            ann.SetPosition(0.02, 0.02, 0.0)
+    except Exception:
+        pass
+    try:
+        draw_model.EditRebuild3()
+    except Exception:
+        pass
+    return True
 
 
 def _save_drawing(app: object, draw_model: object, part_model: object) -> str:
