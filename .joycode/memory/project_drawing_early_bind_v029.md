@@ -6,20 +6,21 @@ description: >-
 type: project
 ---
 
-`src/solidworks_api/drawing.py` 3D转2D出图。late-bind下 GetSheetNames/GetViews/
-GetFirstView 被误当属性(返回tuple,再`()`调用报'tuple object is not callable'),读视图全0。
+`src/solidworks_api/drawing.py` 3D转2D出图。late-bind下 SW无参方法(GetSheetNames/
+GetViews/GetOutline/GetFirstDisplayDimension5)被误当属性返tuple,`()`调用报
+'tuple object is not callable',读值全挂。
 
-迭代链(真机验证):
-- v030: EnsureModule(GUID {83A33D31-27C5-11CE-BFD4-00400513BB57} ver27=SW2019)成功,
-  但CastTo(draw)报'can not automate the makepy process';回退late-bind时Create3rdAngleViews2仍返True。
-- v031: 改 mod.IDrawingDoc(obj) 接口类构造→draw变早绑定→真机调Create3rdAngleViews2崩
-  'NewDocument.InvokeTypes'(typelib27与真机IDL错位),反而搞崩原本可用的建视图(回退)。
-- v032(当前):放弃对draw主对象整体早绑定。
+迭代链(真机):
+- v031: IDrawingDoc(obj)使draw早绑定→Create3rdAngleViews2崩InvokeTypes(回退)。
+- v032: 放弃对draw整体早绑定,draw保持late-bind;新增helper _sw_invoke(obj,name):
+  attr=getattr(obj,name); return attr() if callable(attr) else attr, 异常返None。
+  真机成功: Create3rdAngleViews2返True + 读到3个视图。卡点转移到"标尺寸"。
+- v033(卡点=DisplayDimension=0一条没标上):
+  * tuple坑扩散到 _view_outline的GetOutline、_count_display_dimensions的
+    GetFirstDisplayDimension5/GetNext5→全改_sw_invoke。计数tuple坑吞成0可能误判"没导入"触发兜底空转。
+  * InsertModelAnnotations3(6参)无tuple坑但可能抛com_error,原try/except:pass吞掉→改落summary日志暴露异常。
 
 How to apply:
-1. _new_drawing_doc 不再 _ensure_early_bind(draw), draw保持late-bind保住建视图(函数保留不调用)。
-2. 读视图改用helper _sw_invoke(obj,name): attr=getattr(obj,name);
-   return attr() if callable(attr) else attr, 异常返None, 兼容方法/属性两种暴露。
-3. 已替换: _count_sheet_views、_iter_model_views路径1/2/3。
-4. 教训:别对整个draw早绑定(副作用大)。宏路径死路:macro_sec降级成功但dump不生成,放弃。
-5. 真机日志有缓存,需stat/grep校验时间戳,以用户贴报错为准。
+1. _new_drawing_doc 不再 _ensure_early_bind(draw)(函数保留不调用)。
+2. late-bind无参方法一律走 _sw_invoke。宏路径死路放弃。真机日志有缓存需校验时间戳。
+3. 待真机验证: InsertModelAnnotations3是否真抛异常及计数改后是否>0。
