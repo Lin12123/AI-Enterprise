@@ -126,6 +126,14 @@ namespace AiSwAddin
             return PostAsync("/api/create_drawing", "{}");
         }
 
+        /// <summary>把指定会话的出图产物打包上传到企业云平台。
+        /// 后端根据 session_id 从 session.context.last_outputs 自动读取待上传文件清单。</summary>
+        public Task<string> UploadToCloudAsync(string sessionId)
+        {
+            string body = "{\"session_id\":" + JsonString(sessionId ?? "") + "}";
+            return PostAsync("/api/upload_to_cloud", body);
+        }
+
         /// <summary>获取最近会话列表(纯读, GET)。返回响应体字符串。</summary>
         public async Task<string> GetRecentSessionsAsync(int n = 20)
         {

@@ -338,10 +338,9 @@ namespace AiSwAddin
                     SetBusy(false);
                 }
             };
-            board.UploadClicked += (s, e) =>
+            board.UploadClicked += async (s, e) =>
             {
-                AppendLog("[成果] 上传企业云平台：占位功能，后续对接云平台上传。");
-                AppendChat(ChatRole.Ai, "已收到「上传企业云平台」请求，云平台上传接入中。");
+                await DoUploadToCloudAsync("[成果]");
             };
             board.UndoClicked += (s, e) =>
             {
@@ -359,10 +358,9 @@ namespace AiSwAddin
             var panel = new DrawingResultPanel();
             // 后端 create_drawing 目前仅返回工程图路径，暂用示例明细展示样式(specs 传 null 用默认占位)
             panel.SetResult(6, 28, null);
-            panel.UploadClicked += (s, e) =>
+            panel.UploadClicked += async (s, e) =>
             {
-                AppendLog("[出图成果] 上传企业云平台：占位功能，后续对接云平台上传。");
-                AppendChat(ChatRole.Ai, "已收到「上传企业云平台」请求，云平台上传接入中。");
+                await DoUploadToCloudAsync("[出图成果]");
             };
             panel.UndoClicked += (s, e) =>
             {
@@ -371,6 +369,50 @@ namespace AiSwAddin
             };
             if (_chatView != null)
                 _chatView.AppendControl(ChatRole.Ai, panel);
+        }
+
+        /// <summary>「上传企业云平台」按钮共用实现：把当前会话最新出图产物上传到云平台。
+        /// logTag: 日志标签(如 "[成果]" 或 "[出图成果]"), 便于区分来源。</summary>
+        private async System.Threading.Tasks.Task DoUploadToCloudAsync(string logTag)
+        {
+            if (string.IsNullOrEmpty(_sessionId))
+            {
+                AppendLog(logTag + " 上传企业云平台失败：当前无有效会话，请先生成计划或出图后再上传。");
+                AppendChat(ChatRole.Ai, "尚未生成任何成果，无法上传：请先生成计划并出图，然后再点击「上传企业云平台」。");
+                return;
+            }
+
+            AppendLog(logTag + " 上传企业云平台：正在打包本次会话产物并上传，请稍候...");
+            AppendChat(ChatRole.Ai, "正在把本次成果上传到企业云平台，请稍候...");
+            SetBusy(true);
+            try
+            {
+                string resp = await _client.UploadToCloudAsync(_sessionId);
+                bool ok = !string.IsNullOrEmpty(resp) && resp.IndexOf("\"ok\": true", StringComparison.Ordinal) >= 0;
+                string msg = ExtractMessage(resp);
+                int uploaded = ExtractIntField(resp, "uploaded");
+                int total = ExtractIntField(resp, "total");
+                string countInfo = (uploaded >= 0 && total >= 0) ? (" (已上传 " + uploaded + "/" + total + " 个文件)") : "";
+                if (ok)
+                {
+                    AppendLog(logTag + " 上传完成" + countInfo + "：" + (msg ?? "上传成功。"));
+                    AppendChat(ChatRole.Ai, "已成功上传到企业云平台" + countInfo + "。" + (string.IsNullOrEmpty(msg) ? "" : (" " + msg)));
+                }
+                else
+                {
+                    AppendLog(logTag + " 上传失败：" + (msg ?? Truncate(resp)));
+                    AppendChat(ChatRole.Ai, "上传企业云平台失败：" + (msg ?? "请检查云平台是否可达，详情请查看底部「📄 日志」。"));
+                }
+            }
+            catch (Exception ex)
+            {
+                AppendLog(logTag + " 上传异常：" + ex.Message);
+                AppendChat(ChatRole.Ai, "上传企业云平台出现异常，请检查云平台是否可达，详情请查看底部「📄 日志」。");
+            }
+            finally
+            {
+                SetBusy(false);
+            }
         }
 
         /// <summary>「确认并执行」按钮：走真实 SolidWorks 建模。</summary>
@@ -1386,6 +1428,25 @@ namespace AiSwAddin
         {
             if (string.IsNullOrEmpty(resp)) return -1;
             int keyIndex = resp.IndexOf("\"rule_count\"", StringComparison.Ordinal);
+            if (keyIndex < 0) return -1;
+            int colon = resp.IndexOf(':', keyIndex);
+            if (colon < 0) return -1;
+            var sb = new System.Text.StringBuilder();
+            for (int i = colon + 1; i < resp.Length; i++)
+            {
+                char c = resp[i];
+                if (char.IsDigit(c)) { sb.Append(c); continue; }
+                if (sb.Length > 0) break;
+            }
+            int val;
+            return int.TryParse(sb.ToString(), out val) ? val : -1;
+        }
+
+        /// <summary>轻量提取响应体中指定整数字段(如 "uploaded"、"total")。找不到返回 -1。</summary>
+        private static int ExtractIntField(string resp, string fieldName)
+        {
+            if (string.IsNullOrEmpty(resp) || string.IsNullOrEmpty(fieldName)) return -1;
+            int keyIndex = resp.IndexOf("\"" + fieldName + "\"", StringComparison.Ordinal);
             if (keyIndex < 0) return -1;
             int colon = resp.IndexOf(':', keyIndex);
             if (colon < 0) return -1;
