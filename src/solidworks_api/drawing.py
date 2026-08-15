@@ -546,10 +546,19 @@ def _new_drawing_doc(app: object) -> object:
         raise RuntimeError(f"以模板 {template} 新建工程图失败: {exc}") from exc
     if draw is None:
         raise RuntimeError(f"NewDocument 返回 None，工程图模板可能不可用: {template}")
-    # v029: 对新建的 IDrawingDoc 做 gencache 早绑定, 让后续 GetSheetNames /
-    # GetFirstView / GetCurrentSheet 等接口方法按 typelib 签名调用, 根治
-    # late-bind 白名单坑('tuple' object is not callable / 找不到成员)。
-    draw = _ensure_early_bind(draw)
+    # v032: **不再对 draw 主对象做整体早绑定**。
+    # 教训(见 last_run.log 迭代链):
+    #   v029 EnsureDispatch / v030 CastTo → 都报 'can not automate the makepy
+    #   process'(SW 运行时对象拿不到可反查的 CLSID), 均回退 late-bind, 此时
+    #   Create3rdAngleViews2 **能正常返回 True 建出视图**;
+    #   v031 改用 `mod.IDrawingDoc(obj)` 接口包装类直接构造 —— 构造本身不抛异常
+    #   (于是 draw 被换成早绑定包装对象), 但真机上早绑定包装类按 typelib 27.0 的
+    #   argtypes 调用 Create3rdAngleViews2 时 InvokeTypes 与真机实际 IDL 错位,
+    #   直接崩 'Create3rdAngleViews2 异常: NewDocument.InvokeTypes' —— 反而把
+    #   原本可用的建视图步骤搞崩了(回退)。
+    # 结论: draw 主对象保持 late-bind(保住建视图/存图), 早绑定坑只在“读视图”
+    #   (GetSheetNames/GetFirstView 被 late-bind 误当属性)出现, 改在
+    #   _count_sheet_views / _iter_model_views 内部按调用点局部处理。
     return draw
 
 
@@ -702,6 +711,27 @@ def _apply_sheet_size(draw_model: object, paper_code: int) -> bool:
     return False
 
 
+def _sw_invoke(obj: object, name: str):
+    """v032: late-bind 安全取值。SW COM 无参方法在 pywin32 late-bind 下既可能
+    以“方法”暴露(需 `obj.Name()` 调用), 也可能被误当“属性”直接返回结果(tuple/
+    对象)。此前代码用 `x = obj.Name; if callable(x): x=x()` 判断, 但某些方法取
+    属性时就已抛 'tuple object is not callable' 之类, 导致整段 except 吞成 -1。
+
+    统一策略: 先取属性 attr = getattr(obj, name); 若 attr 可调用则 attr(),
+    否则 attr 本身即结果。任一步异常返回 None(由调用方兜底)。
+    """
+    try:
+        attr = getattr(obj, name)
+    except Exception:
+        return None
+    if callable(attr):
+        try:
+            return attr()
+        except Exception:
+            return None
+    return attr
+
+
 def _count_sheet_views(draw_model: object) -> int:
     """v028: 遍历所有 Sheet 的 GetViews, 数一下当前工程图里到底有几个视图对象。
 
@@ -716,12 +746,7 @@ def _count_sheet_views(draw_model: object) -> int:
     """
     total = 0
     got_any_iter = False
-    try:
-        names = draw_model.GetSheetNames
-        if callable(names):
-            names = names()
-    except Exception:
-        names = None
+    names = _sw_invoke(draw_model, "GetSheetNames")
     try:
         if names:
             for nm in list(names):
@@ -735,12 +760,7 @@ def _count_sheet_views(draw_model: object) -> int:
                     sheet = None
                 if sheet is None:
                     continue
-                try:
-                    views = sheet.GetViews
-                    if callable(views):
-                        views = views()
-                except Exception:
-                    views = None
+                views = _sw_invoke(sheet, "GetViews")
                 if not views:
                     continue
                 got_any_iter = True
@@ -756,17 +776,10 @@ def _count_sheet_views(draw_model: object) -> int:
     if not got_any_iter:
         # 回退: 直接 draw_model.GetFirstView + GetNext 链表
         try:
-            v = draw_model.GetFirstView
-            if callable(v):
-                v = v()
+            v = _sw_invoke(draw_model, "GetFirstView")
             while v is not None:
                 total += 1
-                try:
-                    nxt = v.GetNextView
-                    if callable(nxt):
-                        nxt = nxt()
-                except Exception:
-                    nxt = None
+                nxt = _sw_invoke(v, "GetNextView")
                 v = nxt
                 if total > 32:
                     break  # 保险: 防止死循环
@@ -1462,7 +1475,7 @@ def _iter_model_views(draw_model: object, app: object = None) -> list:
         cur_sheet = None
     if cur_sheet is not None:
         try:
-            raw = cur_sheet.GetViews()
+            raw = _sw_invoke(cur_sheet, "GetViews")
         except Exception as exc:
             _dbg(
                 f"iter_views: 路径1 cur_sheet.GetViews 抛异常 {type(exc).__name__}:{exc}",
@@ -1494,7 +1507,7 @@ def _iter_model_views(draw_model: object, app: object = None) -> list:
 
     # --- 路径 2: 多 sheet 兼容 ---
     try:
-        sheet_names = draw_model.GetSheetNames()
+        sheet_names = _sw_invoke(draw_model, "GetSheetNames")
     except Exception as exc:
         _dbg(
             f"iter_views: 路径2 GetSheetNames 抛异常 {type(exc).__name__}:{exc}",
@@ -1519,7 +1532,7 @@ def _iter_model_views(draw_model: object, app: object = None) -> list:
             if sheet_obj is None:
                 continue
             try:
-                raw = sheet_obj.GetViews()
+                raw = _sw_invoke(sheet_obj, "GetViews")
             except Exception:
                 raw = None
             if not raw:
@@ -1554,7 +1567,7 @@ def _iter_model_views(draw_model: object, app: object = None) -> list:
     raw_view_count = 0
     skip_path3_loop = False
     try:
-        top = draw_model.GetFirstView()
+        top = _sw_invoke(draw_model, "GetFirstView")
     except Exception as exc:
         _dbg(
             f"iter_views: 路径3 draw_model.GetFirstView 抛异常 {type(exc).__name__}:{exc}",
@@ -1580,7 +1593,7 @@ def _iter_model_views(draw_model: object, app: object = None) -> list:
         if top_type == _SW_DRAWING_SHEET_VIEW_TYPE:
             sheet_count += 1
             try:
-                child = top.GetNextView()
+                child = _sw_invoke(top, "GetNextView")
             except Exception as exc:
                 _dbg(f"iter_views: 路径3 sheet={top_name} 下沉 GetNextView 抛异常 {type(exc).__name__}:{exc}")
                 child = None
@@ -1595,7 +1608,7 @@ def _iter_model_views(draw_model: object, app: object = None) -> list:
                 views.append(child)
                 child_in_sheet += 1
                 try:
-                    child = child.GetNextView()
+                    child = _sw_invoke(child, "GetNextView")
                 except Exception:
                     break
             _dbg(f"iter_views: 路径3 sheet={top_name} 收集到 {child_in_sheet} 个模型视图")
@@ -1603,7 +1616,7 @@ def _iter_model_views(draw_model: object, app: object = None) -> list:
         else:
             views.append(top)
             try:
-                top = top.GetNextView()
+                top = _sw_invoke(top, "GetNextView")
             except Exception:
                 break
 
