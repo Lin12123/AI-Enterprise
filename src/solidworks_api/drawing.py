@@ -1101,14 +1101,22 @@ def _iter_model_views(draw_model: object, app: object = None) -> list:
     # 中文模板可能是 "视图 1..4" 或 "工程视图1..4"。逐个尝试选中后从 SelectionMgr
     # 拿回 IView。这是完全绕开 IDrawingDoc 遍历接口的终极兜底。
     # 若路径5 拿到了真实名, 就把它作为首选候选组; 否则用硬编码多语言候选兜底。
+    # 注意: pywin32 late-bind 白名单挂时, 属性访问可能抛 BaseException 而非 Exception,
+    # 必须用 BaseException 兜住, 否则整个函数会静默从这里跳出(v020 真机断链根因)。
+    _dbg("iter_views: 进入路径4 前, 尝试 draw_model.SelectionManager", summary=True)
+    sel_mgr = None
     try:
         sel_mgr = draw_model.SelectionManager
-    except Exception as exc:
+    except BaseException as exc:
         _dbg(
             f"iter_views: 路径4 SelectionManager 取不到 {type(exc).__name__}:{exc}",
             summary=True,
         )
         sel_mgr = None
+    _dbg(
+        f"iter_views: 路径4 SelectionManager={'ok' if sel_mgr is not None else 'None'}",
+        summary=True,
+    )
     if sel_mgr is not None:
         # SelectByID2(name, "DRAWINGVIEW", x, y, z, append, mark, callout, selectOption)
         candidates_by_lang = []
@@ -1553,16 +1561,24 @@ def _count_display_dimensions(draw_model: object, app: object = None) -> int:
     避免此处再次踩"同级链只有 sheet 视图"的坑。
     """
     total = 0
-    for view in _iter_model_views(draw_model, app):
+    try:
+        model_views = _iter_model_views(draw_model, app)
+    except BaseException as exc:
+        _dbg(
+            f"count_display: _iter_model_views 抛 {type(exc).__name__}:{exc}",
+            summary=True,
+        )
+        model_views = []
+    for view in model_views:
         try:
             dim = view.GetFirstDisplayDimension5()
-        except Exception:
+        except BaseException:
             dim = None
         while dim is not None:
             total += 1
             try:
                 dim = dim.GetNext5()
-            except Exception:
+            except BaseException:
                 dim = None
     return total
 
@@ -1651,38 +1667,76 @@ def _apply_dimensions_and_tolerance(app: object, draw_model: object, rules: list
     # 让 SW 按当前激活视图上下文自己标模型项目。RunCommand 是 ISldWorks 主
     # IDispatch 上的方法(与 RunMacro2 同级), 已知不在 IModelDoc 白名单管辖内。
     # 逐视图激活后触发, 保证 3 个投影视图都有机会被标注。
+    # 加固要点(v021):
+    #   - 触发条件放宽: 只要 imported==0 且 app 可用就跑, 不再要求 fallback_views 非空;
+    #   - fallback_views 为空也执行 1 次"不激活直接 RunCommand", 让 SW 用当前激活视图;
+    #   - 用 BaseException 兜住, 避免 pywin32 late-bind 抛非 Exception 异常静默断链;
+    #   - 无论触发与否都落 summary 日志, 保证真机诊断可见性。
+    _dbg(
+        f"apply_dim: 进入路径E 判定 imported={imported} app_available={app is not None}",
+        summary=True,
+    )
     if imported == 0 and app is not None:
         try:
             fallback_views = _iter_model_views(draw_model, app)
-        except Exception:
+        except BaseException as exc:
+            _dbg(
+                f"apply_dim: 路径E _iter_model_views 抛 {type(exc).__name__}:{exc}",
+                summary=True,
+            )
             fallback_views = []
+        _dbg(
+            f"apply_dim: 路径E fallback_views 数量={len(fallback_views)}",
+            summary=True,
+        )
         run_cmd_ok = 0
-        for view in fallback_views:
+        run_cmd_tried = 0
+        if fallback_views:
+            for view in fallback_views:
+                try:
+                    name = str(view.GetName2())
+                    if name:
+                        draw_model.ActivateView(name)
+                except BaseException:
+                    pass
+                try:
+                    run_cmd_tried += 1
+                    ok = bool(app.RunCommand(_SW_CMD_INSERT_MODEL_ITEMS, ""))
+                    if ok:
+                        run_cmd_ok += 1
+                except BaseException as exc:
+                    _dbg(
+                        f"apply_dim: 路径E RunCommand(逐视图) 抛 {type(exc).__name__}:{exc}",
+                        summary=True,
+                    )
+                    break
+        else:
+            # 视图列表拿不到就直接跑一次: SW 会用当前 UI 激活的视图(默认前视图)
             try:
-                name = str(view.GetName2())
-                if name:
-                    draw_model.ActivateView(name)
-            except Exception:
-                pass
-            try:
-                # RunCommand(commandID, notitle) → bool
+                run_cmd_tried += 1
                 ok = bool(app.RunCommand(_SW_CMD_INSERT_MODEL_ITEMS, ""))
                 if ok:
                     run_cmd_ok += 1
-            except Exception as exc:
+            except BaseException as exc:
                 _dbg(
-                    f"apply_dim: 路径E RunCommand 抛 {type(exc).__name__}:{exc}",
+                    f"apply_dim: 路径E RunCommand(无视图直发) 抛 {type(exc).__name__}:{exc}",
                     summary=True,
                 )
-                break
         try:
             draw_model.EditRebuild3()
-        except Exception:
+        except BaseException:
             pass
-        imported_after_e = _count_display_dimensions(draw_model, app)
+        try:
+            imported_after_e = _count_display_dimensions(draw_model, app)
+        except BaseException as exc:
+            _dbg(
+                f"apply_dim: 路径E 后 _count_display_dimensions 抛 {type(exc).__name__}:{exc}",
+                summary=True,
+            )
+            imported_after_e = 0
         _dbg(
-            f"apply_dim: 路径E(RunCommand InsertModelItems) 命令次数={run_cmd_ok} "
-            f"命令后 DisplayDimension={imported_after_e}",
+            f"apply_dim: 路径E(RunCommand InsertModelItems) 尝试={run_cmd_tried} "
+            f"成功={run_cmd_ok} 命令后 DisplayDimension={imported_after_e}",
             summary=True,
         )
         imported = imported_after_e
