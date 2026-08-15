@@ -310,6 +310,7 @@ namespace AiSwAddin
                     {
                         AppendLog("[出图完成] " + (msg ?? "工程图已生成。"));
                         AppendChat(ChatRole.Ai, msg ?? "工程图已生成并保存。");
+                        ShowDrawingResult();
                     }
                     else
                     {
@@ -340,6 +341,26 @@ namespace AiSwAddin
 
             if (_chatView != null)
                 _chatView.AppendControl(ChatRole.Ai, board);
+        }
+
+        /// <summary>出图成功后，在会话流中插入「2D 出图执行完成」成果卡(参数列表 + 上传/撤销 操作)。</summary>
+        private void ShowDrawingResult()
+        {
+            var panel = new DrawingResultPanel();
+            // 后端 create_drawing 目前仅返回工程图路径，暂用示例明细展示样式(specs 传 null 用默认占位)
+            panel.SetResult(6, 28, null);
+            panel.UploadClicked += (s, e) =>
+            {
+                AppendLog("[出图成果] 上传企业云平台：占位功能，后续对接云平台上传。");
+                AppendChat(ChatRole.Ai, "已收到「上传企业云平台」请求，云平台上传接入中。");
+            };
+            panel.UndoClicked += (s, e) =>
+            {
+                AppendLog("[出图成果] 撤销本次修改：占位功能，后续对接撤销/回滚流程。");
+                AppendChat(ChatRole.Ai, "已收到「撤销本次修改」请求，回滚流程接入中。");
+            };
+            if (_chatView != null)
+                _chatView.AppendControl(ChatRole.Ai, panel);
         }
 
         /// <summary>「确认并执行」按钮：走真实 SolidWorks 建模。</summary>

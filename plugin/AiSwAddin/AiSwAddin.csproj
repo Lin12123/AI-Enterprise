@@ -75,6 +75,9 @@
     <Compile Include="ResultBoardPanel.cs">
       <SubType>Component</SubType>
     </Compile>
+    <Compile Include="DrawingResultPanel.cs">
+      <SubType>Component</SubType>
+    </Compile>
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
