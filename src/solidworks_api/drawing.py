@@ -845,6 +845,197 @@ def _dump_view_names_via_macro(app: object) -> list:
     return names
 
 
+def _insert_annotations_via_macro(app: object) -> dict:
+    """路径 F: 在 SW 内部 VBA 宏里 early-bind 完成 InsertModelAnnotations3。
+
+    背景 (v024 真机决定性证据):
+      - `IDrawingDoc` 的 late-bind 通道在客户机器上被 pywin32 白名单完全阉割:
+        `FirstFeature/GetCurrentSheet/GetSheetNames/GetFirstView` 全 `找不到成员`,
+        `SelectByID2` 类型选 `DRAWINGVIEW` 报 `类型不匹配`;
+      - `RunCommand(1668/2062/1497)` 会弹 SW `试图执行系统不支持的操作` 弹窗,
+        因为拿不到激活视图上下文;
+      - 图纸上 3 个视图 (工程图视图1/2/3) 真实存在, 只是 Python 侧摸不到。
+
+    终极方案 = 让 SW 自己的 VBA 引擎干活。VBA 内部对 IDrawingDoc/IView 是
+    early-bind (typelib 编译时绑定), 所有方法直接可调, 没有 IDispatch 白名单
+    问题。宏遍历所有 sheet 的所有 view, 逐个 ActivateView + InsertModelAnnotations3,
+    最后把导入的显示尺寸数写回 JSON。Python 只负责触发 RunMacro2 与读结果。
+
+    返回 {\"imported\": int, \"views\": int, \"error\": str}。任一步失败返回 imported=0。
+    """
+    if app is None:
+        _dbg("path_F: app 为 None, 跳过", summary=True)
+        return {"imported": 0, "views": 0, "error": "app_none"}
+    import os
+    import json
+    import tempfile
+    import uuid
+
+    tmp_dir = tempfile.gettempdir()
+    tag = uuid.uuid4().hex[:8]
+    dump_path = os.path.join(tmp_dir, f"aisw_dim_dump_{tag}.json").replace("\\", "/")
+    macro_path = os.path.join(tmp_dir, f"aisw_insert_dim_{tag}.swp")
+
+    # 宏内: swDoc.Extension.InsertModelAnnotations3 是 IDrawingDoc.Extension 上的方法,
+    # early-bind 直接调; 每个 view.InsertModelAnnotations3 也 early-bind。
+    # type=0 (swInsertDimensionsMarkedForDrawing 之外, 由 option 控制), option=2 (all)。
+    # SW 2019 InsertModelAnnotations3 签名:
+    #   InsertModelAnnotations3(Type, Options, AllViews, DuplicateDims,
+    #                          HideDuplicates, UseDimPlacementInSketch,
+    #                          InsertInAllDrawViews, ImportedItemAnnotations)
+    # 参数 all-True + option=2 (all except items marked for drawing 之外),
+    # 让 SW 把所有能拿到的模型尺寸都塞进图纸。
+    vba_source = (
+        "Dim swApp As Object\n"
+        "Sub main()\n"
+        "  Dim swModel As Object\n"
+        "  Dim swDraw As Object\n"
+        "  Dim vSheetNames As Variant\n"
+        "  Dim swSheet As Object\n"
+        "  Dim vViews As Variant\n"
+        "  Dim swView As Object\n"
+        "  Dim i As Long, j As Long\n"
+        "  Dim viewCount As Long\n"
+        "  Dim docImported As Long\n"
+        "  Dim viewImported As Long\n"
+        "  Dim totalImported As Long\n"
+        "  Dim errMsg As String\n"
+        "  Dim iFile As Integer\n"
+        "  viewCount = 0\n"
+        "  docImported = 0\n"
+        "  totalImported = 0\n"
+        "  errMsg = \"\"\n"
+        "  Set swApp = Application.SldWorks\n"
+        "  Set swModel = swApp.ActiveDoc\n"
+        " If swModel Is Nothing Then\n"
+        "    errMsg = \"no_active_doc\"\n"
+        "    GoTo WriteResult\n"
+        "  End If\n"
+        "  ' swDocDRAWING = 3\n"
+        "  If swModel.GetType <> 3 Then\n"
+        "    errMsg = \"not_a_drawing\"\n"
+        "    GoTo WriteResult\n"
+        "  End If\n"
+        "  Set swDraw = swModel\n"
+        "  ' 文档层先跑一次, 覆盖 all-views 场景\n"
+        "  On Error Resume Next\n"
+        "  docImported = swModel.Extension.InsertModelAnnotations3(0, 2, True, False, False, False, True, False)\n"
+        "  If Err.Number <> 0 Then\n"
+        "    errMsg = errMsg & \"doc_insert:\" & Err.Number & \";\"\n"
+        "    Err.Clear\n"
+        "  End If\n"
+        "  On Error GoTo 0\n"
+        "  ' 遍历所有 sheet 所有 view, 逐个 ActivateView + InsertModelAnnotations3\n"
+        "  On Error Resume Next\n"
+        "  vSheetNames = swDraw.GetSheetNames\n"
+        "  On Error GoTo 0\n"
+        "  If Not IsEmpty(vSheetNames) Then\n"
+        "    For i = LBound(vSheetNames) To UBound(vSheetNames)\n"
+        "      On Error Resume Next\n"
+        "      swDraw.ActivateSheet CStr(vSheetNames(i))\n"
+        "      Set swSheet = swDraw.Sheet(CStr(vSheetNames(i)))\n"
+        "      On Error GoTo 0\n"
+        "      If Not swSheet Is Nothing Then\n"
+        "        On Error Resume Next\n"
+        "        vViews = swSheet.GetViews\n"
+        "        On Error GoTo 0\n"
+        "        If Not IsEmpty(vViews) Then\n"
+        "          For j = LBound(vViews) To UBound(vViews)\n"
+        "            Set swView = vViews(j)\n"
+        "            If Not swView Is Nothing Then\n"
+        "              ' Type=1 是 sheet 自身, 跳过\n"
+        "              If swView.Type <> 1 Then\n"
+        "                viewCount = viewCount + 1\n"
+        "                On Error Resume Next\n"
+        "                swDraw.ActivateView swView.GetName2\n"
+        "                viewImported = swView.InsertModelAnnotations3(0, 2, False, False, False, False, False, False)\n"
+        "                If Err.Number <> 0 Then\n"
+        "                  errMsg = errMsg & \"v\" & j & \":\" & Err.Number & \";\"\n"
+        "                  Err.Clear\n"
+        "                Else\n"
+        "                  totalImported = totalImported + viewImported\n"
+        "                End If\n"
+        "                On Error GoTo 0\n"
+        "              End If\n"
+        "      End If\n"
+        "          Next j\n"
+        "        End If\n"
+        "      End If\n"
+        "    Next i\n"
+        "  End If\n"
+        "  On Error Resume Next\n"
+        "  swModel.EditRebuild3\n"
+        "  On Error GoTo 0\n"
+        "WriteResult:\n"
+        "  iFile = FreeFile\n"
+        f"  Open \"{dump_path}\" For Output As #iFile\n"
+        "  Print #iFile, \"{\"\"imported\"\":\" & totalImported & \",\"\"doc_imported\"\":\" & docImported & \",\"\"views\"\":\" & viewCount & \",\"\"error\"\":\"\"\" & errMsg & \"\"\"}\"\n"
+        "  Close #iFile\n"
+        "End Sub\n"
+    )
+
+    try:
+        with open(macro_path, "w", encoding="utf-8") as f:
+            f.write(vba_source)
+    except Exception as exc:
+        _dbg(f"path_F: 写宏失败 {type(exc).__name__}:{exc}", summary=True)
+        return {"imported": 0, "views": 0, "error": f"write_macro_fail:{exc}"}
+
+    # 触发宏。RunMacro2 是 ISldWorks 上的方法, 与 RunMacro 同级, 与 IDrawingDoc 白名单无关。
+    ran = False
+    try:
+        from solidworks_api.com_types import byref_int
+        err_ref = byref_int(0)
+        try:
+            app.RunMacro2(macro_path, "Module1", "main", 1, err_ref)
+            ran = True
+        except BaseException:
+            try:
+                app.RunMacro(macro_path, "Module1", "main")
+                ran = True
+            except BaseException as exc2:
+                _dbg(
+                    f"path_F: RunMacro/RunMacro2 均失败 {type(exc2).__name__}:{exc2}",
+                    summary=True,
+                )
+    except BaseException as exc:
+        _dbg(f"path_F: 执行宏抛异常 {type(exc).__name__}:{exc}", summary=True)
+
+    if not ran:
+        try:
+            os.remove(macro_path)
+        except Exception:
+            pass
+        return {"imported": 0, "views": 0, "error": "run_macro_fail"}
+
+    imported = 0
+    views = 0
+    err = ""
+    try:
+        with open(dump_path, "r", encoding="utf-8") as f:
+            data = json.loads(f.read().strip())
+        imported = int(data.get("imported", 0) or 0)
+        views = int(data.get("views", 0) or 0)
+        err = str(data.get("error") or "")
+    except Exception as exc:
+        _dbg(f"path_F: 读取 dump 抛异常 {type(exc).__name__}:{exc}", summary=True)
+        err = f"read_dump_fail:{exc}"
+    finally:
+        try:
+            os.remove(dump_path)
+        except Exception:
+            pass
+        try:
+            os.remove(macro_path)
+        except Exception:
+            pass
+    _dbg(
+     f"path_F: VBA 宏 InsertModelAnnotations3 完成 imported={imported} views={views} err={err!r}",
+        summary=True,
+    )
+    return {"imported": imported, "views": views, "error": err}
+
+
 def _iter_model_views(draw_model: object, app: object = None) -> list:
     """遍历工程图，返回所有引用模型的视图对象列表(跳过图纸页视图)。
 
@@ -1787,6 +1978,40 @@ def _apply_dimensions_and_tolerance(app: object, draw_model: object, rules: list
             summary=True,
         )
         imported = imported_after_e
+
+    # 路径 F: RunCommand 也没标进来时, 让 SW 内部 VBA 引擎 early-bind 完成
+    # InsertModelAnnotations3。这是 v024 决定性证据锁定的终极兜底 -- pywin32
+    # late-bind 白名单完全阉割了 IDrawingDoc, 但 VBA 内部对 IDrawingDoc 是
+    # early-bind, 不受 IDispatch 白名单影响。跟路径 5 dump 视图名同一个原理,
+    # 只是这里不是 dump 名字, 而是直接把 InsertModelAnnotations3 的活儿也放到
+    # 宏里干完, 再把 imported 数写回来。
+    if imported == 0 and app is not None:
+        _dbg(
+            f"apply_dim: 进入路径F 判定 imported={imported} app_available=True",
+            summary=True,
+        )
+        try:
+            f_result = _insert_annotations_via_macro(app)
+        except BaseException as exc:
+            _dbg(
+                f"apply_dim: 路径F _insert_annotations_via_macro 抛 {type(exc).__name__}:{exc}",
+                summary=True,
+            )
+            f_result = {"imported": 0, "views": 0, "error": f"exception:{exc}"}
+        try:
+            draw_model.EditRebuild3()
+        except BaseException:
+            pass
+        try:
+            imported_after_f = _count_display_dimensions(draw_model, app)
+        except BaseException:
+            imported_after_f = int(f_result.get("imported", 0) or 0)
+        _dbg(
+            f"apply_dim: 路径F(VBA InsertModelAnnotations3) 宏内 imported={f_result.get('imported')} "
+            f"views={f_result.get('views')} 命令后 DisplayDimension={imported_after_f} err={f_result.get('error')!r}",
+            summary=True,
+        )
+        imported = imported_after_f
 
     dim_count = imported
 
