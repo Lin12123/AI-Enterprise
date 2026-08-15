@@ -130,6 +130,110 @@ def _plan_base_size(data: dict) -> tuple[float, float] | None:
     return None
 
 
+def _hole_center_ops() -> dict[str, str]:
+    """需要检测/转换 center 坐标的圆孔算子 -> 直径参数名。"""
+    return {
+        "create_through_hole": "diameter",
+        "create_blind_hole": "diameter",
+        "create_counterbore_hole": "hole_diameter",
+        "create_countersink_hole": "hole_diameter",
+    }
+
+
+def _convert_corner_to_center_coordinates(data: dict) -> dict:
+    """确定性坐标系转换：识别"角点坐标系"并整体平移到"中心坐标系"。
+
+    本地小模型常把孔 center 写成"距底板左下角"的角点坐标（如 120x80 板四角孔
+    [10,10]/[110,70]），而 Policy 用"板中心为原点"的中心坐标系（合法区间约
+    x∈[-half,half]）。这会导致 Policy 判越界并 500。
+
+    这是纯几何坐标系换算而非语义推断，判定条件严格可验证：
+    - 存在至少一个孔 center 在中心坐标系下越界；
+    - 且所有孔 center 减去半板尺寸 (x-half_length, y-half_width) 后**全部**落入
+      合法区间；
+    - 且原始孔 center 至少有一个分量为正且明显偏离中心（避免误判已在中心系的 plan）。
+    仅当整体自洽时才平移，否则保持原样交由钳制/Policy 处理。
+    """
+    if not isinstance(data, dict):
+        return data
+    base_size = _plan_base_size(data)
+    if base_size is None:
+        return data
+    operations = data.get("operations")
+    if not isinstance(operations, list):
+        return data
+
+    half_length = base_size[0] / 2
+    half_width = base_size[1] / 2
+    center_ops = _hole_center_ops()
+
+    # 矩形算子（槽/型腔）也有 center，一并纳入坐标系判定：其"有效半尺寸"取 x/y 方向
+    # 的半边长，保证矩形边框整体在界内。
+    rect_ops = {"cut_slot", "cut_rectangle_pocket"}
+
+    # 收集所有带 center 的特征。元素: (params, x, y, half_x, half_y)
+    holes: list[tuple[dict, float, float, float, float]] = []
+    for operation in operations:
+        if not isinstance(operation, dict):
+            continue
+        op_name = str(operation.get("op", "")).strip()
+        diameter_name = center_ops.get(op_name)
+        is_rect = op_name in rect_ops
+        if diameter_name is None and not is_rect:
+            continue
+        params = operation.get("params") if isinstance(operation.get("params"), dict) else None
+        if not isinstance(params, dict):
+            continue
+        center = params.get("center")
+        if not isinstance(center, (list, tuple)) or len(center) != 2:
+            continue
+        try:
+            x = float(center[0])
+            y = float(center[1])
+            if is_rect:
+                length = float(params.get("length", 0))
+                width = float(params.get("width", 0))
+                if length <= 0 or width <= 0:
+                    continue
+                half_x = length / 2
+                half_y = width / 2
+            else:
+                diameter = float(params.get(diameter_name, 0))
+                if diameter <= 0:
+                    continue
+                half_x = half_y = diameter / 2
+        except (TypeError, ValueError):
+            continue
+        holes.append((params, x, y, half_x, half_y))
+
+    if not holes:
+        return data
+
+    def _in_bounds(cx: float, cy: float, hx: float, hy: float) -> bool:
+        return (
+            abs(cx) + hx < half_length - _CLAMP_SAFETY_MARGIN_MM
+            and abs(cy) + hy < half_width - _CLAMP_SAFETY_MARGIN_MM
+        )
+
+    any_out = any(not _in_bounds(x, y, hx, hy) for _p, x, y, hx, hy in holes)
+    if not any_out:
+        return data  # 已在合法中心坐标系，无需转换
+
+    # 检查平移后是否全部自洽。
+    all_shifted_ok = all(
+        _in_bounds(x - half_length, y - half_width, hx, hy)
+        for _p, x, y, hx, hy in holes
+    )
+    if not all_shifted_ok:
+        return data  # 不是角点坐标系（平移后仍越界），交给钳制处理
+
+    # 判定为角点坐标系，整体平移到中心坐标系。
+    for params, x, y, _hx, _hy in holes:
+        params["center"] = [round(x - half_length, 3), round(y - half_width, 3)]
+
+    return data
+
+
 def _clamp_inferred_out_of_bounds_holes(data: dict) -> dict:
     """确定性几何钳制：把 inferred（或缺 provenance）的越界孔 center 钳到合法区间内。
 
@@ -228,6 +332,11 @@ def _attempt_semantic_salvage(prompt: str, rejected_data: dict) -> dict | None:
     if not isinstance(rejected_data, dict):
         return None
     salvaged = _normalize_featureplan_protocol(rejected_data)
+    # 本地小模型常把孔 center 写成"距左下角"的角点坐标（如四角孔 [10,10]/[110,70]），
+    # 而 Policy 用"板中心为原点"的中心坐标系。先在语义绑定前做确定性坐标系换算（非语义
+    # 推断，合规），把整体自洽的角点坐标平移到中心坐标系，避免与 bind 的 center 处理冲突。
+    salvaged = _convert_corner_to_center_coordinates(salvaged)
+    salvaged = _normalize_featureplan_protocol(salvaged)
     salvaged = bind_featureplan_semantics(prompt, salvaged)
     salvaged = _normalize_featureplan_protocol(salvaged)
     # 纯 prompt 教育对本地小模型不可靠：即使消息给出精确合法区间，qwen2.5-coder 仍

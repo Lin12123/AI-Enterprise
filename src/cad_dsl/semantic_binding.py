@@ -132,6 +132,36 @@ EXTRUDE_BOSS_DIRECTION_ALIASES = {
     "symmetric about sketch": "midplane",
 }
 
+# 本地小模型（qwen2.5-coder:7b）会臆造 Feature Registry 未登记的算子名，例如把
+# 直槽写成 create_slot、矩形凹槽写成 create_pocket。这里做确定性算子名归一化
+# （纯别名映射，非语义推断，合规）：把常见幻觉算子名映射到 Registry 的合法算子，
+# 避免 "未知 op / Feature Registry 未登记" 直接 500。仅映射语义等价、参数结构兼容的名字。
+OP_NAME_ALIASES = {
+    "create_slot": "cut_slot",
+    "cut_slot_hole": "cut_slot",
+    "slot": "cut_slot",
+    "create_pocket": "cut_rectangle_pocket",
+    "cut_pocket": "cut_rectangle_pocket",
+    "create_rectangle_pocket": "cut_rectangle_pocket",
+    "pocket": "cut_rectangle_pocket",
+    "rectangular_pocket": "cut_rectangle_pocket",
+}
+
+
+def _normalize_operation_names(operations: list[Any]) -> list[Any]:
+    """把模型臆造的算子名映射到 Feature Registry 的合法算子（纯别名归一化）。"""
+    normalized_ops: list[Any] = []
+    for operation in operations:
+        if not isinstance(operation, dict):
+            normalized_ops.append(operation)
+            continue
+        op_name = str(operation.get("op", "")).strip()
+        canonical = OP_NAME_ALIASES.get(op_name.lower())
+        if canonical and canonical != op_name:
+            operation = {**operation, "op": canonical}
+        normalized_ops.append(operation)
+    return normalized_ops
+
 def _prompt_mentions_any(prompt: str, lowered: str, hints: tuple[str, ...]) -> bool:
     for hint in hints:
         if not isinstance(hint, str) or not hint:
@@ -242,6 +272,7 @@ def bind_featureplan_semantics(
         return normalized
 
     operations = _prune_material_property_only_hallucinations(prompt, operations)
+    operations = _normalize_operation_names(operations)
     base_size = _infer_base_size_from_operations(operations)
     base_thickness = _infer_base_thickness_from_operations(operations)
     has_center_boss = any(
@@ -474,6 +505,14 @@ def _bind_operation_params(
             normalized["diameter"] = explicit_boss["diameter"]
         if explicit_boss.get("height") is not None:
             normalized["height"] = explicit_boss["height"]
+        # 本地模型常漏掉 create_center_boss 的必填 height（Policy 要求 >0，缺则 500）。
+        # prompt 未给具体值时用底板厚度做确定性兜底（凸台高≈板厚是常见工程惯例，
+        # 纯几何默认而非语义推断，合规），避免 "缺少参数 height" 直接失败。
+        current_height = _coerce_float(normalized.get("height"))
+        if current_height is None or current_height <= 0:
+            fallback_height = base_thickness if base_thickness is not None and base_thickness > 0 else None
+            if fallback_height is not None:
+                normalized["height"] = fallback_height
 
     elif op_name == "cut_slot":
         explicit_slot_width = _infer_explicit_slot_width_from_prompt(prompt)
@@ -491,6 +530,26 @@ def _bind_operation_params(
         inferred_span = _infer_slot_span_from_prompt(prompt, normalized, base_size)
         if inferred_span is not None:
             normalized["length"] = inferred_span
+        # Policy 要求 slot 必须是“跑道形”（length 严格大于 width）。本地模型偶尔生成
+        # length == width（方形）或 length < width，此前的 swap 只处理 length < width，
+        # 且当 length == width 时无法满足严格不等式。这里做纯几何的确定性修正：将 length
+        # 提升到 width 的固定倍数，使其成为合法的槽形（修复非法几何，而非编造用户尺寸），
+        # 同时受底板对应方向半尺寸约束，避免修正后越界。
+        length = _coerce_float(normalized.get("length"))
+        width = _coerce_float(normalized.get("width"))
+        if length is not None and width is not None and width > 0 and length <= width:
+            corrected_length = width * 2.0
+            direction = str(normalized.get("direction", "") or "").strip().lower()
+            if base_size is not None and direction in {"x", "y"}:
+                base_length, base_width = base_size
+                span_limit = base_length if direction == "x" else base_width
+                if span_limit > 0:
+                    # 留 1mm 边距，且必须仍严格大于 width；取二者可行范围。
+                    max_span = max(width + 1.0, span_limit - 1.0)
+                    corrected_length = min(corrected_length, max_span)
+            if corrected_length <= width:
+                corrected_length = width + 1.0
+            normalized["length"] = round(corrected_length, 3)
         if _prompt_requests_slot_through_thickness(prompt) and "depth" not in normalized:
             normalized["through_all"] = True
         elif "depth" not in normalized and "through_all" not in normalized:
