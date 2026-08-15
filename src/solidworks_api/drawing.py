@@ -21,6 +21,13 @@ from pathlib import Path
 _SW_DOC_PART = 1
 _SW_DOC_DRAWING = 3
 
+# InsertModelAnnotations3 的 option(swInsertAnnotation_e 位标志):
+#   1 = swInsertDimensionsMarkedForDrawing   (仅"标记为工程图用途"的尺寸)
+#   2 = swInsertDimensionsNotMarkedForDrawing (未标记的尺寸)
+# 程序化/AI 建模生成的零件尺寸默认都"未标记"，只传 1 会一条也导不进来，
+# 图纸上看不到任何尺寸。因此必须传 1|2=3 才能把全部模型尺寸导入工程图。
+_SW_INSERT_ALL_DIMENSIONS = 3
+
 
 def create_drawing_from_active_part(app: object, rules: list | None = None) -> dict:
     """把当前活动的 3D 零件转为三视图工程图并保存。
@@ -62,11 +69,21 @@ def create_drawing_from_active_part(app: object, rules: list | None = None) -> d
     # 3.1) 依据企业标准/规范生成尺寸标注与公差(标注失败不阻断出图，只降级为无标注)
     annotation_note = ""
     try:
-        tol_grade = _apply_dimensions_and_tolerance(app, draw_model, rules or [])
-        if tol_grade:
-            annotation_note = f"，已按企业标准标注尺寸并应用公差等级 {tol_grade}"
+        ann = _apply_dimensions_and_tolerance(app, draw_model, rules or [])
+        dim_count = ann.get("dim_count", 0)
+        grade = ann.get("grade", "")
+        tol_applied = ann.get("tol_applied", 0)
+        if dim_count <= 0:
+            # 一条尺寸都没画进图: 如实告知，不再谎报"已标注"
+            annotation_note = "(未能导入模型尺寸: 零件尺寸可能未标记为工程图用途，图纸暂无尺寸标注)"
+        elif grade and tol_applied > 0:
+            annotation_note = (
+                f"，已标注 {dim_count} 处尺寸并按企业标准对 {tol_applied} 处应用公差等级 {grade}"
+            )
+        elif grade:
+            annotation_note = f"，已标注 {dim_count} 处尺寸(公差等级 {grade})"
         else:
-            annotation_note = "，已导入模型尺寸标注"
+            annotation_note = f"，已导入 {dim_count} 处模型尺寸标注"
     except Exception as exc:
         annotation_note = f"(尺寸/公差标注降级: {exc})"
 
@@ -270,55 +287,89 @@ def _extract_tolerance_grade(rules:list) -> str:
     return ""
 
 
-def _apply_dimensions_and_tolerance(app: object, draw_model: object, rules: list) -> str:
+def _count_display_dimensions(draw_model: object) -> int:
+    """统计整张工程图当前已导入的显示尺寸总数(遍历所有视图)。
+
+    用于判断 InsertModelAnnotations3 是否真的把尺寸画进了图纸——
+    返回值非 None 并不代表真的导入了尺寸(可能 0 条)，必须用实际计数核实。
+    """
+    total = 0
+    try:
+        view = draw_model.GetFirstView()
+    except Exception:
+        return 0
+    while view is not None:
+        try:
+            dim = view.GetFirstDisplayDimension5()
+        except Exception:
+            dim = None
+        while dim is not None:
+            total += 1
+            try:
+                dim = dim.GetNext5()
+            except Exception:
+                dim = None
+        try:
+            view = view.GetNextView()
+        except Exception:
+            break
+    return total
+
+
+def _apply_dimensions_and_tolerance(app: object, draw_model: object, rules: list) -> dict:
     """在工程图上导入模型尺寸并按企业标准应用默认公差。
 
-    返回实际应用的公差等级字符串(如 "IT8")；未命中公差等级时返回空串。
+    返回 {"dim_count": int, "grade": str, "tol_applied": int}:
+      - dim_count:   实际导入到图纸的显示尺寸条数(0 表示一条都没画进去)
+      - grade:       命中的企业标准公差等级(如 "IT8"), 未命中为空串
+      - tol_applied: 实际设置了对称公差的尺寸条数
     该函数所有 COM 调用均在内部尽量兜底，异常上抛由主流程降级处理。
     """
-    from solidworks_api.com_types import dispatch_none
-
     # 1) 导入模型尺寸到所有视图
     #    InsertModelAnnotations3(type, option, allViews, duplicateDimensions, sameEdges, ...)
-    #    type=0(swDimension) 导入模型尺寸; option=1(swInsertDimensionsMarkedForDrawing)
-    inserted = False
+    #    type=0(swDimension) 导入模型尺寸; option=3 = 标记+未标记全部导入(见常量说明)
     try:
         ext = draw_model.Extension
-        # 优先在整个文档层面导入被标记为工程图用途的模型尺寸
-        ann = ext.InsertModelAnnotations3(0, 1, True, False, False, False)
-        inserted = ann is not None
+        ext.InsertModelAnnotations3(0, _SW_INSERT_ALL_DIMENSIONS, True, False, False, False)
     except Exception:
-        inserted = False
+        pass
 
-    if not inserted:
-        # 兜底: 逐视图导入
-        try:
-            view = draw_model.GetFirstView()
-            # 首视图通常是图纸页，从其下一个视图开始
-            view = view.GetNextView() if view is not None else None
-            while view is not None:
-                try:
-                    view.InsertModelAnnotations3(0, 1, False, False, False, False)
-                except Exception:
-                    pass
+    # 无论文档层调用是否成功，都再逐视图补一次(某些版本文档层不生效)，
+    # 保证程序化建模的"未标记"尺寸也能被导入。
+    try:
+        view = draw_model.GetFirstView()
+        # 首视图通常是图纸页，从其下一个视图开始
+        view = view.GetNextView() if view is not None else None
+        while view is not None:
+            try:
+                view.InsertModelAnnotations3(0, _SW_INSERT_ALL_DIMENSIONS, False, False, False, False)
+            except Exception:
+                pass
+            try:
                 view = view.GetNextView()
-        except Exception:
-            pass
+            except Exception:
+                break
+    except Exception:
+        pass
 
     try:
         draw_model.EditRebuild3()
     except Exception:
         pass
 
+    # 用实际显示尺寸数核实是否真的画进了图纸(返回值非 None 不可靠)
+    dim_count = _count_display_dimensions(draw_model)
+
     # 2) 依据企业标准的公差等级设置默认对称公差
     grade = _extract_tolerance_grade(rules)
+    tol_applied = 0
     if not grade:
-        return ""
+        return {"dim_count": dim_count, "grade": "", "tol_applied": 0}
 
     tol_value = _IT_GRADE_DEFAULT_TOL_MM.get(grade)
     if tol_value is None:
-        # 未知等级也标注出来，但不改公差数值
-        return grade
+        # 未知等级: 只回等级不改公差数值
+        return {"dim_count": dim_count, "grade": grade, "tol_applied": 0}
 
     # 遍历工程图各视图的显示尺寸，设置对称公差(swTolBILATERAL=3)
     try:
@@ -335,6 +386,7 @@ def _apply_dimensions_and_tolerance(app: object, draw_model: object, rules: list
                         # swTolBILATERAL=3; 单位 m，SolidWorks 尺寸内部为米
                         disp.SetToleranceType(3)
                         disp.SetToleranceValues(tol_value / 1000.0, -tol_value / 1000.0)
+                        tol_applied += 1
                 except Exception:
                     pass
                 try:
@@ -350,7 +402,7 @@ def _apply_dimensions_and_tolerance(app: object, draw_model: object, rules: list
     except Exception:
         pass
 
-    return grade
+    return {"dim_count": dim_count, "grade": grade, "tol_applied": tol_applied}
 
 
 def _save_drawing(app: object, draw_model: object, part_model: object) -> str:
