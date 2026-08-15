@@ -506,15 +506,106 @@ def _apply_sheet_size(draw_model: object, paper_code: int) -> bool:
     return False
 
 
+def _count_sheet_views(draw_model: object) -> int:
+    """v028: 遍历所有 Sheet 的 GetViews, 数一下当前工程图里到底有几个视图对象。
+
+    真机 v027 日志显示 iter_views 各路径全 0, 需要在 Create3rdAngleViews2
+    之后立刻打一条计数, 用来分辨:
+      A. Create3rdAngleViews2 返回 True 但 SW 静默失败(计数=0);
+      B. 视图已创建但 _iter_model_views 各路径都撞到 late-bind IDispatch
+         白名单 → 需要换取视图方式。
+
+    对 late-bind 环境的 pywin32 IDispatch, GetViews 可能返回 tuple/None,
+    统一按可迭代对象处理; 全部异常一律吞成 -1(表示 count 不可靠)。
+    """
+    total = 0
+    got_any_iter = False
+    try:
+        names = draw_model.GetSheetNames
+        if callable(names):
+            names = names()
+    except Exception:
+        names = None
+    try:
+        if names:
+            for nm in list(names):
+                try:
+                    draw_model.ActivateSheet(str(nm))
+                except Exception:
+                    pass
+                try:
+                    sheet = draw_model.GetCurrentSheet()
+                except Exception:
+                    sheet = None
+                if sheet is None:
+                    continue
+                try:
+                    views = sheet.GetViews
+                    if callable(views):
+                        views = views()
+                except Exception:
+                    views = None
+                if not views:
+                    continue
+                got_any_iter = True
+                try:
+                    for v in list(views):
+                        if v is not None:
+                            total += 1
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+    if not got_any_iter:
+        # 回退: 直接 draw_model.GetFirstView + GetNext 链表
+        try:
+            v = draw_model.GetFirstView
+            if callable(v):
+                v = v()
+            while v is not None:
+                total += 1
+                try:
+                    nxt = v.GetNextView
+                    if callable(nxt):
+                        nxt = nxt()
+                except Exception:
+                    nxt = None
+                v = nxt
+                if total > 32:
+                    break  # 保险: 防止死循环
+        except Exception:
+            return -1
+    return total
+
+
 def _insert_three_views(draw_model: object, part_path: str) -> None:
-    """在工程图上放置标准三视图(前/上/右)+ 等轴测。"""
+    """在工程图上放置标准三视图(前/上/右)+ 等轴测。
+
+    v028: 加视图落地计数诊断。真机反馈显示 Create3rdAngleViews2 可能返回
+    True 但实际没创建视图, 需要在这里立即验证并落一条 _dbg, 避免下游
+    apply_dim 全 0 却无法分辨根因。
+    """
+    ok = False
     try:
         draw = draw_model  # IDrawingDoc 接口即工程图 model
         ok = draw.Create3rdAngleViews2(part_path)
     except Exception as exc:
+        _dbg(f"insert_views: Create3rdAngleViews2 抛异常 {type(exc).__name__}:{exc}", summary=True)
         raise RuntimeError(f"Create3rdAngleViews2 异常: {exc}") from exc
+    _dbg(f"insert_views: Create3rdAngleViews2 返回 {bool(ok)} part_path={part_path}", summary=True)
     if not ok:
         raise RuntimeError("Create3rdAngleViews2 返回失败(可能零件路径无效或模板不含视图框)。")
+
+    # v028: Create3rdAngleViews2 API 返回值不可靠, 强制重建 + 计视图数
+    try:
+        draw_model.ForceRebuild3(True)
+    except Exception as exc:
+        _dbg(f"insert_views: ForceRebuild3(True) 抛 {type(exc).__name__}:{exc}")
+
+    view_count = _count_sheet_views(draw_model)
+    _dbg(f"insert_views: 创建后视图计数 = {view_count}", summary=True)
+
     try:
         draw_model.ViewZoomtofit2()
     except Exception:
@@ -991,24 +1082,44 @@ def _insert_annotations_via_macro(app: object) -> dict:
         return {"imported": 0, "views": 0, "error": f"write_macro_fail:{exc}"}
 
     # 触发宏。RunMacro2 是 ISldWorks 上的方法, 与 RunMacro 同级, 与 IDrawingDoc 白名单无关。
+    # v028: 真机 v027 日志显示 dump 文件从未生成 → RunMacro2 静默失败, 宏体根本
+    # 没被 SW 加载执行。加三重兜底:
+    #   1) err_ref 落 _dbg (swRunMacroError_e 枚举, 0=success);
+    #   2) macro_path 规范化为 Windows 反斜杠绝对路径;
+    #   3) ProcName 依次试 "main" / "Module1.main" / "" (空让 SW 自动搜);
     ran = False
-    try:
-        from solidworks_api.com_types import byref_int
-        err_ref = byref_int(0)
+    err_val = -1  # -1 表示没拿到 err_ref
+    macro_abs = os.path.abspath(macro_path).replace("/", "\\")
+
+    def _try_runmacro(proc_name: str) -> tuple:
+        """返回 (ok, err_val, exc_msg)。RunMacro2 优先, 失败退 RunMacro。"""
         try:
-            app.RunMacro2(macro_path, "Module1", "main", 1, err_ref)
-            ran = True
-        except BaseException:
+            from solidworks_api.com_types import byref_int
+            eref = byref_int(0)
             try:
-                app.RunMacro(macro_path, "Module1", "main")
-                ran = True
-            except BaseException as exc2:
-                _dbg(
-                    f"path_F: RunMacro/RunMacro2 均失败 {type(exc2).__name__}:{exc2}",
-                    summary=True,
-                )
-    except BaseException as exc:
-        _dbg(f"path_F: 执行宏抛异常 {type(exc).__name__}:{exc}", summary=True)
+                app.RunMacro2(macro_abs, "Module1", proc_name, 1, eref)
+                try:
+                    ev = int(getattr(eref, "value", 0) or 0)
+                except Exception:
+                    ev = 0
+                return True, ev, ""
+            except BaseException as e1:
+                try:
+                    app.RunMacro(macro_abs, "Module1", proc_name)
+                    return True, 0, ""
+                except BaseException as e2:
+                    return False, -1, f"{type(e2).__name__}:{e2} (RunMacro2 前置错:{type(e1).__name__}:{e1})"
+        except BaseException as ex:
+            return False, -1, f"{type(ex).__name__}:{ex}"
+
+    for proc in ("main", "Module1.main", ""):
+        ok, ev, emsg = _try_runmacro(proc)
+        _dbg(f"path_F: RunMacro2 proc='{proc}' ok={ok} err_ref={ev} msg={emsg}", summary=True)
+        if ok:
+            ran = True
+            err_val = ev
+            # 若 err_ref != 0 说明宏体加载/编译有问题, 仍然 break, 靠 dump 阶段分级
+            break
 
     if not ran:
         try:
@@ -1714,10 +1825,13 @@ def _draw_all_dimensions_by_ourselves(draw_model: object, part_model: object, ap
         draw_model.ForceRebuild3(False)
     except Exception as exc:
         _dbg(f"draw_self: ForceRebuild3 抛异常 {type(exc).__name__}: {exc}")
+    # v028 修: SolidWorks 2019 late-bind 下 EditRebuild3 会被解析成布尔属性
+    # 报 "'bool' object is not callable"; 上面 ForceRebuild3(False) 已经重建
+    # 过了, 这里只做二次保险, 用 ForceRebuild3(True) 二次触发, 失败一律吞掉。
     try:
-        draw_model.EditRebuild3()
+        draw_model.ForceRebuild3(True)
     except Exception as exc:
-        _dbg(f"draw_self: EditRebuild3 抛异常 {type(exc).__name__}: {exc}")
+        _dbg(f"draw_self: ForceRebuild3(True) 抛异常 {type(exc).__name__}: {exc}")
 
     try:
         cls = _classify_three_views(draw_model, app)
