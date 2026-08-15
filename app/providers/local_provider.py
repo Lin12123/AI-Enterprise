@@ -1241,7 +1241,20 @@ def parse_featureplan(prompt: str) -> dict:
         if isinstance(first_error, LocalProviderConfirmationRequired):
             raise
         try:
-            rejected_data = _focused_rejected_data(extract_json_object(_response_text(response)))
+            # Feed the repair model a *sanitized* rejected sample rather than the
+            # raw LLM JSON. Otherwise malformed provenance paths (e.g. the
+            # operation-name+id joined ``create_base_plate.001.params.plane``)
+            # survive in the repair prompt and the local model simply copies them
+            # back, producing the same "invalid parameter path" rejection after
+            # every repair attempt.
+            raw_rejected = extract_json_object(_response_text(response))
+            try:
+                sanitized_rejected = _normalize_featureplan_protocol(raw_rejected)
+                sanitized_rejected = bind_featureplan_semantics(prompt, sanitized_rejected)
+                sanitized_rejected = _normalize_featureplan_protocol(sanitized_rejected)
+            except Exception:
+                sanitized_rejected = raw_rejected
+            rejected_data = _focused_rejected_data(sanitized_rejected)
             _debug_dump_local_provider_json("first_rejected_featureplan.json", rejected_data)
             print("Local LLM FeaturePlan rejected by Policy Engine; requesting local model repair.")
             repair_attempts = _repair_attempt_count()
@@ -1275,7 +1288,14 @@ def parse_featureplan(prompt: str) -> dict:
                     if isinstance(repair_error, LocalProviderConfirmationRequired):
                         raise
                     last_error = repair_error
-                    rejected_data = _focused_rejected_data(extract_json_object(_response_text(repaired_response)))
+                    raw_repaired = extract_json_object(_response_text(repaired_response))
+                    try:
+                        sanitized_repaired = _normalize_featureplan_protocol(raw_repaired)
+                        sanitized_repaired = bind_featureplan_semantics(prompt, sanitized_repaired)
+                        sanitized_repaired = _normalize_featureplan_protocol(sanitized_repaired)
+                    except Exception:
+                        sanitized_repaired = raw_repaired
+                    rejected_data = _focused_rejected_data(sanitized_repaired)
                     _debug_dump_local_provider_json(f"repair_{attempt + 1}_rejected_featureplan.json", rejected_data)
                     if attempt < repair_attempts - 1:
                         print("Local LLM repair still invalid; requesting one more local model repair.")
