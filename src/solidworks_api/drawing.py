@@ -335,6 +335,103 @@ def _guess_drawing_template() -> str:
     return ""
 
 
+def _ensure_early_bind(obj: object) -> object:
+    """v029: 把 late-bind IDispatch COM 对象转成 gencache 早绑定包装。
+
+    根因(见 last_run.log): pywin32 在纯 late-bind(IDispatch.Invoke)下把
+    IDrawingDoc.GetSheetNames / GetFirstView 等**方法**误解析成属性, 返回一个
+    tuple, 代码再 `()` 调用就报 'tuple' object is not callable; GetCurrentSheet
+    / FirstFeature 直接 -2147352573 找不到成员。这些都是 IDispatch 动态派发对
+    带 typelib 的接口方法解析不了导致的。
+
+    gencache.EnsureDispatch 会依据对象的 typelib 生成/加载早绑定包装类, 之后
+    所有接口方法按 IDL 签名调用, 绕开 late-bind 白名单, 是根治手段。
+
+    任何失败(缺 pywin32 / 缺 typelib / 权限问题 / 客户机 gen_py 被杀软拦)都
+    静默回退到原对象, 绝不能让早绑定失败反而崩掉整个出图流程。
+    """
+    if obj is None:
+        return obj
+    try:
+        import win32com.client  # 单测无 pywin32 时直接走 except 回退
+        from win32com.client import gencache
+    except Exception:
+        return obj
+    try:
+        early = gencache.EnsureDispatch(obj)
+        if early is not None:
+            _dbg("early_bind: gencache.EnsureDispatch 成功, 走早绑定接口", summary=True)
+            return early
+    except Exception as exc:
+        _dbg(f"early_bind: EnsureDispatch 失败({type(exc).__name__}:{exc}), 回退 late-bind", summary=True)
+    return obj
+
+
+_MACRO_SECURITY_LOWERED = False
+
+
+def _lower_macro_security() -> bool:
+    """v029: 把 SolidWorks 宏安全性降级, 允许 RunMacro2 加载未签名 .swp。
+
+    根因(见 last_run.log): RunMacro2 返回 ok=True err_ref=0, 但宏体的心跳 dump
+    从不生成 → SW 2019 默认宏安全策略静默拒载未签名/不受信任的 .swp, 宏根本
+    没被执行。SW 把宏安全设置存在注册表:
+      HKCU\\Software\\SolidWorks\\SolidWorks 2019\\Security
+    相关值(不同版本键名略有差异, 逐个尝试, 写不进去就跳过):
+      - "Enable macro"        = 1   (允许运行宏)
+      - "Macro Run Warning"   = 0   (不弹安全警告)
+      - "Enable VSTA macros"  = 1
+
+    只在进程内降级一次(幂等)。任何权限/缺 winreg 失败都吞掉并回退, 绝不阻断
+    出图; 降级失败时后续 RunMacro2 仍会照常尝试(靠 dump 分级诊断)。
+    """
+    global _MACRO_SECURITY_LOWERED
+    if _MACRO_SECURITY_LOWERED:
+        return True
+    try:
+        import winreg  # 非 Windows / 单测环境无 winreg → 直接回退
+    except Exception:
+        _dbg("macro_sec: 无 winreg(非 Windows 或单测), 跳过降级", summary=True)
+        return False
+    lowered_any = False
+    # 覆盖常见的几个 SW 版本键路径, 命中哪个改哪个。
+    subkeys = (
+        r"Software\SolidWorks\SolidWorks 2019\Security",
+        r"Software\SolidWorks\SolidWorks 2020\Security",
+        r"Software\SolidWorks\SolidWorks 2021\Security",
+    )
+    values = (
+        ("Enable macro", 1),
+        ("Macro Run Warning", 0),
+        ("Enable VSTA macros", 1),
+    )
+    for subkey in subkeys:
+        try:
+            key = winreg.CreateKeyEx(
+                winreg.HKEY_CURRENT_USER, subkey, 0, winreg.KEY_SET_VALUE
+            )
+        except Exception:
+            continue
+        try:
+            for name, val in values:
+                try:
+                    winreg.SetValueEx(key, name, 0, winreg.REG_DWORD, val)
+                    lowered_any = True
+                except Exception:
+                    pass
+        finally:
+            try:
+                winreg.CloseKey(key)
+            except Exception:
+                pass
+    if lowered_any:
+        _MACRO_SECURITY_LOWERED = True
+        _dbg("macro_sec: 已写入注册表宏安全性降级(HKCU\\...\\Security)", summary=True)
+    else:
+        _dbg("macro_sec: 注册表宏安全性降级失败(可能无写权限), 后续照常尝试宏", summary=True)
+    return lowered_any
+
+
 def _new_drawing_doc(app: object) -> object:
     """新建工程图文档。优先用默认工程图模板，取不到时扫描常见安装目录兜底。"""
     template = _read_default_drawing_template(app)
@@ -354,6 +451,10 @@ def _new_drawing_doc(app: object) -> object:
         raise RuntimeError(f"以模板 {template} 新建工程图失败: {exc}") from exc
     if draw is None:
         raise RuntimeError(f"NewDocument 返回 None，工程图模板可能不可用: {template}")
+    # v029: 对新建的 IDrawingDoc 做 gencache 早绑定, 让后续 GetSheetNames /
+    # GetFirstView / GetCurrentSheet 等接口方法按 typelib 签名调用, 根治
+    # late-bind 白名单坑('tuple' object is not callable / 找不到成员)。
+    draw = _ensure_early_bind(draw)
     return draw
 
 
@@ -901,6 +1002,8 @@ def _dump_view_names_via_macro(app: object) -> list:
 
     # RunMacro2(filePath, moduleName, procName, options, byref error)
     # options=1 (swRunMacroOption_e.swRunMacroDefault); 若 SW 版本不认 5 参数就退回 3 参数版
+    # v029: 触发宏前先降级 SW 宏安全性, 否则未签名 .swp 被静默拒载。
+    _lower_macro_security()
     try:
         from solidworks_api.com_types import byref_int
         err_ref = byref_int(0)
@@ -1090,6 +1193,10 @@ def _insert_annotations_via_macro(app: object) -> dict:
     ran = False
     err_val = -1  # -1 表示没拿到 err_ref
     macro_abs = os.path.abspath(macro_path).replace("/", "\\")
+
+    # v029: 触发宏前先降级 SW 宏安全性(注册表), 让未签名 .swp 能被加载执行。
+    # 真机 v028 日志: RunMacro2 ok=True 但 dump 从不生成 → 宏被安全策略静默拒载。
+    _lower_macro_security()
 
     def _try_runmacro(proc_name: str) -> tuple:
         """返回 (ok, err_val, exc_msg)。RunMacro2 优先, 失败退 RunMacro。"""
