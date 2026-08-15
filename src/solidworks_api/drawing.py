@@ -700,26 +700,141 @@ def _build_tech_requirements_text(rules: list) -> str:
 def _iter_model_views(draw_model: object) -> list:
     """遍历工程图，返回所有引用模型的视图对象列表(跳过图纸页视图)。
 
-    正确做法是按 view.Type 判定：只保留非 swDrawingSheetView 的视图。
-    早期实现"跳过 GetFirstView"在部分企业模板下会漏掉首个模型视图,
-    导致后续三视图分类和补打整体尺寸失败。任何异常都保守返回已收集到的部分。
+    真机 SolidWorks 2019 上的视图树是「Sheet 视图 → 模型视图」两层结构：
+    draw_model.GetFirstView() 返回的第一层就是**图纸页视图**(swDrawingSheetView, Type=3)，
+    真正的三视图(前/上/右)挂在这个 Sheet 视图的**子节点**下——必须通过
+    sheet_view.GetNextView() 才能进入下层链继续枚举。早期实现只在同级链上走
+    GetNextView，永远只能拿到 sheet 视图本身，模型视图池为空 → classify_views
+    的 ortho=0 → 图上一条尺寸都画不进来。
+
+    正确遍历顺序：
+      Sheet1 (swDrawingSheetView)         ← GetFirstView() 返回这个
+        ├─ 工程图视图1 (front, Type=4)     ← Sheet1.GetNextView() 进入子链
+        ├─ 工程图视图2 (top,   Type=4)
+        └─ 工程图视图3 (right, Type=4)
+      Sheet2 (swDrawingSheetView)          ← 上一层 GetNextView() 到下一个 sheet
+        └─ ...
+
+    为保证在不同 SW 版本/模板下都能拿到模型视图，本函数按以下顺序兜底：
+      1. 同级链上遇到 sheet 视图，则对它再调 GetNextView() 下沉到子链；
+      2. 同级链上遇到非 sheet 视图(部分极简模板会把首个模型视图直接挂在顶层)，
+         直接收集；
+      3. 任何异常都保守返回已收集到的部分，绝不阻断出图。
     """
     views = []
+    sheet_count = 0
+    raw_view_count = 0
     try:
-        view = draw_model.GetFirstView()
-    except Exception:
+        top = draw_model.GetFirstView()
+    except Exception as exc:
+        _dbg(f"iter_views: draw_model.GetFirstView 抛异常 {type(exc).__name__}:{exc}", summary=True)
         return views
-    while view is not None:
+    if top is None:
+        _dbg("iter_views: draw_model.GetFirstView 返回 None(工程图为空?)", summary=True)
+        return views
+
+    while top is not None:
+        raw_view_count += 1
         try:
-            view_type = int(getattr(view, "Type", 0) or 0)
+            top_type = int(getattr(top, "Type", 0) or 0)
         except Exception:
-            view_type = 0
-        if view_type != _SW_DRAWING_SHEET_VIEW_TYPE:
-            views.append(view)
+            top_type = 0
         try:
-            view = view.GetNextView()
+            top_name = str(getattr(top, "Name", "") or "") or "<no-name>"
         except Exception:
+            top_name = "<no-name>"
+
+        if top_type == _SW_DRAWING_SHEET_VIEW_TYPE:
+            # 遇到图纸页视图: 下沉一层，遍历该 sheet 下的所有模型视图。
+            sheet_count += 1
+            try:
+                child = top.GetNextView()
+            except Exception as exc:
+                _dbg(f"iter_views: sheet={top_name} 下沉 GetNextView 抛异常 {type(exc).__name__}:{exc}")
+                child = None
+            child_in_sheet = 0
+            while child is not None:
+                try:
+                    child_type = int(getattr(child, "Type", 0) or 0)
+                except Exception:
+                    child_type = 0
+                if child_type == _SW_DRAWING_SHEET_VIEW_TYPE:
+                    # 已经跳到下一个 sheet 页，回到外层循环处理
+                    break
+                views.append(child)
+                child_in_sheet += 1
+                try:
+                    child = child.GetNextView()
+                except Exception:
+                    break
+            _dbg(f"iter_views: sheet={top_name} 收集到 {child_in_sheet} 个模型视图")
+            # 外层 sheet 循环下一次 iteration: 用 sheet 自己再 GetNextView()
+            # 但上面 child while 已经消费了子链，这里我们改成通过 sheet 数量收敛。
+            # SW 中同级 sheet 之间的 GetNextView 关系不稳定，稳妥做法是遍历
+            # GetSheetNames + GetSheet 逐个取 sheet 视图，但绝大多数模板只有 Sheet1，
+            # 因此这里直接跳出：多 sheet 场景交给下面的兜底逻辑。
             break
+        else:
+            # 顶层就是模型视图(极简模板)
+            views.append(top)
+            try:
+                top = top.GetNextView()
+            except Exception:
+                break
+
+    # 多 Sheet 兜底：如果工程图确实有多个 sheet，用 GetSheetNames 逐个激活并再拿一次
+    if sheet_count >= 1:
+        try:
+            sheet_names = draw_model.GetSheetNames()
+        except Exception:
+            sheet_names = None
+        if sheet_names and len(sheet_names) > 1:
+            _dbg(f"iter_views: 检测到 {len(sheet_names)} 个 sheet, 逐个下沉补收集")
+            # 记录当前活动 sheet，遍历完切回去
+            try:
+                cur_sheet = draw_model.GetCurrentSheet()
+                cur_name = str(cur_sheet.GetName()) if cur_sheet is not None else ""
+            except Exception:
+                cur_name = ""
+            for sn in sheet_names:
+                try:
+                    draw_model.ActivateSheet(str(sn))
+                except Exception:
+                    continue
+                try:
+                    top2 = draw_model.GetFirstView()
+                except Exception:
+                    top2 = None
+                if top2 is None:
+                    continue
+                try:
+                    child = top2.GetNextView()
+                except Exception:
+                    child = None
+                while child is not None:
+                    try:
+                        ct = int(getattr(child, "Type", 0) or 0)
+                    except Exception:
+                        ct = 0
+                    if ct == _SW_DRAWING_SHEET_VIEW_TYPE:
+                        break
+                    if child not in views:
+                        views.append(child)
+                    try:
+                        child = child.GetNextView()
+                    except Exception:
+                        break
+            if cur_name:
+                try:
+                    draw_model.ActivateSheet(cur_name)
+                except Exception:
+                    pass
+
+    _dbg(
+        f"iter_views: 汇总 sheet_count={sheet_count} raw_top_view_count={raw_view_count} "
+        f"model_view_count={len(views)}",
+        summary=True,
+    )
     return views
 
 
@@ -1025,13 +1140,11 @@ def _count_display_dimensions(draw_model: object) -> int:
 
     用于判断 InsertModelAnnotations3 是否真的把尺寸画进了图纸——
     返回值非 None 并不代表真的导入了尺寸(可能 0 条)，必须用实际计数核实。
+    统一走 _iter_model_views 拿到已下沉到 sheet 子节点的模型视图列表，
+    避免此处再次踩"同级链只有 sheet 视图"的坑。
     """
     total = 0
-    try:
-        view = draw_model.GetFirstView()
-    except Exception:
-        return 0
-    while view is not None:
+    for view in _iter_model_views(draw_model):
         try:
             dim = view.GetFirstDisplayDimension5()
         except Exception:
@@ -1042,10 +1155,6 @@ def _count_display_dimensions(draw_model: object) -> int:
                 dim = dim.GetNext5()
             except Exception:
                 dim = None
-        try:
-            view = view.GetNextView()
-        except Exception:
-            break
     return total
 
 
@@ -1100,30 +1209,22 @@ def _apply_dimensions_and_tolerance(app: object, draw_model: object, rules: list
     # 无论文档层调用是否成功，都再逐视图补一次(某些版本文档层不生效)，
     # 保证程序化建模的"未标记"尺寸也能被导入。逐视图导入前必须先激活该视图，
     # 否则 InsertModelAnnotations3 会作用在错误的视图上导致一条也导不进来。
-    # 视图筛选不能盲目"跳过 GetFirstView"——部分企业模板首个视图就是模型视图，
-    # 硬跳会漏导。改成按 view.Type 判定：只对非"图纸页"视图导入尺寸。
+    # 视图筛选统一走 _iter_model_views(已正确下沉到 sheet 子节点)，避免此处
+    # 再次踩"同级链只有 sheet 视图"的坑。
     try:
-        view = draw_model.GetFirstView()
-        while view is not None:
+        model_views = _iter_model_views(draw_model)
+        _dbg(f"apply_dim: 逐视图导入前, 拿到模型视图数={len(model_views)}")
+        for view in model_views:
             try:
-                view_type = int(getattr(view, "Type", 0) or 0)
+                name = str(view.GetName2())
+                if name:
+                    draw_model.ActivateView(name)
             except Exception:
-                view_type = 0
-            if view_type != _SW_DRAWING_SHEET_VIEW_TYPE:
-                try:
-                    name = str(view.GetName2())
-                    if name:
-                        draw_model.ActivateView(name)
-                except Exception:
-                    pass
-                try:
-                    view.InsertModelAnnotations3(0, _SW_INSERT_ALL_DIMENSIONS, False, False, False, False)
-                except Exception:
-                    pass
+                pass
             try:
-                view = view.GetNextView()
+                view.InsertModelAnnotations3(0, _SW_INSERT_ALL_DIMENSIONS, False, False, False, False)
             except Exception:
-                break
+                pass
     except Exception:
         pass
 
