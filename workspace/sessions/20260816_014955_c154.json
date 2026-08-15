@@ -1,0 +1,190 @@
+{
+  "id": "20260816_014955_c154",
+  "title": "画一个120mm*80mm*15mm的安装板，四",
+  "status": "active",
+  "started_at": "2026-08-16T01:49:55",
+  "updated_at": "2026-08-16T01:50:35",
+  "messages": [
+    {
+      "role": "user",
+      "text": "画一个120mm*80mm*15mm的安装板，四角加直径为10的通孔四周边距10，安装板上加直径20的中心凸台，中心开直径15的通孔。在安装板上表面加宽度为8mm通槽，左右各一个，边距20mm",
+      "ts": "2026-08-16T01:50:35"
+    },
+    {
+      "role": "ai",
+      "text": "已生成建模计划",
+      "ts": "2026-08-16T01:50:35",
+      "type": "plan"
+    }
+  ],
+  "context": {
+    "last_plan": {
+      "version": "2.0",
+      "unit": "mm",
+      "document_type": "part",
+      "part_name": "Installation_Plate",
+      "metadata": {
+        "explicit_parameters": [
+          "create_base_plate.1.params.length",
+          "create_base_plate.1.params.width",
+          "create_base_plate.1.params.thickness",
+          "create_through_hole.2.params.diameter",
+          "create_through_hole.3.params.diameter",
+          "create_through_hole.4.params.diameter",
+          "create_through_hole.5.params.diameter",
+          "create_center_boss.6.params.diameter",
+          "create_center_boss.6.params.height",
+          "create_through_hole.7.params.diameter",
+          "cut_slot.8.params.plane",
+          "cut_slot.8.params.center",
+          "cut_slot.8.params.length",
+          "cut_slot.8.params.width",
+          "cut_slot.8.params.direction"
+        ],
+        "inferred_parameters": [
+          "create_base_plate.1.params.plane",
+          "create_through_hole.2.params.plane",
+          "create_through_hole.2.params.center",
+          "create_through_hole.3.params.plane",
+          "create_through_hole.3.params.center",
+          "create_through_hole.4.params.plane",
+          "create_through_hole.4.params.center",
+          "create_through_hole.5.params.plane",
+          "create_through_hole.5.params.center",
+          "create_through_hole.7.params.plane",
+          "create_through_hole.7.params.center",
+          "cut_slot.8.params.depth",
+          "cut_corner_holes.9.params.edge_margin",
+          "cut_corner_holes.9.params.diameter"
+        ],
+        "name": "Installation_Plate",
+        "description": "",
+        "source": "local"
+      },
+      "operations": [
+        {
+          "id": "create_new_part.1",
+          "op": "create_new_part",
+          "params": {
+            "part_name": "Installation Plate"
+          }
+        },
+        {
+          "id": "create_base_plate.1",
+          "op": "create_base_plate",
+          "params": {
+            "length": 120,
+            "width": 80,
+            "thickness": 15,
+            "plane": "Top"
+          }
+        },
+        {
+          "id": "create_through_hole.2",
+          "op": "create_through_hole",
+          "params": {
+            "plane": "top_face",
+            "center": [
+              -50.0,
+              -30.0
+            ],
+            "diameter": 10,
+            "host": "base"
+          }
+        },
+        {
+          "id": "create_through_hole.3",
+          "op": "create_through_hole",
+          "params": {
+            "plane": "top_face",
+            "center": [
+              50.0,
+              -30.0
+            ],
+            "diameter": 10,
+            "host": "base"
+          }
+        },
+        {
+          "id": "create_through_hole.4",
+          "op": "create_through_hole",
+          "params": {
+            "plane": "top_face",
+            "center": [
+              -50.0,
+              30.0
+            ],
+            "diameter": 10,
+            "host": "base"
+          }
+        },
+        {
+          "id": "create_through_hole.5",
+          "op": "create_through_hole",
+          "params": {
+            "plane": "top_face",
+            "center": [
+              50.0,
+              30.0
+            ],
+            "diameter": 10,
+            "host": "base"
+          }
+        },
+        {
+          "id": "create_center_boss.6",
+          "op": "create_center_boss",
+          "params": {
+            "diameter": 20.0,
+            "height": 15,
+            "plane": "top_face",
+            "host": "base"
+          }
+        },
+        {
+          "id": "create_through_hole.7",
+          "op": "create_through_hole",
+          "params": {
+            "plane": "top_face",
+            "center": [
+              0.0,
+              0.0
+            ],
+            "diameter": 15,
+            "host": "base"
+          }
+        },
+        {
+          "id": "cut_slot.8",
+          "op": "cut_slot",
+          "params": {
+            "plane": "top_face",
+            "center": [
+              0,
+              0
+            ],
+            "length": 80.0,
+            "width": 2,
+            "direction": "y",
+            "host": "base",
+            "depth": 2.0
+          }
+        },
+        {
+          "id": "cut_corner_holes.9",
+          "op": "cut_corner_holes",
+          "params": {
+            "edge_margin": 10,
+            "diameter": 10
+          }
+        },
+        {
+          "id": "save_sldprt.10",
+          "op": "save_sldprt",
+          "params": {}
+        }
+      ],
+      "outputs": {}
+    }
+  }
+}
