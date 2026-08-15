@@ -88,9 +88,45 @@ export const dashboardApi = {
   coverage: () => delay(coverageMetrics),
 }
 
-// 项目图纸管理：前端 mock（后端暂无 projects 表）
+// 项目图纸管理：以 task 为一张卡片，files 数由 /api/files 本地聚合。
+// 后端暂无 project 聚合表，一条 task = 一次插件"上传到云平台"会话。
 export const projectsApi = {
-  list: () => delay(mockProjects),
+  async list() {
+    try {
+      const [tasks, files] = await Promise.all([
+        get('/tasks'),
+        get('/files'),
+      ])
+      if (!Array.isArray(tasks) || tasks.length === 0) {
+        // 空库时用 mock 兜底，避免运营页空白
+        return delay(mockProjects)
+      }
+      const fileCount = new Map()
+      for (const f of files || []) {
+        const k = f.task_id || 0
+        fileCount.set(k, (fileCount.get(k) || 0) + 1)
+      }
+      // task → 卡片字段
+      return tasks.map((t) => {
+        const st = (t.status || '').toLowerCase()
+        const enabled = !(st === 'archived' || st === 'disabled')
+        const partName = t.part_name || t.title || `任务 #${t.id}`
+        const material = t.material || '未指定材料'
+        return {
+          id: t.task_uid || `TASK-${t.id}`,
+          name: t.title || partName,
+          enabled,
+          desc: `${partName}｜${material}｜状态：${t.status || 'unknown'}`,
+          drawings: fileCount.get(t.id) || 0,
+          members: 1,
+          updatedAt: t.created_at || '',
+        }
+      })
+    } catch (e) {
+      // 后端不可达时给 mock 兜底
+      return delay(mockProjects)
+    }
+  },
 }
 
 // 插件管理：假数据
