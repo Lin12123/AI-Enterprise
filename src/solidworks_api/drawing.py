@@ -700,37 +700,124 @@ def _build_tech_requirements_text(rules: list) -> str:
 def _iter_model_views(draw_model: object) -> list:
     """遍历工程图，返回所有引用模型的视图对象列表(跳过图纸页视图)。
 
-    真机 SolidWorks 2019 上的视图树是「Sheet 视图 → 模型视图」两层结构：
-    draw_model.GetFirstView() 返回的第一层就是**图纸页视图**(swDrawingSheetView, Type=3)，
-    真正的三视图(前/上/右)挂在这个 Sheet 视图的**子节点**下——必须通过
-    sheet_view.GetNextView() 才能进入下层链继续枚举。早期实现只在同级链上走
-    GetNextView，永远只能拿到 sheet 视图本身，模型视图池为空 → classify_views
-    的 ortho=0 → 图上一条尺寸都画不进来。
+    真机 SolidWorks 2019 排查记录：
+      - `Create3rdAngleViews2` 能正常成功，说明 `draw_model` 是合法的 IDrawingDoc；
+      - 但 `draw_model.GetFirstView()` 在部分 win32com 早绑定/typelib 组合下会抛
+        "com_error: (-2147352573, '找不到成员。')"——同一 IDispatch 上并不是所有
+        DrawingDoc 方法都能通过 late-bind 到 IDispatch.Invoke。
+      - 而 **`GetCurrentSheet().GetViews()`** 是完全走 ISheet 接口拿视图 array，
+        典型模板下能一次性返回该 sheet 下所有模型视图(不含 sheet 自身)，规避
+        `GetFirstView` 的 late-bind 坑。
 
-    正确遍历顺序：
-      Sheet1 (swDrawingSheetView)         ← GetFirstView() 返回这个
-        ├─ 工程图视图1 (front, Type=4)     ← Sheet1.GetNextView() 进入子链
-        ├─ 工程图视图2 (top,   Type=4)
-        └─ 工程图视图3 (right, Type=4)
-      Sheet2 (swDrawingSheetView)          ← 上一层 GetNextView() 到下一个 sheet
-        └─ ...
+    因此本次遍历策略调整为「三段兜底」，任一成功即返回：
+      1. **首选**: `GetCurrentSheet().GetViews()` 直接拿当前活动 sheet 的视图元组；
+      2. **多 sheet 兼容**: 遍历 `GetSheetNames()`, 用 `IDrawingDoc.Sheet(name)`
+         逐个 sheet 拿 `GetViews()`, 若拿不到再降级 `ActivateSheet + GetCurrentSheet`；
+      3. **兜底**: 沿用原 `GetFirstView` 两层链遍历(Sheet 视图 → 模型视图子链)，
+         仅当前两步都拿不到任何视图时才走这条路径。
 
-    为保证在不同 SW 版本/模板下都能拿到模型视图，本函数按以下顺序兜底：
-      1. 同级链上遇到 sheet 视图，则对它再调 GetNextView() 下沉到子链；
-      2. 同级链上遇到非 sheet 视图(部分极简模板会把首个模型视图直接挂在顶层)，
-         直接收集；
-      3. 任何异常都保守返回已收集到的部分，绝不阻断出图。
+    任何异常都保守返回已收集到的部分，绝不阻断出图。
     """
-    views = []
+    views: list = []
+
+    # --- 路径 1: GetCurrentSheet().GetViews() ---
+    try:
+        cur_sheet = draw_model.GetCurrentSheet()
+    except Exception as exc:
+        _dbg(f"iter_views: GetCurrentSheet 抛异常 {type(exc).__name__}:{exc}")
+        cur_sheet = None
+    if cur_sheet is not None:
+        try:
+            raw = cur_sheet.GetViews()
+        except Exception as exc:
+            _dbg(f"iter_views: cur_sheet.GetViews 抛异常 {type(exc).__name__}:{exc}")
+            raw = None
+        if raw:
+            try:
+                # GetViews 返回 tuple/VARIANT array，展平并跳过 sheet 视图本身
+                for v in raw:
+                    if v is None:
+                        continue
+                    try:
+                        vt = int(getattr(v, "Type", 0) or 0)
+                    except Exception:
+                        vt = 0
+                    if vt == _SW_DRAWING_SHEET_VIEW_TYPE:
+                        continue
+                    views.append(v)
+                _dbg(
+                    f"iter_views: 路径1(GetCurrentSheet.GetViews) 拿到 {len(views)} 个模型视图",
+                    summary=True,
+                )
+            except Exception as exc:
+                _dbg(f"iter_views: 展开 GetViews 结果异常 {type(exc).__name__}:{exc}")
+
+    # --- 路径 2: 多 sheet 兼容 ---
+    try:
+        sheet_names = draw_model.GetSheetNames()
+    except Exception:
+        sheet_names = None
+    if sheet_names and len(sheet_names) > 0:
+        for sn in sheet_names:
+            sheet_obj = None
+            # 优先 IDrawingDoc.Sheet(name) 拿 sheet 对象，避免副作用切换活动 sheet
+            try:
+                sheet_obj = draw_model.Sheet(str(sn))
+            except Exception:
+                sheet_obj = None
+            if sheet_obj is None:
+                # 降级: ActivateSheet 后再取 CurrentSheet
+                try:
+                    draw_model.ActivateSheet(str(sn))
+                    sheet_obj = draw_model.GetCurrentSheet()
+                except Exception:
+                    sheet_obj = None
+            if sheet_obj is None:
+                continue
+            try:
+                raw = sheet_obj.GetViews()
+            except Exception:
+                raw = None
+            if not raw:
+                continue
+            try:
+                for v in raw:
+                    if v is None:
+                        continue
+                    try:
+                        vt = int(getattr(v, "Type", 0) or 0)
+                    except Exception:
+                        vt = 0
+                    if vt == _SW_DRAWING_SHEET_VIEW_TYPE:
+                        continue
+                    if v not in views:
+                        views.append(v)
+            except Exception:
+                continue
+        if views:
+            _dbg(
+                f"iter_views: 路径2(GetSheetNames+Sheet.GetViews) 累计 {len(views)} 个模型视图, "
+                f"sheet_count={len(sheet_names)}",
+                summary=True,
+            )
+            return views
+
+    if views:
+        return views
+
+    # --- 路径 3: 兜底走 GetFirstView 两层链 ---
     sheet_count = 0
     raw_view_count = 0
     try:
         top = draw_model.GetFirstView()
     except Exception as exc:
-        _dbg(f"iter_views: draw_model.GetFirstView 抛异常 {type(exc).__name__}:{exc}", summary=True)
+        _dbg(
+            f"iter_views: 路径3 draw_model.GetFirstView 抛异常 {type(exc).__name__}:{exc}",
+            summary=True,
+        )
         return views
     if top is None:
-        _dbg("iter_views: draw_model.GetFirstView 返回 None(工程图为空?)", summary=True)
+        _dbg("iter_views: 路径3 draw_model.GetFirstView 返回 None(工程图为空?)", summary=True)
         return views
 
     while top is not None:
@@ -745,12 +832,11 @@ def _iter_model_views(draw_model: object) -> list:
             top_name = "<no-name>"
 
         if top_type == _SW_DRAWING_SHEET_VIEW_TYPE:
-            # 遇到图纸页视图: 下沉一层，遍历该 sheet 下的所有模型视图。
             sheet_count += 1
             try:
                 child = top.GetNextView()
             except Exception as exc:
-                _dbg(f"iter_views: sheet={top_name} 下沉 GetNextView 抛异常 {type(exc).__name__}:{exc}")
+                _dbg(f"iter_views: 路径3 sheet={top_name} 下沉 GetNextView 抛异常 {type(exc).__name__}:{exc}")
                 child = None
             child_in_sheet = 0
             while child is not None:
@@ -759,7 +845,6 @@ def _iter_model_views(draw_model: object) -> list:
                 except Exception:
                     child_type = 0
                 if child_type == _SW_DRAWING_SHEET_VIEW_TYPE:
-                    # 已经跳到下一个 sheet 页，回到外层循环处理
                     break
                 views.append(child)
                 child_in_sheet += 1
@@ -767,71 +852,17 @@ def _iter_model_views(draw_model: object) -> list:
                     child = child.GetNextView()
                 except Exception:
                     break
-            _dbg(f"iter_views: sheet={top_name} 收集到 {child_in_sheet} 个模型视图")
-            # 外层 sheet 循环下一次 iteration: 用 sheet 自己再 GetNextView()
-            # 但上面 child while 已经消费了子链，这里我们改成通过 sheet 数量收敛。
-            # SW 中同级 sheet 之间的 GetNextView 关系不稳定，稳妥做法是遍历
-            # GetSheetNames + GetSheet 逐个取 sheet 视图，但绝大多数模板只有 Sheet1，
-            # 因此这里直接跳出：多 sheet 场景交给下面的兜底逻辑。
+            _dbg(f"iter_views: 路径3 sheet={top_name} 收集到 {child_in_sheet} 个模型视图")
             break
         else:
-            # 顶层就是模型视图(极简模板)
             views.append(top)
             try:
                 top = top.GetNextView()
             except Exception:
                 break
 
-    # 多 Sheet 兜底：如果工程图确实有多个 sheet，用 GetSheetNames 逐个激活并再拿一次
-    if sheet_count >= 1:
-        try:
-            sheet_names = draw_model.GetSheetNames()
-        except Exception:
-            sheet_names = None
-        if sheet_names and len(sheet_names) > 1:
-            _dbg(f"iter_views: 检测到 {len(sheet_names)} 个 sheet, 逐个下沉补收集")
-            # 记录当前活动 sheet，遍历完切回去
-            try:
-                cur_sheet = draw_model.GetCurrentSheet()
-                cur_name = str(cur_sheet.GetName()) if cur_sheet is not None else ""
-            except Exception:
-                cur_name = ""
-            for sn in sheet_names:
-                try:
-                    draw_model.ActivateSheet(str(sn))
-                except Exception:
-                    continue
-                try:
-                    top2 = draw_model.GetFirstView()
-                except Exception:
-                    top2 = None
-                if top2 is None:
-                    continue
-                try:
-                    child = top2.GetNextView()
-                except Exception:
-                    child = None
-                while child is not None:
-                    try:
-                        ct = int(getattr(child, "Type", 0) or 0)
-                    except Exception:
-                        ct = 0
-                    if ct == _SW_DRAWING_SHEET_VIEW_TYPE:
-                        break
-                    if child not in views:
-                        views.append(child)
-                    try:
-                        child = child.GetNextView()
-                    except Exception:
-                        break
-            if cur_name:
-                try:
-                    draw_model.ActivateSheet(cur_name)
-                except Exception:
-                    pass
-
     _dbg(
-        f"iter_views: 汇总 sheet_count={sheet_count} raw_top_view_count={raw_view_count} "
+        f"iter_views: 路径3汇总 sheet_count={sheet_count} raw_top_view_count={raw_view_count} "
         f"model_view_count={len(views)}",
         summary=True,
     )
