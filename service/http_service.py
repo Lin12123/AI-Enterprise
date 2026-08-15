@@ -150,6 +150,7 @@ class AiSwRequestHandler(BaseHTTPRequestHandler):
             "/api/sessions/create": _handle_session_create,
             "/api/sessions/append": _handle_session_append,
             "/api/sessions/status": _handle_session_status,
+            "/api/upload_to_cloud": _handle_upload_to_cloud,
         }
         handler = handlers.get(route)
         if handler is None:
@@ -440,6 +441,7 @@ def _handle_create_drawing(payload: dict) -> dict:
     material = str(payload.get("material", "")).strip() or None
     feature = str(payload.get("feature", "")).strip() or None
     force_refresh = bool(payload.get("force_refresh", False))
+    session_id = str(payload.get("session_id", "")).strip()
 
     # 取规则(带 TTL 缓存，云平台不可达时用旧缓存兜底，不阻断出图)
     from service.knowledge_cache import get_cache
@@ -469,6 +471,23 @@ def _handle_create_drawing(payload: dict) -> dict:
             "age": meta.get("age", -1),
             "rules": rules,
         }
+        result["session_id"] = session_id
+        # 出图成功且带会话时，把本次产物(3D 零件 + 2D 工程图)磁盘路径记入会话，
+        # 供后续"上传云平台"读取。路径由出图函数返回(part_path/drawing_path)。
+        if result.get("ok") and session_id:
+            outputs = []
+            part_path = result.get("part_path")
+            drawing_path = result.get("drawing_path")
+            if part_path:
+                outputs.append({"file_type": "part", "path": part_path})
+            if drawing_path:
+                outputs.append({"file_type": "drawing", "path": drawing_path})
+            if outputs:
+                try:
+                    from service.session_store import get_session_store
+                    get_session_store().set_context(session_id, "last_outputs", outputs)
+                except Exception:
+                    pass  # 记录会话产物失败不影响出图本身
     return result
 
 
@@ -546,6 +565,46 @@ def _handle_session_status(payload: dict) -> dict:
     if not ok:
         return {"ok": False, "error": f"会话不存在: {session_id}"}
     return {"ok": True}
+
+
+def _handle_upload_to_cloud(payload: dict) -> dict:
+    """把本次会话生成的 3D/2D 产物上传到云平台的项目图纸管理模块。
+
+    请求体: {"session_id": "...",
+             // 可选：直接指定要上传的文件；不传则从会话 last_outputs 读取
+             "files": [{"file_type": "part"|"drawing", "path": "..."}]}
+    返回:   {"ok": bool, "task_id": int|None, "uploaded": int, "total": int,
+             "items": [...], "message": str}
+
+    产物路径来源: 出图成功时 _handle_create_drawing 已把本次 3D 零件与 2D 工程图
+    路径写入会话 context 的 last_outputs。上传时按 session_id(作为 task_uid)
+    在云平台聚合到同一任务，实现"按会话管理项目图纸"。
+    纯 urllib multipart 上传，无第三方依赖，符合内网离线约束。
+    """
+    session_id = str(payload.get("session_id", "")).strip()
+    if not session_id:
+        return {"ok": False, "message": "缺少 session_id 字段"}
+
+    files = payload.get("files")
+    title = None
+    part_name = None
+    material = None
+
+    from service.session_store import get_session_store
+    session = get_session_store().load(session_id)
+    if session is None:
+        return {"ok": False, "message": f"会话不存在: {session_id}"}
+    ctx = session.get("context", {}) or {}
+    if not files:
+        files = ctx.get("last_outputs") or []
+    if not files:
+        return {"ok": False, "message": "本次会话没有可上传的产物，请先成功生成 2D 图纸"}
+    title = session.get("title") or None
+
+    from service.cloud_upload import upload_session_outputs
+    return upload_session_outputs(
+        session_id, files, title=title, part_name=part_name, material=material
+    )
 
 
 def _execution_result_to_dict(result) -> dict:

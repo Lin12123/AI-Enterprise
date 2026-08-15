@@ -101,15 +101,18 @@ def create_drawing_from_active_part(app: object, rules: list | None = None) -> d
     except Exception as exc:
         annotation_note = f"(尺寸/公差标注降级: {exc})"
 
-    # 3.2) 写入【技术要求】文本框(未注公差三档 + 表面粗糙度 + 通用工艺要求)。
-    #      纯文本注释，失败不阻断出图。
+    # 3.2) 写入【技术要求】文本框。若模板/图框已自带技术要求，则不再重复写入，
+    #      避免图纸上出现两处技术要求。纯文本注释，失败不阻断出图。
     tech_note = ""
     try:
-        tech_text = _build_tech_requirements_text(rules or [])
-        if _insert_tech_requirements_note(draw_model, tech_text):
-            tech_note = "，已写入技术要求文本框"
+        if _drawing_has_tech_requirements(draw_model):
+            tech_note = "，模板已含技术要求，跳过重复写入"
         else:
-            tech_note = "(技术要求文本框写入未成功，可手动补充)"
+            tech_text = _build_tech_requirements_text(rules or [])
+            if _insert_tech_requirements_note(draw_model, tech_text):
+                tech_note = "，已写入技术要求文本框"
+            else:
+                tech_note = "(技术要求文本框写入未成功，可手动补充)"
     except Exception as exc:
         tech_note = f"(技术要求写入降级: {exc})"
 
@@ -127,6 +130,9 @@ def create_drawing_from_active_part(app: object, rules: list | None = None) -> d
         "status": "executed",
         "message": f"已生成三视图工程图: {out_path}{paper_note}{annotation_note}{tech_note}",
         "outputs": [out_path],
+        # 供"上传云平台"使用: 本次出图关联的 3D 零件与 2D 工程图磁盘路径
+        "part_path": part_path,
+        "drawing_path": out_path,
     }
 
 
@@ -276,24 +282,75 @@ _PAPER_BY_MAX_EDGE_MM = (
 )
 
 
-def _get_part_bounding_box_max_edge_mm(part_model: object) -> float:
-    """取零件包围盒最长边(mm)，用于按零件大小选图幅。取不到返回 0。
-
-    GetBox(0) 返回 6 元组(xmin,ymin,zmin,xmax,ymax,zmax)，单位为米(SolidWorks 内部)，
-    换算成 mm 后取三个方向跨度的最大值。任何异常都返回 0，由上层兜底用 A3。
-    """
-    try:
-        ext = part_model.Extension
-        box = ext.GetBox(0)
-    except Exception:
-        try:
-            box = part_model.GetBox(0)
-        except Exception:
-            return 0.0
+def _valid_box6(box: object) -> tuple:
+    """把任意来源的包围盒结果规整成 6 元组(米)。无效或退化盒返回 None。"""
+    if box is None:
+        return None
     try:
         xmin, ymin, zmin, xmax, ymax, zmax = (float(v) for v in box[:6])
     except Exception:
+        return None
+    if abs(xmax - xmin) + abs(ymax - ymin) + abs(zmax - zmin) <= 0.0:
+        return None
+    return (xmin, ymin, zmin, xmax, ymax, zmax)
+
+
+def _read_part_box6(part_model: object) -> tuple:
+    """多重兜底取零件包围盒 6 元组(xmin..zmax, 单位米)。全部失败返回 None。
+
+    真机上 IModelDoc2 / ModelDocExtension 并无可靠的 GetBox；正确来源是
+    IPartDoc.GetPartBox(True) 或遍历实体的 IBody2.GetBodyBox()。按可靠性依次尝试，
+    并兼容离线单测里 Extension.GetBox(0) 的 mock 写法。
+    """
+    # 1) IPartDoc.GetPartBox(bUseUserView): 零件文档最直接的整体包围盒
+    try:
+        box = _valid_box6(part_model.GetPartBox(True))
+        if box is not None:
+            return box
+    except Exception:
+        pass
+    # 2) 遍历实体 GetBodyBox 求并集(适配多实体与程序化建模)
+    try:
+        bodies = part_model.GetBodies2(0, True)
+    except Exception:
+        bodies = None
+    if bodies:
+        acc = [None, None, None, None, None, None]
+        for body in bodies:
+            try:
+                bb = _valid_box6(body.GetBodyBox())
+            except Exception:
+                bb = None
+            if bb is None:
+                continue
+            for i in range(3):
+                acc[i] = bb[i] if acc[i] is None else min(acc[i], bb[i])
+            for i in range(3, 6):
+                acc[i] = bb[i] if acc[i] is None else max(acc[i], bb[i])
+        if acc[0] is not None:
+            return tuple(acc)
+    # 3) 兼容旧接口/离线 mock: Extension.GetBox(0) 与 GetBox(0)
+    try:
+        box = _valid_box6(part_model.Extension.GetBox(0))
+        if box is not None:
+            return box
+    except Exception:
+        pass
+    try:
+        box = _valid_box6(part_model.GetBox(0))
+        if box is not None:
+            return box
+    except Exception:
+        pass
+    return None
+
+
+def _get_part_bounding_box_max_edge_mm(part_model: object) -> float:
+    """取零件包围盒最长边(mm)，用于按零件大小选图幅。取不到返回 0(上层用 A3 兜底)。"""
+    box = _read_part_box6(part_model)
+    if box is None:
         return 0.0
+    xmin, ymin, zmin, xmax, ymax, zmax = box
     dx = abs(xmax - xmin) * 1000.0
     dy = abs(ymax - ymin) * 1000.0
     dz = abs(zmax - zmin) * 1000.0
@@ -301,22 +358,11 @@ def _get_part_bounding_box_max_edge_mm(part_model: object) -> float:
 
 
 def _get_part_bbox_dims_mm(part_model: object) -> tuple:
-    """取零件包围盒三个方向跨度(长/宽/高, mm)，从大到小排序返回 (L, W, H)。
-
-    用于在模型尺寸导入不足时兜底标注总体尺寸。取不到返回 (0,0,0)。
-    """
-    try:
-        ext = part_model.Extension
-        box = ext.GetBox(0)
-    except Exception:
-        try:
-            box = part_model.GetBox(0)
-        except Exception:
-            return (0.0, 0.0, 0.0)
-    try:
-        xmin, ymin, zmin, xmax, ymax, zmax = (float(v) for v in box[:6])
-    except Exception:
+    """取零件包围盒三向跨度(长/宽/高, mm)，从大到小排序返回 (L, W, H)。取不到返回 (0,0,0)。"""
+    box = _read_part_box6(part_model)
+    if box is None:
         return (0.0, 0.0, 0.0)
+    xmin, ymin, zmin, xmax, ymax, zmax = box
     dims = sorted(
         [abs(xmax - xmin) * 1000.0, abs(ymax - ymin) * 1000.0, abs(zmax - zmin) * 1000.0],
         reverse=True,
@@ -624,12 +670,19 @@ def _apply_dimensions_and_tolerance(app: object, draw_model: object, rules: list
         pass
 
     # 无论文档层调用是否成功，都再逐视图补一次(某些版本文档层不生效)，
-    # 保证程序化建模的"未标记"尺寸也能被导入。
+    # 保证程序化建模的"未标记"尺寸也能被导入。逐视图导入前必须先激活该视图，
+    # 否则 InsertModelAnnotations3 会作用在错误的视图上导致一条也导不进来。
     try:
         view = draw_model.GetFirstView()
         # 首视图通常是图纸页，从其下一个视图开始
         view = view.GetNextView() if view is not None else None
         while view is not None:
+            try:
+                name = str(view.GetName2())
+                if name:
+                    draw_model.ActivateView(name)
+            except Exception:
+                pass
             try:
                 view.InsertModelAnnotations3(0, _SW_INSERT_ALL_DIMENSIONS, False, False, False, False)
             except Exception:
@@ -740,6 +793,45 @@ def _insert_bbox_fallback_note(draw_model: object, part_model: object) -> str:
         pass
     l, w, h = _get_part_bbox_dims_mm(part_model)
     return f"总长{_fmt_mm(l)}×总宽{_fmt_mm(w)}×总高{_fmt_mm(h)}mm"
+
+
+def _drawing_has_tech_requirements(draw_model: object) -> bool:
+    """检测图纸(含模板/图框)是否已存在【技术要求】注释，存在返回 True。
+
+    遍历所有视图(含图纸页视图)的 Note 注释，任一注释文本含"技术要求"即判定已有，
+    避免在自带技术要求的企业模板上重复写入。任何异常都保守返回 False(不阻断写入)。
+    """
+    keys = ("技术要求", "技術要求", "TECHNICAL REQUIREMENT", "TECHNICAL REQUIREMENTS")
+
+    def _text_hit(txt: object) -> bool:
+        try:
+            s = str(txt or "")
+        except Exception:
+            return False
+        up = s.upper()
+        return any(k in s or k in up for k in keys)
+
+    try:
+        view = draw_model.GetFirstView()
+    except Exception:
+        return False
+    while view is not None:
+        try:
+            notes = view.GetNotes()
+        except Exception:
+            notes = None
+        if notes:
+            for note in notes:
+                try:
+                    if _text_hit(note.GetText()):
+                        return True
+                except Exception:
+                    continue
+        try:
+            view = view.GetNextView()
+        except Exception:
+            break
+    return False
 
 
 def _insert_tech_requirements_note(draw_model: object, text: str) -> bool:

@@ -72,3 +72,47 @@ def create_task(body: TaskIn):
         return fail(f"上报失败: {exc}")
     finally:
         conn.close()
+
+
+@router.post("/upsert")
+def upsert_task(body: TaskIn):
+    """按 task_uid 幂等建任务：存在则更新非空字段并返回其 id，不存在则新建。
+
+    供本地服务"上传云平台"使用：本地用会话 id(session_id)作为 task_uid，
+    多次上传同一会话产物时能拿到同一个稳定的 task_id 用于文件归集，
+    避免 task_uid UNIQUE 约束在重复上传时报错。
+    """
+    if not body.task_uid:
+        return fail("缺少 task_uid")
+    payload = json.dumps(body.payload_json, ensure_ascii=False) if body.payload_json else None
+    conn = db.get_conn()
+    try:
+        row = conn.execute(
+            "SELECT id FROM task WHERE task_uid = ?", (body.task_uid,)
+        ).fetchone()
+        if row:
+            tid = row["id"]
+            # 只覆盖本次显式带来的非空字段，避免把已有值清空
+            conn.execute(
+                "UPDATE task SET"
+                " title = COALESCE(?, title),"
+                " part_name = COALESCE(?, part_name),"
+                " material = COALESCE(?, material),"
+                " status = COALESCE(?, status),"
+                " payload_json = COALESCE(?, payload_json)"
+                " WHERE id = ?",
+                (body.title, body.part_name, body.material, body.status, payload, tid),
+            )
+            conn.commit()
+            return ok({"id": tid, "created": False}, "已存在，已更新")
+        cur = conn.execute(
+            "INSERT INTO task(task_uid, title, part_name, material, status, payload_json)"
+            " VALUES(?,?,?,?,?,?)",
+            (body.task_uid, body.title, body.part_name, body.material, body.status, payload),
+        )
+        conn.commit()
+        return ok({"id": cur.lastrowid, "created": True}, "已创建")
+    except Exception as exc:
+        return fail(f"upsert 失败: {exc}")
+    finally:
+        conn.close()
