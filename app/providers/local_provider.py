@@ -90,6 +90,9 @@ def _debug_dump_local_provider_json(filename: str, payload) -> None:
 
 
 _CLAMP_SAFETY_MARGIN_MM = 0.5  # 与 policy_engine._EDGE_SAFETY_MARGIN_MM 保持一致的材料余量
+# Policy 用 `abs(x)+radius >= half-margin` 严格判越界，边界值会被判死；钳制结果需再内缩
+# 一个极小 epsilon，保证 abs(x)+radius < half-margin（严格小于），才能通过 Policy 校验。
+_CLAMP_BOUNDARY_EPSILON_MM = 0.01
 
 
 def _plan_base_size(data: dict) -> tuple[float, float] | None:
@@ -186,22 +189,26 @@ def _clamp_inferred_out_of_bounds_holes(data: dict) -> dict:
             continue
 
         radius = diameter / 2
-        x_limit = half_length - _CLAMP_SAFETY_MARGIN_MM - radius
-        y_limit = half_width - _CLAMP_SAFETY_MARGIN_MM - radius
+        # Policy 用 `abs(x)+radius >= half-margin` 严格判越界，故钳制目标必须严格小于
+        # 该边界，多减一个 epsilon，避免钳到边界值仍被 Policy 判死。
+        x_limit = half_length - _CLAMP_SAFETY_MARGIN_MM - radius - _CLAMP_BOUNDARY_EPSILON_MM
+        y_limit = half_width - _CLAMP_SAFETY_MARGIN_MM - radius - _CLAMP_BOUNDARY_EPSILON_MM
         if x_limit <= 0 or y_limit <= 0:
             # 孔太大，底板放不下，几何无解，交由 Policy 拒绝 / 用户确认。
             continue
 
-        out_of_bounds = (
-            abs(x) + radius >= half_length - _CLAMP_SAFETY_MARGIN_MM
-            or abs(y) + radius >= half_width - _CLAMP_SAFETY_MARGIN_MM
-        )
-        if not out_of_bounds:
+        x_out = abs(x) + radius >= half_length - _CLAMP_SAFETY_MARGIN_MM
+        y_out = abs(y) + radius >= half_width - _CLAMP_SAFETY_MARGIN_MM
+        if not (x_out or y_out):
             continue
 
-        # 保留象限：坐标为 0 时留在中心轴，否则钳到同侧的合法极限内侧。
-        new_x = 0.0 if x == 0 else (x_limit if x > 0 else -x_limit)
-        new_y = 0.0 if y == 0 else (y_limit if y > 0 else -y_limit)
+        # 仅钳越界的那一轴，未越界的坐标保持原值（避免把合法坐标一起挤动）。
+        new_x = x
+        new_y = y
+        if x_out:
+            new_x = 0.0 if x == 0 else (x_limit if x > 0 else -x_limit)
+        if y_out:
+            new_y = 0.0 if y == 0 else (y_limit if y > 0 else -y_limit)
         params["center"] = [round(new_x, 3), round(new_y, 3)]
 
         # 钳制后的坐标是确定性几何修正，标记为 inferred。
