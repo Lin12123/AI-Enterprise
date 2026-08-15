@@ -22,16 +22,29 @@ async function loadStandards() {
   }
 }
 
+// 分类匹配：优先用后端 category 字段，缺省时用 standard_type 兜底匹配。
+// 企业/标准件优先判定，剩余（含国标/行业/空）归入 industry，避免记录“无处可去”。
+function matchCategory(s, key) {
+  const cat = s.category || s.standard_type || ''
+  if (/标准件|parts/i.test(cat)) return key === 'parts'
+  if (/企标|企业|enterprise/i.test(cat)) return key === 'enterprise'
+  return key === 'industry'
+}
+
+// 各分类数量（受搜索关键字影响，不受状态筛选影响，便于总览每类有多少）
+const catCounts = computed(() => {
+  const map = { industry: 0, enterprise: 0, parts: 0 }
+  standards.value.forEach((s) => {
+    if (matchCategory(s, 'industry')) map.industry += 1
+    else if (matchCategory(s, 'enterprise')) map.enterprise += 1
+    else if (matchCategory(s, 'parts')) map.parts += 1
+  })
+  return map
+})
+
 const filtered = computed(() =>
   standards.value.filter((s) => {
-    // 按分类：优先用后端 category 字段，缺省时用 standard_type 兜底匹配
-    const cat = s.category || s.standard_type || ''
-    const matchCat =
-      activeCat.value === 'industry'
-        ? !cat || /国标|行业|GB|ISO|industry/i.test(cat)
-        : activeCat.value === 'enterprise'
-          ? /企标|企业|enterprise/i.test(cat)
-          : /标准件|parts/i.test(cat)
+    const matchCat = matchCategory(s, activeCat.value)
     const matchStatus =
       statusFilter.value === 'all' || s.status === statusFilter.value
     return matchCat && matchStatus
@@ -107,7 +120,10 @@ onMounted(loadStandards)
           :class="{ active: activeCat === c.key }"
           @click="activeCat = c.key"
         >
-          <div class="cat-label">{{ c.label }}</div>
+          <div class="cat-label">
+            {{ c.label }}
+            <span class="cat-count">{{ catCounts[c.key] }}</span>
+          </div>
           <div class="cat-desc">{{ c.desc }}</div>
         </div>
       </div>
@@ -202,5 +218,11 @@ onMounted(loadStandards)
 .cat-tab:hover { border-color: #c7d2fe; }
 .cat-tab.active { border-color: #6366f1; background: #eef2ff; }
 .cat-label { font-size: 15px; font-weight: 600; color: #1e293b; }
+.cat-count {
+  display: inline-block; min-width: 18px; padding: 0 6px; margin-left: 6px;
+  font-size: 12px; line-height: 18px; text-align: center; color: #6366f1;
+  background: #eef2ff; border-radius: 9px; vertical-align: middle;
+}
+.cat-tab.active .cat-count { color: #fff; background: #6366f1; }
 .cat-desc { font-size: 12px; color: #94a3b8; margin-top: 4px; }
 </style>
