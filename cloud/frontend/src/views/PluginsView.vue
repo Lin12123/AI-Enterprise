@@ -143,8 +143,7 @@ onMounted(load)
 .plg-detail { flex: 1; min-width: 0; }
 .metric-card {
   text-align: center;
-  height: 100%;
-  min-height: 108px;
+  height: 108px;          /* 固定高度，指标卡强制等高 */
   box-sizing: border-box;
   display: flex;
   flex-direction: column;

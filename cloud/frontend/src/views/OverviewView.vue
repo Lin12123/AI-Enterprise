@@ -26,7 +26,7 @@ onMounted(load)
     </div>
 
     <!-- 统计卡片 -->
-    <div class="tf-grid tf-grid-4">
+    <div class="tf-grid tf-grid-4 stat-grid">
       <div v-for="s in stats" :key="s.key" class="tf-card stat-card">
         <div class="stat-bar" :style="{ background: s.color }"></div>
         <div class="stat-label">{{ s.label }}</div>
@@ -74,11 +74,13 @@ onMounted(load)
 </template>
 
 <style scoped>
+.stat-grid {
+  align-items: stretch;
+}
 .stat-card {
   position: relative;
   overflow: hidden;
-  height: 100%;
-  min-height: 118px;
+  height: 118px;          /* 固定高度，四张卡强制等高 */
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
