@@ -14,6 +14,13 @@ from policy.file_safety_rules import validate_no_dangerous_fields, validate_outp
 from policy.geometry_rules import validate_feature_geometry
 
 
+# 圆孔外缘与底板边界之间必须保留的最小材料余量(mm)。
+# 当孔缘与底板边界相切(|coord|+radius == half)时，SOLIDWORKS FeatureCut3
+# 会因退化/共边几何切除失败并返回 None(表现为 create_through_hole ... API returned None)。
+# 因此边界校验必须比"严格超出"更保守：要求孔缘距边界至少留出该余量。
+_EDGE_SAFETY_MARGIN_MM = 0.5
+
+
 @dataclass(frozen=True)
 class PolicyViolation:
     code: str
@@ -226,7 +233,12 @@ def _validate_circular_center_inside_base(
     half_length = base_size[0] / 2
     half_width = base_size[1] / 2
     radius = diameter / 2
-    if abs(x) + radius > half_length or abs(y) + radius > half_width:
+    # 使用 >= 并预留安全余量：孔缘与底板边界相切(|coord|+radius == half)时
+    # SOLIDWORKS 会切除失败返回 None，因此相切或几乎相切都必须拦下要求 re-recommend。
+    if (
+        abs(x) + radius >= half_length - _EDGE_SAFETY_MARGIN_MM
+        or abs(y) + radius >= half_width - _EDGE_SAFETY_MARGIN_MM
+    ):
         errors.append(_boundary_message(operation_type, operation_id, "center", inferred_parameters, explicit_parameters))
 
 
