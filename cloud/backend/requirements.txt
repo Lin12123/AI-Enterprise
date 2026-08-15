@@ -6,3 +6,5 @@ python-multipart>=0.0.9
 openpyxl>=3.1
 python-docx>=1.1
 pdfplumber>=0.11
+# 文档规则抽取调用本地 Ollama，仅用标准库 urllib，无需额外依赖
+# 图片 OCR 暂缓，后续如启用可考虑 pytesseract/paddleocr（当前不引入）

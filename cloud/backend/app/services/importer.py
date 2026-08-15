@@ -64,10 +64,24 @@ def parse_xlsx(abs_path: str) -> list[dict[str, Any]]:
     return out
 
 
-def parse_document_stub(fmt: str) -> list[dict[str, Any]]:
-    """Word/PDF/图片：抽取草稿。阶段一留占位，后续接 python-docx/pdfplumber/OCR + 可选 LLM。"""
-    # TODO(K2): 接入 python-docx / pdfplumber / OCR，产出 status='draft' 待人工确认
-    return []
+def parse_document(fmt: str, abs_path: str) -> list[dict[str, Any]]:
+    """Word/PDF：抽取正文文本 → 本地 LLM 理解 → 产出 status='draft' 规则草稿。
+
+    图片(png/jpg)本轮暂缓 OCR，返回空列表(仅存原文附件、待人工补录)。
+    LLM 不可达或抽取失败时同样返回空列表，交由路由层降级提示。
+    """
+    from . import doc_extractor, rule_extractor  # 延迟导入，避免未装依赖影响其它端点
+
+    if not doc_extractor.is_text_extractable(fmt):
+        # 图片等：暂不支持自动抽取
+        return []
+    try:
+        text = doc_extractor.extract_text(fmt, abs_path)
+    except doc_extractor.DocExtractError:
+        return []
+    if not text:
+        return []
+    return rule_extractor.extract_rules_from_text(text)
 
 
 def dispatch(fmt: str, abs_path: str, content: bytes) -> tuple[list[dict[str, Any]], bool]:
@@ -78,5 +92,6 @@ def dispatch(fmt: str, abs_path: str, content: bytes) -> tuple[list[dict[str, An
     if fmt in ("xlsx", "xls"):
         return parse_xlsx(abs_path), True
     if fmt in ("docx", "pdf", "png", "jpg", "jpeg"):
-        return parse_document_stub(fmt), False
+        # 文档/图片：LLM 抽取草稿，低置信，需人工确认后发布
+        return parse_document(fmt, abs_path), False
     return [], False

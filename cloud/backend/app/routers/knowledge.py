@@ -60,7 +60,7 @@ async def import_knowledge(
     version: str = Form(""),
     source: str = Form("import"),
 ):
-    """导入知识文件。Excel/JSON 高置信直接 published；文档类留草稿(阶段一返回0条)。"""
+    """导入知识文件。Excel/JSON 高置信直接 published；Word/PDF 走本地 LLM 抽取产草稿(draft)待人工确认；图片暂不抽取。"""
     ext = os.path.splitext(file.filename or "")[1].lstrip(".").lower()
     content = await file.read()
 
@@ -111,7 +111,12 @@ async def import_knowledge(
             )
             inserted += 1
         conn.commit()
-        msg = "导入完成" if high_conf else "已受理，文档类需人工确认(阶段一暂未抽取)"
+        if high_conf:
+            msg = "导入完成"
+        elif inserted > 0:
+            msg = f"已自动抽取 {inserted} 条草稿规则，请人工确认后发布"
+        else:
+            msg = "已受理并留存原文，未能自动抽取规则(可能是图片或模型不可达)，请人工补录"
         return ok({"standard_id": standard_id, "inserted": inserted, "high_conf": high_conf}, msg)
     except Exception as exc:
         return fail(f"入库失败: {exc}")
