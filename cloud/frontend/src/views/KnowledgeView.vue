@@ -87,7 +87,7 @@ const versionOptions = [defaultVersion]
 const sourceOptions = ['PDF', 'Word', 'Excel', 'JSON', '图片']
 
 // 规则导入模板：与后端 importer.parse_json 期望结构一致（高置信直接发布）。
-// PDF/Word 目前只归档溯源、不自动抽取规则；供出图调用的规则请用此 JSON（或同列名 Excel）导入。
+// PDF/Word 上传后由本地 LLM 后台自动抽取为草稿规则(draft)，待人工确认后发布；图片暂只归档溯源。也可直接用此 JSON（或同列名 Excel）导入。
 const ruleTemplate = {
   rules: [
     {
@@ -132,14 +132,47 @@ async function doImport() {
   importing.value = true
   try {
     const res = await knowledgeApi.import(fd)
-    ElMessage.success(`导入成功，入库规则 ${res.inserted ?? 0} 条`)
-    dialogVisible.value = false
+    if (res.async && res.attachment_id) {
+      // 文档类:后台异步抽取，轮询进度
+      dialogVisible.value = false
+      ElMessage.success('文件已上传，正在后台抽取规则…')
+      pollExtractStatus(res.attachment_id)
+    } else {
+      ElMessage.success(`导入成功，入库规则 ${res.inserted ?? 0} 条`)
+      dialogVisible.value = false
+    }
     await loadStandards()
   } catch (e) {
     ElMessage.error(e.message)
   } finally {
     importing.value = false
   }
+}
+
+// 轮询后台抽取进度(最多约 10 分钟)
+function pollExtractStatus(attachmentId) {
+  let ticks = 0
+  const maxTicks = 200 // 200 * 3s ≈ 10min
+  const timer = setInterval(async () => {
+    ticks += 1
+    try {
+      const st = await knowledgeApi.importStatus(attachmentId)
+      if (st.status === 'done') {
+        clearInterval(timer)
+        ElMessage.success(st.message || `已抽取 ${st.inserted ?? 0} 条草稿规则`)
+        await loadStandards()
+      } else if (st.status === 'failed') {
+        clearInterval(timer)
+        ElMessage.error(st.message || '后台抽取失败，请人工补录')
+      }
+    } catch (e) {
+      // 单次查询失败忽略，继续轮询
+    }
+    if (ticks >= maxTicks) {
+      clearInterval(timer)
+      ElMessage.warning('后台抽取仍在进行，可稍后刷新查看草稿规则')
+    }
+  }, 3000)
 }
 
 onMounted(loadStandards)
@@ -260,8 +293,9 @@ onMounted(loadStandards)
         <el-form-item>
           <el-alert type="info" :closable="false" show-icon>
             <template #title>
-              文档类（PDF / Word / 图片）仅归档溯源，不会自动拆解成出图可调用的规则；
-              供 3D 转 2D 出图调用的规则，请用 <b>Excel / JSON</b> 导入（自动入库并发布）。
+              PDF / Word 上传后由本地大模型<b>后台自动抽取</b>为草稿规则(draft)，待人工确认后发布；图片暂只归档溯源。
+              大文件（如数百 MB）上传后即刻返回，抽取在后台进行，可稍后刷新查看；
+              也可直接用 <b>Excel / JSON</b> 导入（自动入库并发布）。
             </template>
           </el-alert>
           <el-button link type="primary" style="margin-top: 6px" @click="downloadTemplate">

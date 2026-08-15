@@ -97,17 +97,34 @@ CREATE TABLE IF NOT EXISTS file (
     FOREIGN KEY(task_id) REFERENCES task(id) ON DELETE SET NULL
 );
 
--- 导入附件溯源(原始上传文件)
+-- 导入附件溯源(原始上传文件) + 后台抽取任务状态
 CREATE TABLE IF NOT EXISTS import_attachment (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    standard_id INTEGER,
-    file_name   TEXT,
-    stored_path TEXT,
-    fmt         TEXT,
-    created_at  TEXT DEFAULT (datetime('now')),
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    standard_id     INTEGER,
+    file_name       TEXT,
+    stored_path     TEXT,
+    fmt             TEXT,
+    extract_status  TEXT DEFAULT 'done',
+    extract_message TEXT,
+    extract_count   INTEGER DEFAULT 0,
+    created_at      TEXT DEFAULT (datetime('now')),
     FOREIGN KEY(standard_id) REFERENCES standard(id) ON DELETE SET NULL
 );
 """
+
+# 已存在旧库的幂等列迁移：老表缺少抽取状态列时补齐
+_MIGRATIONS = [
+    ("import_attachment", "extract_status", "TEXT DEFAULT 'done'"),
+    ("import_attachment", "extract_message", "TEXT"),
+    ("import_attachment", "extract_count", "INTEGER DEFAULT 0"),
+]
+
+
+def _apply_migrations(conn: sqlite3.Connection) -> None:
+    for table, column, decl in _MIGRATIONS:
+        cols = {r["name"] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+        if column not in cols:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {decl}")
 
 
 def init_db() -> None:
@@ -118,6 +135,7 @@ def init_db() -> None:
     conn = get_conn()
     try:
         conn.executescript(_SCHEMA)
+        _apply_migrations(conn)
         conn.commit()
     finally:
         conn.close()

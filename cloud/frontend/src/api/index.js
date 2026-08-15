@@ -24,10 +24,16 @@ export const rulesApi = {
 // ---------- 知识库：导入/拉取 ----------
 export const knowledgeApi = {
   pull: (params) => get('/knowledge/pull', params),
-  import: (formData) =>
+  // 大文件上传:去掉超时限制(timeout:0)，只做落盘+登记，抽取转后台异步
+  import: (formData, onUploadProgress) =>
     http.post('/knowledge/import', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 0,
+      onUploadProgress,
     }),
+  // 轮询后台抽取进度
+  importStatus: (attachmentId) =>
+    get('/knowledge/import/status', { attachment_id: attachmentId }),
 }
 
 // ---------- 基础数据：材料 ----------
