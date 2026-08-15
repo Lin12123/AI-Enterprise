@@ -18,6 +18,14 @@ rem set "AI_SW_SERVICE_PORT=8765"启动服务 start_service.bat
 rem 可选：选择大模型 provider(local=本机 Ollama, rule_based=规则解析)
 rem set "AI_SW_LLM_PROVIDER=local"
 
+rem 本地 LLM 调试输出目录：开启后会把模型原始输出、被 Policy 拒的 featureplan、
+rem 以及每轮修复产物 dump 到该目录，便于定位生成失败(500)。排查完可注释掉本段。
+set "AI_SW_LOCAL_LLM_DEBUG_DIR=%~dp0..\workspace\logs\local_llm_debug"
+if not exist "%AI_SW_LOCAL_LLM_DEBUG_DIR%" (
+  mkdir "%AI_SW_LOCAL_LLM_DEBUG_DIR%"
+)
+echo 本地 LLM 调试输出目录: %AI_SW_LOCAL_LLM_DEBUG_DIR%
+
 echo 正在启动 AI-SW 本地服务...
 "%PYTHON%" service\http_service.py
 
