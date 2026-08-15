@@ -335,35 +335,92 @@ def _guess_drawing_template() -> str:
     return ""
 
 
-def _ensure_early_bind(obj: object) -> object:
-    """v029: 把 late-bind IDispatch COM 对象转成 gencache 早绑定包装。
+# SolidWorks Type Library GUID(SldWorks.tlb, 各版本共用同一 typelib GUID)。
+# 用于 gencache.EnsureModule 预生成早绑定模块, 再对 late-bind 对象 CastTo 到
+# 具体接口。lcid=0, major/minor 逐组尝试(2019=27.x, 2020=28.x, 2021=29.x ...)。
+_SW_TYPELIB_GUID = "{83A33D31-27C5-11CE-BFD4-00400513BB57}"
+_SW_TYPELIB_VERSIONS = (
+    (27, 0), (28, 0), (29, 0), (30, 0), (31, 0),
+    (26, 0), (25, 0), (24, 0), (23, 0), (22, 0),
+)
+# 早绑定模块只需生成/加载一次(进程内幂等)。
+_SW_EARLY_MODULE = None
+_SW_EARLY_MODULE_TRIED = False
 
-    根因(见 last_run.log): pywin32 在纯 late-bind(IDispatch.Invoke)下把
-    IDrawingDoc.GetSheetNames / GetFirstView 等**方法**误解析成属性, 返回一个
-    tuple, 代码再 `()` 调用就报 'tuple' object is not callable; GetCurrentSheet
-    / FirstFeature 直接 -2147352573 找不到成员。这些都是 IDispatch 动态派发对
-    带 typelib 的接口方法解析不了导致的。
 
-    gencache.EnsureDispatch 会依据对象的 typelib 生成/加载早绑定包装类, 之后
-    所有接口方法按 IDL 签名调用, 绕开 late-bind 白名单, 是根治手段。
+def _ensure_sw_early_module():
+    """v030: 从注册的 SolidWorks typelib 预生成早绑定模块(gencache.EnsureModule)。
 
-    任何失败(缺 pywin32 / 缺 typelib / 权限问题 / 客户机 gen_py 被杀软拦)都
-    静默回退到原对象, 绝不能让早绑定失败反而崩掉整个出图流程。
+    根因(见 last_run.log v029 复测): 直接 gencache.EnsureDispatch(draw) 报
+    'This COM object can not automate the makepy process' —— SolidWorks 的运行时
+    IDispatch 对象**不携带可自动解析的 typelib 引用**, EnsureDispatch 无法据此
+    反查 typelib, 所以早绑定从未生效, 仍走 late-bind 白名单坑。
+
+    正确做法: 用 typelib 的 GUID + 版本号显式 EnsureModule, 让 pywin32 从注册表
+    里注册的 SldWorks.tlb 生成早绑定包装模块; 拿到模块后才能用 CastTo 把 late-bind
+    对象转成具体接口(IDrawingDoc / IModelDoc2)。返回模块或 None(全失败)。
+    """
+    global _SW_EARLY_MODULE, _SW_EARLY_MODULE_TRIED
+    if _SW_EARLY_MODULE_TRIED:
+        return _SW_EARLY_MODULE
+    _SW_EARLY_MODULE_TRIED = True
+    try:
+        from win32com.client import gencache
+    except Exception:
+        _dbg("early_bind: 无 pywin32(单测), 跳过 EnsureModule", summary=True)
+        return None
+    for major, minor in _SW_TYPELIB_VERSIONS:
+        try:
+            mod = gencache.EnsureModule(_SW_TYPELIB_GUID, 0, major, minor)
+        except Exception:
+            continue
+        if mod is not None:
+            _SW_EARLY_MODULE = mod
+            _dbg(
+                f"early_bind: EnsureModule 成功 ver={major}.{minor}, 早绑定模块已生成",
+                summary=True,
+            )
+            return mod
+    _dbg("early_bind: EnsureModule 全版本失败, 回退 late-bind", summary=True)
+    return None
+
+
+def _ensure_early_bind(obj: object, iface: str = "IDrawingDoc") -> object:
+    """v030: 把 late-bind IDispatch COM 对象 CastTo 到具体早绑定接口。
+
+    根因(见 last_run.log): pywin32 纯 late-bind(IDispatch.Invoke)把
+    IDrawingDoc.GetSheetNames / GetFirstView 等**方法**误解析成属性(返回 tuple,
+    再 `()` 调用报 'tuple' object is not callable); GetCurrentSheet / FirstFeature
+    直接 -2147352573 找不到成员。都是 IDispatch 动态派发对带 typelib 的接口方法
+    解析不了导致的。
+
+    v029 用 EnsureDispatch(obj) 失败(SW 对象不带可解析 typelib)。v030 改为:
+      1) 先 _ensure_sw_early_module() 从 typelib GUID 预生成早绑定模块;
+      2) 再 win32com.client.CastTo(obj, iface) 按早绑定接口做显式类型转换。
+    转换后所有接口方法按 IDL 签名走 vtable/dispid, 绕开 late-bind 白名单。
+
+    任何失败(缺 pywin32 / typelib 未注册 / CastTo 不认识该接口)都静默回退原对象,
+    绝不能让早绑定失败反而崩掉整个出图流程。
     """
     if obj is None:
         return obj
     try:
         import win32com.client  # 单测无 pywin32 时直接走 except 回退
-        from win32com.client import gencache
     except Exception:
         return obj
+    mod = _ensure_sw_early_module()
+    if mod is None:
+        return obj
     try:
-        early = gencache.EnsureDispatch(obj)
+        early = win32com.client.CastTo(obj, iface)
         if early is not None:
-            _dbg("early_bind: gencache.EnsureDispatch 成功, 走早绑定接口", summary=True)
+            _dbg(f"early_bind: CastTo {iface} 成功, 走早绑定接口", summary=True)
             return early
     except Exception as exc:
-        _dbg(f"early_bind: EnsureDispatch 失败({type(exc).__name__}:{exc}), 回退 late-bind", summary=True)
+        _dbg(
+            f"early_bind: CastTo {iface} 失败({type(exc).__name__}:{exc}), 回退 late-bind",
+            summary=True,
+        )
     return obj
 
 
