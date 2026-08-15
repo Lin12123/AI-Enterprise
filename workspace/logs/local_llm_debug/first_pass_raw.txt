@@ -33,7 +33,6 @@
       "params": {
         "diameter": 20,
         "height": 15,
-        "host": "create_base_plate.001",
         "plane": "top_face"
       }
     },

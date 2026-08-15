@@ -1,2 +1,19 @@
-[04:01:59] hello
-[04:01:59] world
+[04:06:33] create_drawing: 入口
+[04:06:36] apply_dim: InsertModelAnnotations3 后计数 DisplayDimension=0
+[04:06:36] draw_self: EditRebuild3 抛异常 TypeError: 'bool' object is not callable
+[04:06:36] classify_views: 未找到任何正投影视图(ortho=0)
+[04:06:36] draw_self[top]: 视图缺失, 跳过
+[04:06:36] draw_self[front]: 视图缺失, 跳过
+[04:06:36] draw_self[right]: 视图缺失, 跳过
+[04:06:36] draw_self: 累计自绘 0 条
+[04:06:36] classify_views: 未找到任何正投影视图(ortho=0)
+[04:06:36] apply_dim: dim_count 汇总 = 模型导入0 + 自绘0 + 兜底0 合计=0
+[04:06:36] apply_dim: InsertModelAnnotations3 后计数 DisplayDimension=0
+[04:06:37] draw_self: EditRebuild3 抛异常 TypeError: 'bool' object is not callable
+[04:06:37] classify_views: 未找到任何正投影视图(ortho=0)
+[04:06:37] draw_self[top]: 视图缺失, 跳过
+[04:06:37] draw_self[front]: 视图缺失, 跳过
+[04:06:37] draw_self[right]: 视图缺失, 跳过
+[04:06:37] draw_self: 累计自绘 0 条
+[04:06:37] classify_views: 未找到任何正投影视图(ortho=0)
+[04:06:37] apply_dim: dim_count 汇总 = 模型导入0 + 自绘0 + 兜底0 合计=0

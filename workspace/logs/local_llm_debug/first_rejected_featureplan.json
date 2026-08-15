@@ -37,8 +37,8 @@
       "params": {
         "diameter": 20.0,
         "height": 15,
-        "host": "base",
-        "plane": "top_face"
+        "plane": "top_face",
+        "host": "base"
       }
     },
     {
