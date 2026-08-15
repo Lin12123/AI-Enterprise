@@ -5,20 +5,7 @@
   "part_name": "Installation_Plate",
   "metadata": {
     "explicit_parameters": [],
-    "inferred_parameters": [
-      "create_through_hole.003.params.center",
-      "create_through_hole.004.params.center",
-      "create_through_hole.005.params.center",
-      "create_through_hole.002.params.center",
-      "create_through_hole.002.params.diameter",
-      "create_through_hole.002.params.plane",
-      "create_through_hole.003.params.diameter",
-      "create_through_hole.003.params.plane",
-      "create_through_hole.004.params.diameter",
-      "create_through_hole.004.params.plane",
-      "create_through_hole.005.params.diameter",
-      "create_through_hole.005.params.plane"
-    ],
+    "inferred_parameters": [],
     "name": "Installation_Plate",
     "description": "",
     "source": "local"
@@ -47,8 +34,8 @@
       "params": {
         "plane": "top_face",
         "center": [
-          10.0,
-          10.0
+          0.0,
+          0.0
         ],
         "diameter": 10,
         "host": "base"
@@ -60,8 +47,8 @@
       "params": {
         "plane": "top_face",
         "center": [
-          10.0,
-          35.0
+          -54.5,
+          0.0
         ],
         "diameter": 10,
         "host": "base"
@@ -73,8 +60,8 @@
       "params": {
         "plane": "top_face",
         "center": [
-          55.0,
-          10.0
+          0.0,
+          -34.5
         ],
         "diameter": 10,
         "host": "base"
@@ -86,10 +73,33 @@
       "params": {
         "plane": "top_face",
         "center": [
-          55.0,
-          35.0
+          -54.5,
+          -34.5
         ],
         "diameter": 10,
+        "host": "base"
+      }
+    },
+    {
+      "id": "create_center_boss.006",
+      "op": "create_center_boss",
+      "params": {
+        "diameter": 20.0,
+        "height": 15,
+        "host": "base",
+        "plane": "top_face"
+      }
+    },
+    {
+      "id": "create_through_hole.007",
+      "op": "create_through_hole",
+      "params": {
+        "plane": "top_face",
+        "center": [
+          -49.5,
+          -29.5
+        ],
+        "diameter": 20,
         "host": "base"
       }
     }

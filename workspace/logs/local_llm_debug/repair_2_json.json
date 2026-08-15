@@ -6,11 +6,14 @@
   "metadata": {
     "explicit_parameters": [],
     "inferred_parameters": [
-      "create_through_hole.002.params.center",
       "create_through_hole.003.params.center",
       "create_through_hole.004.params.center",
-      "create_through_hole.005.params.center"
-    ]
+      "create_through_hole.005.params.center",
+      "create_through_hole.007.params.center"
+    ],
+    "name": "Installation_Plate",
+    "description": "",
+    "source": "local"
   },
   "operations": [
     {
@@ -36,8 +39,8 @@
       "params": {
         "plane": "top_face",
         "center": [
-          -50.0,
-          -35.0
+          0.0,
+          0.0
         ],
         "diameter": 10,
         "host": "base"
@@ -49,8 +52,8 @@
       "params": {
         "plane": "top_face",
         "center": [
-          -50.0,
-          35.0
+          -40.0,
+          0.0
         ],
         "diameter": 10,
         "host": "base"
@@ -62,8 +65,8 @@
       "params": {
         "plane": "top_face",
         "center": [
-          50.0,
-          -35.0
+          0.0,
+          -40.0
         ],
         "diameter": 10,
         "host": "base"
@@ -75,88 +78,33 @@
       "params": {
         "plane": "top_face",
         "center": [
-          50.0,
-          35.0
+          -40.0,
+          -40.0
         ],
         "diameter": 10,
         "host": "base"
       }
     },
     {
-      "id": "create_center_boss.001",
+      "id": "create_center_boss.006",
       "op": "create_center_boss",
       "params": {
-        "plane": "top_face",
-        "center": [
-          0.0,
-          0.0
-        ],
-        "diameter": 20,
-        "host": "base"
+        "diameter": 20.0,
+        "height": 15,
+        "host": "base",
+        "plane": "top_face"
       }
     },
     {
-      "id": "create_center_through_hole.001",
+      "id": "create_through_hole.007",
       "op": "create_through_hole",
       "params": {
         "plane": "top_face",
         "center": [
-          0.0,
-          0.0
+          -35.0,
+          -35.0
         ],
         "diameter": 20,
-        "host": "boss"
-      }
-    },
-    {
-      "id": "create_slot.001",
-      "op": "create_slot",
-      "params": {
-        "plane": "top_face",
-        "center": [
-          -50.0,
-          0.0
-        ],
-        "length": 8,
-        "width": 20,
-        "host": "base"
-      }
-    },
-    {
-      "id": "create_slot.002",
-      "op": "create_slot",
-      "params": {
-        "plane": "top_face",
-        "center": [
-          50.0,
-          0.0
-        ],
-        "length": 8,
-        "width": 20,
-        "host": "base"
-      }
-    },
-    {
-      "id": "create_pocket.001",
-      "op": "create_pocket",
-      "params": {
-        "plane": "top_face",
-        "center": [
-          0.0,
-          40.0
-        ],
-        "length": 10,
-        "width": 10,
-        "depth": 10,
-        "host": "base"
-      }
-    },
-    {
-      "id": "add_fillet.001",
-      "op": "add_fillet",
-      "params": {
-        "target": "outer_edges",
-        "radius": 3,
         "host": "base"
       }
     }

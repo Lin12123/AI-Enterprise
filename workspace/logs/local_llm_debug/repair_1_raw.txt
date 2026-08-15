@@ -8,7 +8,8 @@
     "inferred_parameters": [
       "create_through_hole.003.params.center",
       "create_through_hole.004.params.center",
-      "create_through_hole.005.params.center"
+      "create_through_hole.005.params.center",
+      "create_through_hole.007.params.center"
     ],
     "name": "Installation_Plate",
     "description": "",
@@ -37,7 +38,7 @@
       "op": "create_through_hole",
       "params": {
         "plane": "top_face",
-        "center": [10.0, 10.0],
+        "center": [0.0, 0.0],
         "diameter": 10,
         "host": "base"
       }
@@ -47,7 +48,7 @@
       "op": "create_through_hole",
       "params": {
         "plane": "top_face",
-        "center": [10.0, 35.0],
+        "center": [-54.5, 0.0],
         "diameter": 10,
         "host": "base"
       }
@@ -57,7 +58,7 @@
       "op": "create_through_hole",
       "params": {
         "plane": "top_face",
-        "center": [55.0, 10.0],
+        "center": [0.0, -34.5],
         "diameter": 10,
         "host": "base"
       }
@@ -67,8 +68,28 @@
       "op": "create_through_hole",
       "params": {
         "plane": "top_face",
-        "center": [55.0, 35.0],
+        "center": [-54.5, -34.5],
         "diameter": 10,
+        "host": "base"
+      }
+    },
+    {
+      "id": "create_center_boss.006",
+      "op": "create_center_boss",
+      "params": {
+        "diameter": 20.0,
+        "height": 15,
+        "host": "base",
+        "plane": "top_face"
+      }
+    },
+    {
+      "id": "create_through_hole.007",
+      "op": "create_through_hole",
+      "params": {
+        "plane": "top_face",
+        "center": [-49.5, -29.5],
+        "diameter": 20,
         "host": "base"
       }
     }
