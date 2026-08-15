@@ -149,5 +149,6 @@ const activePath = computed(() => route.path)
   background: #f1f5f9;
   padding: 24px;
   overflow-y: auto;
+  overflow-x: hidden;
 }
 </style>
