@@ -732,6 +732,32 @@ def _sw_invoke(obj: object, name: str):
     return attr
 
 
+def _sw_call(obj: object, name: str, *args):
+    """v034: late-bind 带参方法安全调用。返回 (ok, result)。
+
+    真机日志证实 late-bind 下 ActivateView 被误当属性返回 str, 再 `(...)`
+    调用报 'str object is not callable'。策略:
+      1. getattr 取属性; 若属性本身可调用则用 attr(*args) 调用;
+      2. 若属性不可调用(被暴露成 str/tuple 等值), 说明方法名走 IDispatch
+         白名单外被降级成属性 — 带参方法无法从属性值取结果, 判失败;
+      3. 任一步异常吞掉判失败。
+    ok=True 表示确实调用了方法, result 为返回值(可能仍是 None)。
+    """
+    try:
+        attr = getattr(obj, name)
+    except Exception as exc:
+        _dbg(f"sw_call: getattr({name}) 抛 {type(exc).__name__}:{exc}")
+        return False, None
+    if not callable(attr):
+        _dbg(f"sw_call: {name} 不可调用(late-bind 属性化, type={type(attr).__name__}), 判失败")
+        return False, None
+    try:
+        return True, attr(*args)
+    except Exception as exc:
+        _dbg(f"sw_call: {name}(*args) 抛 {type(exc).__name__}:{exc}")
+        return False, None
+
+
 def _count_sheet_views(draw_model: object) -> int:
     """v028: 遍历所有 Sheet 的 GetViews, 数一下当前工程图里到底有几个视图对象。
 
@@ -1883,11 +1909,36 @@ def _select_edge_at(draw_model: object, view: object, x: float, y: float) -> boo
         if ext is None:
             _dbg("select_edge: draw_model.Extension 为 None")
             return False
-        # 附加选择: mark=0, callout=None, selectOption=0
-        ok = bool(ext.SelectByID2("", "EDGE", x, y, 0.0, True, 0, None, 0))
-        if not ok:
-            _dbg(f"select_edge: SelectByID2 未命中 EDGE @ ({x:.4f},{y:.4f})")
-        return ok
+        # v034: 真机 late-bind 下 SelectByID2 第 8 个参数 callout=None 编组成
+        # VT_NULL 被 SW 拒绝, 报 com_error -2147352571(类型不匹配, arg 8)。
+        # 可选对象参数在 pywin32 late-bind 里应传 pythoncom.Empty(VT_EMPTY)
+        # 占位, 而非 None。逐个候选调用形态尝试, 命中即返回。
+        callouts = []
+        try:
+            import pythoncom  # type: ignore
+
+            callouts.append(pythoncom.Empty)
+            callouts.append(pythoncom.Missing)
+        except Exception:
+            pass
+        callouts.append(None)  # 保底再试原 None(部分版本 late-bind 能接受)
+
+        last_exc = None
+        for co in callouts:
+            try:
+                ok = bool(ext.SelectByID2("", "EDGE", x, y, 0.0, True, 0, co, 0))
+                if ok:
+                    return True
+                _dbg(
+                    f"select_edge: SelectByID2 未命中 EDGE @ ({x:.4f},{y:.4f}) "
+                    f"callout={type(co).__name__}"
+                )
+            except Exception as exc:
+                last_exc = exc
+                continue
+        if last_exc is not None:
+            _dbg(f"select_edge: SelectByID2 全部候选均抛异常, 末次 {type(last_exc).__name__}: {last_exc}")
+        return False
     except Exception as exc:
         _dbg(f"select_edge: 抛异常 {type(exc).__name__}: {exc}")
         return False
@@ -1907,10 +1958,11 @@ def _add_h_dim(draw_model: object, view: object, x1: float, x2: float, y_edge: f
             pass
         x_mid = (x1 + x2) / 2.0
         picked = _select_edge_at(draw_model, view, x_mid, y_edge)
-        try:
-            dim = draw_model.AddHorizontalDimension2(x_mid, y_text, 0.0)
-        except Exception as exc:
-            _dbg(f"add_h_dim: AddHorizontalDimension2 抛异常 {type(exc).__name__}: {exc}")
+        # v034: AddHorizontalDimension2 带参方法在 late-bind 下也可能被属性化,
+        # 直接 `draw_model.AddHorizontalDimension2(...)` 报 not callable, 走 _sw_call。
+        called, dim = _sw_call(draw_model, "AddHorizontalDimension2", x_mid, y_text, 0.0)
+        if not called:
+            _dbg(f"add_h_dim: AddHorizontalDimension2 调用失败(late-bind) picked={picked}")
             return False
         ok = dim is not None
         if not ok:
@@ -1935,10 +1987,9 @@ def _add_v_dim(draw_model: object, view: object, y1: float, y2: float, x_edge: f
             pass
         y_mid = (y1 + y2) / 2.0
         picked = _select_edge_at(draw_model, view, x_edge, y_mid)
-        try:
-            dim = draw_model.AddVerticalDimension2(x_text, y_mid, 0.0)
-        except Exception as exc:
-            _dbg(f"add_v_dim: AddVerticalDimension2 抛异常 {type(exc).__name__}: {exc}")
+        called, dim = _sw_call(draw_model, "AddVerticalDimension2", x_text, y_mid, 0.0)
+        if not called:
+            _dbg(f"add_v_dim: AddVerticalDimension2 调用失败(late-bind) picked={picked}")
             return False
         ok = dim is not None
         if not ok:
@@ -1980,10 +2031,7 @@ def _insert_overall_view_dimensions(draw_model: object, app: object = None) -> i
         ol = _view_outline(top)
         if ol is not None:
             xmin, ymin, xmax, ymax, _, _ = ol
-            try:
-                draw_model.ActivateView(str(top.GetName2()))
-            except Exception:
-                pass
+            _sw_call(draw_model, "ActivateView", str(_sw_invoke(top, "GetName2") or ""))
             # 长: 俯视图底部水平尺寸
             if _add_h_dim(draw_model, top, xmin, xmax, ymin, ymin - margin):
                 placed += 1
@@ -1996,10 +2044,7 @@ def _insert_overall_view_dimensions(draw_model: object, app: object = None) -> i
         ol = _view_outline(right)
         if ol is not None:
             xmin, ymin, xmax, ymax, _, _ = ol
-            try:
-                draw_model.ActivateView(str(right.GetName2()))
-            except Exception:
-                pass
+            _sw_call(draw_model, "ActivateView", str(_sw_invoke(right, "GetName2") or ""))
             # 高(厚度): 右视图右侧竖直尺寸
             if _add_v_dim(draw_model, right, ymin, ymax, xmax, xmax + margin):
                 placed += 1
@@ -2071,10 +2116,11 @@ def _draw_all_dimensions_by_ourselves(draw_model: object, part_model: object, ap
             f"draw_self[{tag}]: outline=({xmin:.4f},{ymin:.4f})-({xmax:.4f},{ymax:.4f}) "
             f"跨度 dx={xmax-xmin:.4f} dy={ymax-ymin:.4f} m"
         )
-        try:
-            draw_model.ActivateView(str(view.GetName2()))
-        except Exception as exc:
-            _dbg(f"draw_self[{tag}]: ActivateView 抛异常 {type(exc).__name__}:{exc}")
+        vname = _sw_invoke(view, "GetName2")
+        if vname:
+            ok, _ = _sw_call(draw_model, "ActivateView", str(vname))
+            if not ok:
+                _dbg(f"draw_self[{tag}]: ActivateView 失败(不阻断, 继续靠坐标选边)")
         n = 0
         if want_h:
             if _add_h_dim(draw_model, view, xmin, xmax, ymin, ymin - margin):
