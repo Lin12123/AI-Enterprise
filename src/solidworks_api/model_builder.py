@@ -142,6 +142,12 @@ class ModelBuilder:
         except Exception as exc:
             raise RuntimeError(f"重建零件失败: {exc}") from exc
 
+        # 关键：程序化建模生成的尺寸默认都是「未标记出图」状态，
+        # 工程图端 InsertModelAnnotations3 会一条也导不进来(即便传 option=3)。
+        # 建完并 rebuild 之后统一把所有尺寸标记为「可出工程图」，
+        # 让后续 3D→2D 出图能自动把孔距/孔径/长宽高等挂到视图上。
+        self._mark_all_dimensions_for_drawing(sw_model)
+
         if explicit_output:
             return tuple(state["saved_outputs"])
 
@@ -353,6 +359,45 @@ class ModelBuilder:
     def _validate_rebuild(self, sw_model: object) -> None:
         if not hasattr(self, "_last_rebuild_result"):
             self._rebuild_model(sw_model)
+
+    def _mark_all_dimensions_for_drawing(self, sw_model: object) -> None:
+        """把零件里所有特征尺寸都标记为「可出工程图」。
+
+        程序化 API 建模(AddDimension/HoleWizard/ExtrudeCut...)生成的尺寸,
+        MarkedForDrawing 属性默认为 False。工程图端 InsertModelAnnotations3
+        即使传 option=3(标记+未标记全导)，SolidWorks 2019 上仍常常一条都
+        导不进来，导致三视图上没有任何标注。
+
+        这里在建模全部完成、ForceRebuild3 之后统一调用
+        ModelDocExtension.SelectAll + MarkAllDimensionsForDrawing(True)
+        给所有尺寸盖上「可出图」章。任何异常都吞掉、不阻断保存流程
+        (最坏情况就是回退到出图端的兜底)。
+        """
+        try:
+            ext = getattr(sw_model, "Extension", None)
+            if ext is None:
+                return
+            try:
+                ext.SelectAll()
+            except Exception:
+                # 某些版本没有 Extension.SelectAll，退回文档级
+                try:
+                    sw_model.Extension.SelectAll()
+                except Exception:
+                    pass
+            try:
+                # MarkAllDimensionsForDrawing(mark: bool)
+                # 会遍历文档里所有 DisplayDimension 把 MarkedForDrawing 置为 True
+                ext.MarkAllDimensionsForDrawing(True)
+            except Exception:
+                pass
+            try:
+                sw_model.ClearSelection2(True)
+            except Exception:
+                pass
+        except Exception:
+            # 兜底：任何异常都静默，避免影响建模主流程
+            pass
 
     def _save_output_operation(self, sw_model: object, plan: FeaturePlan, operation_type: str) -> tuple[str, ...]:
         output_flags = {

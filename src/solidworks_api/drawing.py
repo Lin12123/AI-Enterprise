@@ -21,6 +21,10 @@ from pathlib import Path
 _SW_DOC_PART = 1
 _SW_DOC_DRAWING = 3
 
+# swDrawingViewTypes_e.swDrawingSheetView = 3 → 工程图的\"图纸页\"视图,
+# 不是真正的模型视图, InsertModelAnnotations3 对它无意义, 必须跳过。
+_SW_DRAWING_SHEET_VIEW_TYPE = 3
+
 # InsertModelAnnotations3 的 option(swInsertAnnotation_e 位标志):
 #   1 = swInsertDimensionsMarkedForDrawing   (仅"标记为工程图用途"的尺寸)
 #   2 = swInsertDimensionsNotMarkedForDrawing (未标记的尺寸)
@@ -83,6 +87,21 @@ def create_drawing_from_active_part(app: object, rules: list | None = None) -> d
         dim_count = ann.get("dim_count", 0)
         grade = ann.get("grade", "")
         tol_applied = ann.get("tol_applied", 0)
+        if dim_count <= 0:
+            # 首次未能画进任何模型尺寸: 先做一次"MarkAll → 再补打整体尺寸"重试,
+            # 主因是部分企业模板首次 InsertModelAnnotations3 时机太早, 视图尚未
+            # 完全 rebuild。重试仍为 0 才降级为包围盒文字兜底。
+            try:
+                _mark_all_display_dimensions(model)
+            except Exception:
+                pass
+            try:
+                ann_retry = _apply_dimensions_and_tolerance(app, draw_model, rules or [])
+                dim_count = ann_retry.get("dim_count", 0)
+                grade = ann_retry.get("grade", grade)
+                tol_applied = ann_retry.get("tol_applied", tol_applied)
+            except Exception:
+                pass
         if dim_count <= 0:
             # 一条模型尺寸都没画进图: 用包围盒总体尺寸兜底，保证图上有长宽高基本尺寸
             bbox_note = _insert_bbox_fallback_note(draw_model, model)
@@ -614,17 +633,22 @@ def _build_tech_requirements_text(rules: list) -> str:
 def _iter_model_views(draw_model: object) -> list:
     """遍历工程图，返回所有引用模型的视图对象列表(跳过图纸页视图)。
 
-    第三角布局 Create3rdAngleViews2 生成 前/上/右 + 等轴测。首个视图是图纸页,
-    从其下一个视图开始收集。任何异常都保守返回已收集到的部分。
+    正确做法是按 view.Type 判定：只保留非 swDrawingSheetView 的视图。
+    早期实现"跳过 GetFirstView"在部分企业模板下会漏掉首个模型视图,
+    导致后续三视图分类和补打整体尺寸失败。任何异常都保守返回已收集到的部分。
     """
     views = []
     try:
         view = draw_model.GetFirstView()
-        view = view.GetNextView() if view is not None else None
     except Exception:
         return views
     while view is not None:
-        views.append(view)
+        try:
+            view_type = int(getattr(view, "Type", 0) or 0)
+        except Exception:
+            view_type = 0
+        if view_type != _SW_DRAWING_SHEET_VIEW_TYPE:
+            views.append(view)
         try:
             view = view.GetNextView()
         except Exception:
@@ -684,19 +708,61 @@ def _classify_three_views(draw_model: object) -> dict:
     return {"front": front, "top": top, "right": right}
 
 
-def _add_h_dim(draw_model: object, x1: float, x2: float, y: float, y_text: float) -> bool:
-    """在图纸坐标 (x1..x2, y) 处放置水平尺寸(米)。成功返回 True。"""
+def _select_edge_at(draw_model: object, view: object, x: float, y: float) -> bool:
+    """在工程图坐标 (x, y) 处用 SelectByID2 吸附选中一条投影边。
+
+    真机 SW 2019 上，AddHorizontalDimension2/AddVerticalDimension2 若在
+    调用前没有任何"实体"被选中，会直接返回 null，尺寸不会画上视图。
+    这里通过 Extension.SelectByID2 在视图 outline 的边缘坐标附近做吸附式
+    选边(容差由 SolidWorks 内部处理)，命中率明显高于凭空给坐标。
+
+    选中成功返回 True。任何异常一律吞掉返回 False。
+    """
     try:
-        dim = draw_model.AddHorizontalDimension2((x1 + x2) / 2.0, y_text, 0.0)
+        ext = getattr(draw_model, "Extension", None)
+        if ext is None:
+            return False
+        # 附加选择: mark=0, callout=None, selectOption=0
+        return bool(ext.SelectByID2("", "EDGE", x, y, 0.0, True, 0, None, 0))
+    except Exception:
+        return False
+
+
+def _add_h_dim(draw_model: object, view: object, x1: float, x2: float, y_edge: float, y_text: float) -> bool:
+    """在视图上放置水平尺寸(米)。
+
+    步骤: 先在 (x_mid, y_edge) 处 SelectByID2 吸附选中水平投影边,
+    再调 AddHorizontalDimension2 在 (x_mid, y_text) 放尺寸线。
+    成功返回 True。所有异常吞掉，避免打断整个补打流程。
+    """
+    try:
+        try:
+            draw_model.ClearSelection2(True)
+        except Exception:
+            pass
+        x_mid = (x1 + x2) / 2.0
+        _select_edge_at(draw_model, view, x_mid, y_edge)
+        dim = draw_model.AddHorizontalDimension2(x_mid, y_text, 0.0)
         return dim is not None
     except Exception:
         return False
 
 
-def _add_v_dim(draw_model: object, y1: float, y2: float, x: float, x_text: float) -> bool:
-    """在图纸坐标 (x, y1..y2) 处放置竖直尺寸(米)。成功返回 True。"""
+def _add_v_dim(draw_model: object, view: object, y1: float, y2: float, x_edge: float, x_text: float) -> bool:
+    """在视图上放置竖直尺寸(米)。
+
+    步骤: 先在 (x_edge, y_mid) 处 SelectByID2 吸附选中竖直投影边,
+    再调 AddVerticalDimension2 在 (x_text, y_mid) 放尺寸线。
+    成功返回 True。所有异常吞掉。
+    """
     try:
-        dim = draw_model.AddVerticalDimension2(x_text, (y1 + y2) / 2.0, 0.0)
+        try:
+            draw_model.ClearSelection2(True)
+        except Exception:
+            pass
+        y_mid = (y1 + y2) / 2.0
+        _select_edge_at(draw_model, view, x_edge, y_mid)
+        dim = draw_model.AddVerticalDimension2(x_text, y_mid, 0.0)
         return dim is not None
     except Exception:
         return False
@@ -713,6 +779,15 @@ def _insert_overall_view_dimensions(draw_model: object) -> int:
     坐标近似放置尺寸标注线, 具体落边由 SolidWorks 就近吸附。异常一律吞掉不阻断。
     """
     placed = 0
+    # 补打之前强制重建, 保证 GetOutline 返回真实包围框, 而不是空 sheet 的退化框。
+    try:
+        draw_model.ForceRebuild3(False)
+    except Exception:
+        pass
+    try:
+        draw_model.EditRebuild3()
+    except Exception:
+        pass
     try:
         cls = _classify_three_views(draw_model)
     except Exception:
@@ -729,10 +804,10 @@ def _insert_overall_view_dimensions(draw_model: object) -> int:
             except Exception:
                 pass
             # 长: 俯视图底部水平尺寸
-            if _add_h_dim(draw_model, xmin, xmax, ymin, ymin - margin):
+            if _add_h_dim(draw_model, top, xmin, xmax, ymin, ymin - margin):
                 placed += 1
             # 宽: 俯视图右侧竖直尺寸
-            if _add_v_dim(draw_model, ymin, ymax, xmax, xmax + margin):
+            if _add_v_dim(draw_model, top, ymin, ymax, xmax, xmax + margin):
                 placed += 1
 
     right = cls.get("right")
@@ -745,7 +820,7 @@ def _insert_overall_view_dimensions(draw_model: object) -> int:
             except Exception:
                 pass
             # 高(厚度): 右视图右侧竖直尺寸
-            if _add_v_dim(draw_model, ymin, ymax, xmax, xmax + margin):
+            if _add_v_dim(draw_model, right, ymin, ymax, xmax, xmax + margin):
                 placed += 1
 
     if placed:
@@ -785,6 +860,36 @@ def _count_display_dimensions(draw_model: object) -> int:
     return total
 
 
+def _mark_all_display_dimensions(part_model: object) -> None:
+    """对已打开的零件模型再次触发 MarkAllDimensionsForDrawing(True)。
+
+    首次 InsertModelAnnotations3 失败常见原因: 建模流程结束到出图开始之间
+    有其他插件/宏改动过标记状态, 或 rebuild 时机导致部分特征尺寸未落表。
+    出图重试前再打一次全体"待出图"标记, 提高 InsertModelAnnotations3 命中率。
+    所有异常一律吞掉。
+    """
+    if part_model is None:
+        return
+    try:
+        ext = getattr(part_model, "Extension", None)
+        if ext is None:
+            return
+        try:
+            ext.SelectAll()
+        except Exception:
+            pass
+        try:
+            ext.MarkAllDimensionsForDrawing(True)
+        except Exception:
+            pass
+        try:
+            part_model.ClearSelection2(True)
+        except Exception:
+            pass
+    except Exception:
+        pass
+
+
 def _apply_dimensions_and_tolerance(app: object, draw_model: object, rules: list) -> dict:
     """在工程图上导入模型尺寸并按企业标准应用默认公差。
 
@@ -806,21 +911,26 @@ def _apply_dimensions_and_tolerance(app: object, draw_model: object, rules: list
     # 无论文档层调用是否成功，都再逐视图补一次(某些版本文档层不生效)，
     # 保证程序化建模的"未标记"尺寸也能被导入。逐视图导入前必须先激活该视图，
     # 否则 InsertModelAnnotations3 会作用在错误的视图上导致一条也导不进来。
+    # 视图筛选不能盲目"跳过 GetFirstView"——部分企业模板首个视图就是模型视图，
+    # 硬跳会漏导。改成按 view.Type 判定：只对非"图纸页"视图导入尺寸。
     try:
         view = draw_model.GetFirstView()
-        # 首视图通常是图纸页，从其下一个视图开始
-        view = view.GetNextView() if view is not None else None
         while view is not None:
             try:
-                name = str(view.GetName2())
-                if name:
-                    draw_model.ActivateView(name)
+                view_type = int(getattr(view, "Type", 0) or 0)
             except Exception:
-                pass
-            try:
-                view.InsertModelAnnotations3(0, _SW_INSERT_ALL_DIMENSIONS, False, False, False, False)
-            except Exception:
-                pass
+                view_type = 0
+            if view_type != _SW_DRAWING_SHEET_VIEW_TYPE:
+                try:
+                    name = str(view.GetName2())
+                    if name:
+                        draw_model.ActivateView(name)
+                except Exception:
+                    pass
+                try:
+                    view.InsertModelAnnotations3(0, _SW_INSERT_ALL_DIMENSIONS, False, False, False, False)
+                except Exception:
+                    pass
             try:
                 view = view.GetNextView()
             except Exception:
