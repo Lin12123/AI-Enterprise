@@ -14,4 +14,4 @@
 
 - [3D转2D企业标准出图链路](project_drawing_enterprise_standard.md) — AI-Enterprise 点击3D转2D的全链路:尺寸+公差+图幅+技术要求+长宽高兜底关键约定
 
-- [出图v029早绑定与宏安全性降级](project_drawing_early_bind_v029.md) — AI-Enterprise 3D转2D出图 v029:gencache早绑定绕开late-bind白名单 + 注册表降级SW宏安全性
+- [出图v031早绑定接口类直接构造](project_drawing_early_bind_v029.md) — AI-Enterprise 3D转2D出图 v031:EnsureModule成功但CastTo仍报makepy,改用早绑定模块接口包装类mod.IDrawingDoc(obj)直接构造绕开makepy反查

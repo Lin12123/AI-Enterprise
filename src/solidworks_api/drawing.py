@@ -386,7 +386,7 @@ def _ensure_sw_early_module():
 
 
 def _ensure_early_bind(obj: object, iface: str = "IDrawingDoc") -> object:
-    """v030: 把 late-bind IDispatch COM 对象 CastTo 到具体早绑定接口。
+    """v031: 用早绑定模块的接口包装类**直接构造**, 绕开会做 makepy 反查的 CastTo。
 
     根因(见 last_run.log): pywin32 纯 late-bind(IDispatch.Invoke)把
     IDrawingDoc.GetSheetNames / GetFirstView 等**方法**误解析成属性(返回 tuple,
@@ -394,13 +394,18 @@ def _ensure_early_bind(obj: object, iface: str = "IDrawingDoc") -> object:
     直接 -2147352573 找不到成员。都是 IDispatch 动态派发对带 typelib 的接口方法
     解析不了导致的。
 
-    v029 用 EnsureDispatch(obj) 失败(SW 对象不带可解析 typelib)。v030 改为:
-      1) 先 _ensure_sw_early_module() 从 typelib GUID 预生成早绑定模块;
-      2) 再 win32com.client.CastTo(obj, iface) 按早绑定接口做显式类型转换。
-    转换后所有接口方法按 IDL 签名走 vtable/dispid, 绕开 late-bind 白名单。
+    迭代历程:
+      v029: gencache.EnsureDispatch(obj) → 报 'can not automate the makepy process'
+            (SW 运行时对象不带可自动解析的 typelib 引用, 无法反查)。
+      v030: EnsureModule(GUID) 成功生成早绑定模块, 但 win32com.client.CastTo(obj,iface)
+            **仍报同一个 makepy 错** —— CastTo 内部还是要对 obj 做 makepy 反查 CLSID
+            再匹配接口类, SW 对象拿不到 CLSID 所以照样失败。
+      v031: 既然模块已生成, 直接用模块里的接口包装类 `mod.IDrawingDoc(obj)` 构造 ——
+            接口包装类就是个包裹 IDispatch 的普通 Python 类, 构造时不走 makepy 反查,
+            所有方法按早绑定 dispid 调用, 根治白名单坑。
 
-    任何失败(缺 pywin32 / typelib 未注册 / CastTo 不认识该接口)都静默回退原对象,
-    绝不能让早绑定失败反而崩掉整个出图流程。
+    多重兜底: ①接口类直接构造 → ②Dispatch(obj)(走已缓存 gencache) → ③CastTo。
+    全失败静默回退原 late-bind 对象, 绝不让早绑定失败崩掉出图。
     """
     if obj is None:
         return obj
@@ -411,6 +416,39 @@ def _ensure_early_bind(obj: object, iface: str = "IDrawingDoc") -> object:
     mod = _ensure_sw_early_module()
     if mod is None:
         return obj
+    # ① 主路径: 用早绑定模块里的接口包装类直接构造, 不走 makepy 反查。
+    # pywin32 生成的接口类名可能带/不带 I 前缀(IDrawingDoc / DrawingDoc), 逐个试。
+    iface_candidates = [iface]
+    if iface.startswith("I"):
+        iface_candidates.append(iface[1:])
+    else:
+        iface_candidates.append("I" + iface)
+    for cand in iface_candidates:
+        try:
+            iface_cls = getattr(mod, cand, None)
+            if iface_cls is None:
+                continue
+            early = iface_cls(obj)
+            if early is not None:
+                _dbg(f"early_bind: {cand} 包装类直接构造成功, 走早绑定接口", summary=True)
+                return early
+        except Exception as exc:
+            _dbg(
+                f"early_bind: {cand} 包装类构造失败({type(exc).__name__}:{exc}), 尝试下一候选",
+                summary=True,
+            )
+    # ② 兜底: Dispatch(obj) 走已缓存的 gencache 生成早绑定(部分环境可解析)。
+    try:
+        early = win32com.client.Dispatch(obj)
+        if early is not None and early.__class__.__name__ != "CDispatch":
+            _dbg("early_bind: Dispatch(obj) 生成早绑定成功", summary=True)
+            return early
+    except Exception as exc:
+        _dbg(
+            f"early_bind: Dispatch(obj) 失败({type(exc).__name__}:{exc}), 尝试下一路径",
+            summary=True,
+        )
+    # ③ 最后兜底: CastTo(v030 路径, SW 运行时对象通常仍失败, 但保留以防某些机器可用)。
     try:
         early = win32com.client.CastTo(obj, iface)
         if early is not None:
