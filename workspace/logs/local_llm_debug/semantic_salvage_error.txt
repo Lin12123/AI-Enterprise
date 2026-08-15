@@ -1,1 +1,1 @@
-geometry: create_through_hole center is outside the current base boundary. For edge-distance intent, center must include the inward offset from the edge. The base center is the origin [0,0]; a valid center must satisfy x within [-49.5, 49.5] and y within [-29.5, 29.5] (mm). Inferred parameter create_through_hole.007.params.center must be re-recommended by the LLM.
+semantic_completeness: missing requested cut_corner_holes operation; missing requested cut_slot operation; missing requested cut_rectangle_pocket operation; missing requested add_fillet operation

@@ -1,167 +1,30 @@
 {
+  "id": "slot_001",
+  "op": "cut_slot",
+  "params": {
+    "plane": "top_face",
+    "center": [
+      -40,
+      20
+    ],
+    "length": 8,
+    "width": 10,
+    "direction": "y",
+    "through_all": false
+  },
+  "operations": [],
   "version": "2.0",
   "unit": "mm",
   "document_type": "part",
-  "part_name": "Installation_Plate",
+  "part_name": "unnamed_part",
   "metadata": {
-    "explicit_parameters": [],
-    "inferred_parameters": [
-      "create_through_hole.003.params.center",
-      "create_through_hole.004.params.center",
-      "create_through_hole.005.params.center"
-    ],
-    "name": "Installation_Plate",
+    "name": "unnamed_part",
     "description": "",
-    "source": "local"
+    "source": "local",
+    "inferred_parameters": [
+      "center"
+    ],
+    "explicit_parameters": []
   },
-  "operations": [
-    {
-      "id": "create_new_part.001",
-      "op": "create_new_part",
-      "params": {
-        "part_name": "Installation Plate"
-      }
-    },
-    {
-      "id": "create_base_plate.001",
-      "op": "create_base_plate",
-      "params": {
-        "length": 120,
-        "width": 80,
-        "thickness": 15,
-        "plane": "Top"
-      }
-    },
-    {
-      "id": "create_through_hole.002",
-      "op": "create_through_hole",
-      "params": {
-        "plane": "top_face",
-        "center": [
-          -40.0,
-          -20.0
-        ],
-        "diameter": 10,
-        "host": "base"
-      }
-    },
-    {
-      "id": "create_through_hole.003",
-      "op": "create_through_hole",
-      "params": {
-        "plane": "top_face",
-        "center": [
-          -40.0,
-          20.0
-        ],
-        "diameter": 10,
-        "host": "base"
-      }
-    },
-    {
-      "id": "create_through_hole.004",
-      "op": "create_through_hole",
-      "params": {
-        "plane": "top_face",
-        "center": [
-          40.0,
-          -20.0
-        ],
-        "diameter": 10,
-        "host": "base"
-      }
-    },
-    {
-      "id": "create_through_hole.005",
-      "op": "create_through_hole",
-      "params": {
-        "plane": "top_face",
-        "center": [
-          40.0,
-          20.0
-        ],
-        "diameter": 10,
-        "host": "base"
-      }
-    },
-    {
-      "id": "create_center_boss.001",
-      "op": "create_center_boss",
-      "params": {
-        "plane": "top_face",
-        "center": [
-          0.0,
-          0.0
-        ],
-        "diameter": 20,
-        "host": "base"
-      }
-    },
-    {
-      "id": "create_through_hole.006",
-      "op": "create_through_hole",
-      "params": {
-        "plane": "top_face",
-        "center": [
-          0.0,
-          0.0
-        ],
-        "diameter": 20,
-        "host": "boss"
-      }
-    },
-    {
-      "id": "create_slot.001",
-      "op": "create_slot",
-      "params": {
-        "plane": "top_face",
-        "center": [
-          -40.0,
-          0.0
-        ],
-        "length": 8,
-        "width": 20,
-        "host": "base"
-      }
-    },
-    {
-      "id": "create_slot.002",
-      "op": "create_slot",
-      "params": {
-        "plane": "top_face",
-        "center": [
-          40.0,
-          0.0
-        ],
-        "length": 8,
-        "width": 20,
-        "host": "base"
-      }
-    },
-    {
-      "id": "create_pocket.001",
-      "op": "create_pocket",
-      "params": {
-        "plane": "top_face",
-        "center": [
-          0.0,
-          40.0
-        ],
-        "length": 10,
-        "width": 10,
-        "depth": 10,
-        "host": "base"
-      }
-    },
-    {
-      "id": "add_fillet.001",
-      "op": "add_fillet",
-      "params": {
-        "plane": "top_face",
-        "radius": 5,
-        "host": "base"
-      }
-    }
-  ],
   "outputs": {}
 }

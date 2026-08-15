@@ -1,85 +1,28 @@
 {
+  "id": "slot_001",
+  "op": "cut_slot",
+  "params": {
+    "plane": "top_face",
+    "center": [
+      0,
+      20
+    ],
+    "length": 8,
+    "width": 10,
+    "direction": "y",
+    "through_all": false
+  },
+  "operations": [],
   "version": "2.0",
   "unit": "mm",
   "document_type": "part",
-  "part_name": "Installation_Plate",
+  "part_name": "unnamed_part",
   "metadata": {
-    "explicit_parameters": [],
-    "inferred_parameters": [],
-    "name": "Installation_Plate",
+    "name": "unnamed_part",
     "description": "",
-    "source": "local"
+    "source": "local",
+    "inferred_parameters": [],
+    "explicit_parameters": []
   },
-  "operations": [
-    {
-      "id": "create_new_part.001",
-      "op": "create_new_part",
-      "params": {
-        "part_name": "Installation Plate"
-      }
-    },
-    {
-      "id": "create_base_plate.001",
-      "op": "create_base_plate",
-      "params": {
-        "length": 120,
-        "width": 80,
-        "thickness": 15,
-        "plane": "Top"
-      }
-    },
-    {
-      "id": "create_through_hole.002",
-      "op": "create_through_hole",
-      "params": {
-        "plane": "top_face",
-        "center": [
-          10.0,
-          10.0
-        ],
-        "diameter": 10,
-        "host": "base"
-      }
-    },
-    {
-      "id": "create_through_hole.003",
-      "op": "create_through_hole",
-      "params": {
-        "plane": "top_face",
-        "center": [
-          10.0,
-          35.0
-        ],
-        "diameter": 10,
-        "host": "base"
-      }
-    },
-    {
-      "id": "create_through_hole.004",
-      "op": "create_through_hole",
-      "params": {
-        "plane": "top_face",
-        "center": [
-          55.0,
-          10.0
-        ],
-        "diameter": 10,
-        "host": "base"
-      }
-    },
-    {
-      "id": "create_through_hole.005",
-      "op": "create_through_hole",
-      "params": {
-        "plane": "top_face",
-        "center": [
-          55.0,
-          35.0
-        ],
-        "diameter": 10,
-        "host": "base"
-      }
-    }
-  ],
   "outputs": {}
 }
