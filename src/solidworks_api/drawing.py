@@ -14,7 +14,61 @@
 
 from __future__ import annotations
 
+import time
 from pathlib import Path
+
+
+# ---------------------------------------------------------------------------
+# 出图诊断日志
+# ---------------------------------------------------------------------------
+# 真机排查\"图上没标注\"这类问题时，光看成果卡片文案不够，需要把每一步的
+# 中间状态(视图分类是否成功、outline 是否退化、SelectByID2 有没有命中、
+# AddHorizontalDimension2 返回是否 None) 落到日志文件里。
+#
+# 落盘位置: workspace/logs/drawing_debug/last_run.log (每次出图覆盖写)
+# 同时把关键摘要 (_DBG_SUMMARY) 累积起来，主流程会把其中的\"卡点行\"塞到
+# annotation_note 里, 使成果卡片一眼可见。
+_DBG_LOG_LINES: list[str] = []
+_DBG_SUMMARY: list[str] = []
+
+
+def _dbg_reset() -> None:
+    """新一次出图开始前清空累积日志。由主流程在入口处调用一次。"""
+    _DBG_LOG_LINES.clear()
+    _DBG_SUMMARY.clear()
+
+
+def _dbg(msg: str, summary: bool = False) -> None:
+    """写一行诊断日志。summary=True 的行会额外汇总到成果卡片摘要中。
+
+    任何 I/O 异常都吞掉——诊断日志绝不能反过来阻断出图流程。
+    """
+    try:
+        line = f"[{time.strftime('%H:%M:%S')}] {msg}"
+    except Exception:
+        line = msg
+    _DBG_LOG_LINES.append(line)
+    if summary:
+        _DBG_SUMMARY.append(msg)
+
+
+def _dbg_flush() -> str:
+    """把累计日志写到磁盘并返回日志文件路径(写失败返回空串)。"""
+    try:
+        log_dir = Path("workspace") / "logs" / "drawing_debug"
+        log_dir.mkdir(parents=True, exist_ok=True)
+        log_path = log_dir / "last_run.log"
+        log_path.write_text("\n".join(_DBG_LOG_LINES) + "\n", encoding="utf-8")
+        return str(log_path)
+    except Exception:
+        return ""
+
+
+def _dbg_summary_text() -> str:
+    """成果卡片可见的\"最关键 3 行\"，避免刷屏。"""
+    if not _DBG_SUMMARY:
+        return ""
+    return " | ".join(_DBG_SUMMARY[:6])
 
 
 # SolidWorks 文档类型常量(swDocumentTypes_e)
@@ -47,6 +101,8 @@ def create_drawing_from_active_part(app: object, rules: list | None = None) -> d
     任何失败都以 ok=False + 可读中文 message 返回，绝不抛出未捕获异常导致
     工作线程崩溃。
     """
+    _dbg_reset()
+    _dbg("create_drawing: 入口")
     try:
         model = _get_active_part(app)
     except RuntimeError as exc:
@@ -131,14 +187,25 @@ def create_drawing_from_active_part(app: object, rules: list | None = None) -> d
     try:
         out_path = _save_drawing(app, draw_model, model)
     except RuntimeError as exc:
+        _dbg(f"save_drawing: 失败 {exc}", summary=True)
+        _dbg_flush()
         return _fail(f"保存工程图失败: {exc}")
+
+    # 落盘诊断日志, 并把\"最关键 3 行\"塞到 message 里, 方便真机排查
+    log_path = _dbg_flush()
+    dbg_note = ""
+    summary_txt = _dbg_summary_text()
+    if summary_txt:
+        dbg_note += f"，诊断: {summary_txt}"
+    if log_path:
+        dbg_note += f"，详细日志: {log_path}"
 
     return {
         "ok": True,
         "status": "executed",
-        "message": f"已生成三视图工程图: {out_path}{paper_note}{annotation_note}{tech_note}",
+        "message": f"已生成三视图工程图: {out_path}{paper_note}{annotation_note}{tech_note}{dbg_note}",
         "outputs": [out_path],
-        # 供"上传云平台"使用: 本次出图关联的 3D 零件与 2D 工程图磁盘路径
+        # 供\"上传云平台\"使用: 本次出图关联的 3D 零件与 2D 工程图磁盘路径
         "part_path": part_path,
         "drawing_path": out_path,
     }
@@ -660,13 +727,16 @@ def _view_outline(view: object) -> tuple:
     """取视图在图纸坐标系下的外轮廓 (xmin, ymin, xmax, ymax, cx, cy)(米)。取不到返回 None。"""
     try:
         box = view.GetOutline()
-    except Exception:
+    except Exception as exc:
+        _dbg(f"view_outline: GetOutline 抛异常 {type(exc).__name__}: {exc}")
         return None
     try:
         xmin, ymin, xmax, ymax = (float(v) for v in box[:4])
-    except Exception:
+    except Exception as exc:
+        _dbg(f"view_outline: 解析 GetOutline 返回失败 raw={box!r} err={exc}")
         return None
     if abs(xmax - xmin) + abs(ymax - ymin) <= 0.0:
+        _dbg(f"view_outline: 退化零面积框 box={box[:4]}")
         return None
     return (xmin, ymin, xmax, ymax, (xmin + xmax) / 2.0, (ymin + ymax) / 2.0)
 
@@ -686,6 +756,7 @@ def _classify_three_views(draw_model: object) -> dict:
             continue
         ortho.append((v, ol))
     if not ortho:
+        _dbg("classify_views: 未找到任何正投影视图(ortho=0)", summary=True)
         return {"front": None, "top": None, "right": None}
     # 前视图: 取最靠左下(x 最小, 其次 y 最小)的正投影视图作为基准
     front, front_ol = min(ortho, key=lambda t: (t[1][4], t[1][5]))
@@ -705,6 +776,11 @@ def _classify_three_views(draw_model: object) -> dict:
         elif dx > abs(dy) and abs(dy) <= max(front_ol[3] - front_ol[1], 1e-6):
             if right is None or cx > right_ol[4]:
                 right, right_ol = v, ol
+    _dbg(
+        f"classify_views: ortho={len(ortho)} front={'Y' if front is not None else 'N'} "
+        f"top={'Y' if top is not None else 'N'} right={'Y' if right is not None else 'N'}",
+        summary=True,
+    )
     return {"front": front, "top": top, "right": right}
 
 
@@ -721,10 +797,15 @@ def _select_edge_at(draw_model: object, view: object, x: float, y: float) -> boo
     try:
         ext = getattr(draw_model, "Extension", None)
         if ext is None:
+            _dbg("select_edge: draw_model.Extension 为 None")
             return False
         # 附加选择: mark=0, callout=None, selectOption=0
-        return bool(ext.SelectByID2("", "EDGE", x, y, 0.0, True, 0, None, 0))
-    except Exception:
+        ok = bool(ext.SelectByID2("", "EDGE", x, y, 0.0, True, 0, None, 0))
+        if not ok:
+            _dbg(f"select_edge: SelectByID2 未命中 EDGE @ ({x:.4f},{y:.4f})")
+        return ok
+    except Exception as exc:
+        _dbg(f"select_edge: 抛异常 {type(exc).__name__}: {exc}")
         return False
 
 
@@ -741,10 +822,18 @@ def _add_h_dim(draw_model: object, view: object, x1: float, x2: float, y_edge: f
         except Exception:
             pass
         x_mid = (x1 + x2) / 2.0
-        _select_edge_at(draw_model, view, x_mid, y_edge)
-        dim = draw_model.AddHorizontalDimension2(x_mid, y_text, 0.0)
-        return dim is not None
-    except Exception:
+        picked = _select_edge_at(draw_model, view, x_mid, y_edge)
+        try:
+            dim = draw_model.AddHorizontalDimension2(x_mid, y_text, 0.0)
+        except Exception as exc:
+            _dbg(f"add_h_dim: AddHorizontalDimension2 抛异常 {type(exc).__name__}: {exc}")
+            return False
+        ok = dim is not None
+        if not ok:
+            _dbg(f"add_h_dim: AddHorizontalDimension2 返回 None (picked={picked} x_mid={x_mid:.4f} y_text={y_text:.4f})")
+        return ok
+    except Exception as exc:
+        _dbg(f"add_h_dim: 外层异常 {type(exc).__name__}: {exc}")
         return False
 
 
@@ -761,10 +850,18 @@ def _add_v_dim(draw_model: object, view: object, y1: float, y2: float, x_edge: f
         except Exception:
             pass
         y_mid = (y1 + y2) / 2.0
-        _select_edge_at(draw_model, view, x_edge, y_mid)
-        dim = draw_model.AddVerticalDimension2(x_text, y_mid, 0.0)
-        return dim is not None
-    except Exception:
+        picked = _select_edge_at(draw_model, view, x_edge, y_mid)
+        try:
+            dim = draw_model.AddVerticalDimension2(x_text, y_mid, 0.0)
+        except Exception as exc:
+            _dbg(f"add_v_dim: AddVerticalDimension2 抛异常 {type(exc).__name__}: {exc}")
+            return False
+        ok = dim is not None
+        if not ok:
+            _dbg(f"add_v_dim: AddVerticalDimension2 返回 None (picked={picked} x_text={x_text:.4f} y_mid={y_mid:.4f})")
+        return ok
+    except Exception as exc:
+        _dbg(f"add_v_dim: 外层异常 {type(exc).__name__}: {exc}")
         return False
 
 
@@ -852,54 +949,68 @@ def _draw_all_dimensions_by_ourselves(draw_model: object, part_model: object) ->
     """
     placed = 0
     if draw_model is None:
+        _dbg("draw_self: draw_model 为 None, 直接跳过")
         return 0
 
     # 补打之前强制重建，保证 GetOutline 拿到真实的视图轮廓框
     try:
         draw_model.ForceRebuild3(False)
-    except Exception:
-        pass
+    except Exception as exc:
+        _dbg(f"draw_self: ForceRebuild3 抛异常 {type(exc).__name__}: {exc}")
     try:
         draw_model.EditRebuild3()
-    except Exception:
-        pass
+    except Exception as exc:
+        _dbg(f"draw_self: EditRebuild3 抛异常 {type(exc).__name__}: {exc}")
 
     try:
         cls = _classify_three_views(draw_model)
-    except Exception:
+    except Exception as exc:
+        _dbg(f"draw_self: _classify_three_views 抛异常 {type(exc).__name__}: {exc}", summary=True)
         return 0
 
     margin = 0.012  # 尺寸线离轮廓的偏移(米, ≈12mm)
 
-    def _draw_pair(view: object, want_h: bool, want_v: bool) -> int:
+    def _draw_pair(view: object, tag: str, want_h: bool, want_v: bool) -> int:
         """在单个视图上按 outline 打水平/竖直尺寸，返回落地数。"""
         if view is None:
+            _dbg(f"draw_self[{tag}]: 视图缺失, 跳过")
             return 0
         ol = _view_outline(view)
         if ol is None:
+            _dbg(f"draw_self[{tag}]: outline 取不到, 跳过")
             return 0
         xmin, ymin, xmax, ymax, _, _ = ol
+        _dbg(
+            f"draw_self[{tag}]: outline=({xmin:.4f},{ymin:.4f})-({xmax:.4f},{ymax:.4f}) "
+            f"跨度 dx={xmax-xmin:.4f} dy={ymax-ymin:.4f} m"
+        )
         try:
             draw_model.ActivateView(str(view.GetName2()))
-        except Exception:
-            pass
+        except Exception as exc:
+            _dbg(f"draw_self[{tag}]: ActivateView 抛异常 {type(exc).__name__}:{exc}")
         n = 0
         if want_h:
-            # 底部水平尺寸：吸附底边中点选边，尺寸线放到 outline 下方
             if _add_h_dim(draw_model, view, xmin, xmax, ymin, ymin - margin):
                 n += 1
+                _dbg(f"draw_self[{tag}]: 水平尺寸 OK")
+            else:
+                _dbg(f"draw_self[{tag}]: 水平尺寸 FAIL")
         if want_v:
-            # 右侧竖直尺寸：吸附右边中点选边，尺寸线放到 outline 右侧
             if _add_v_dim(draw_model, view, ymin, ymax, xmax, xmax + margin):
                 n += 1
+                _dbg(f"draw_self[{tag}]: 竖直尺寸 OK")
+            else:
+                _dbg(f"draw_self[{tag}]: 竖直尺寸 FAIL")
         return n
 
     # 俯视图: 长 + 宽
-    placed += _draw_pair(cls.get("top"), want_h=True, want_v=True)
+    placed += _draw_pair(cls.get("top"), "top", want_h=True, want_v=True)
     # 前视图: 长 + 高
-    placed += _draw_pair(cls.get("front"), want_h=True, want_v=True)
+    placed += _draw_pair(cls.get("front"), "front", want_h=True, want_v=True)
     # 右视图: 宽 + 高
-    placed += _draw_pair(cls.get("right"), want_h=True, want_v=True)
+    placed += _draw_pair(cls.get("right"), "right", want_h=True, want_v=True)
+
+    _dbg(f"draw_self: 累计自绘 {placed} 条", summary=True)
 
     if placed:
         try:
@@ -1022,7 +1133,9 @@ def _apply_dimensions_and_tolerance(app: object, draw_model: object, rules: list
         pass
 
     # 用实际显示尺寸数核实是否真的画进了图纸(返回值非 None 不可靠)
-    dim_count = _count_display_dimensions(draw_model)
+    imported = _count_display_dimensions(draw_model)
+    _dbg(f"apply_dim: InsertModelAnnotations3 后计数 DisplayDimension={imported}", summary=True)
+    dim_count = imported
 
     # 1.1) 出图端自绘策略：程序化 API 建模的零件里 DisplayDimension 恒为 0,
     #      InsertModelAnnotations3 拉不到任何尺寸。直接在三视图上按 outline 边
@@ -1030,19 +1143,22 @@ def _apply_dimensions_and_tolerance(app: object, draw_model: object, rules: list
     #      自绘条数直接计入 dim_count，取代之前"再数一次 display dimension"的做法。
     try:
         drawn = _draw_all_dimensions_by_ourselves(draw_model, part_model)
-    except Exception:
+    except Exception as exc:
+        _dbg(f"apply_dim: _draw_all_dimensions_by_ourselves 抛异常 {type(exc).__name__}: {exc}", summary=True)
         drawn = 0
     if drawn:
         dim_count += drawn
 
-    # 1.2) 兼容旧路径：模型自带 DisplayDimension 的场景(如手工建模+AddDimension),
-    #      再走一遍"整体外形长/宽/高补打"，与自绘互补不冲突(SW 会去重)。
+    # 1.2) 兼容旧路径:模型自带 DisplayDimension 的场景(如手工建模+AddDimension),
+    #      再走一遍"整体外形长/宽/高补打",与自绘互补不冲突(SW 会去重)。
     try:
         overall = _insert_overall_view_dimensions(draw_model)
-    except Exception:
+    except Exception as exc:
+        _dbg(f"apply_dim: _insert_overall_view_dimensions 抛异常 {type(exc).__name__}: {exc}")
         overall = 0
     if overall:
         dim_count += overall
+    _dbg(f"apply_dim: dim_count 汇总 = 模型导入{imported} + 自绘{drawn} + 兜底{overall} 合计={dim_count}", summary=True)
 
     # 2) 依据企业标准的公差等级设置默认对称公差
     grade = _extract_tolerance_grade(rules)
