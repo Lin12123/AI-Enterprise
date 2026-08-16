@@ -635,7 +635,11 @@ def _handle_upload_to_cloud(payload: dict) -> dict:
         )
     if part_file and part_file.get("path"):
         part_name = os.path.splitext(os.path.basename(part_file["path"]))[0]
-    title = part_name or session.get("title") or None
+
+    # 项目名称优先取插件端用户选择的固定项目(公狼项目/分播墙项目/智狼项目)，
+    # 作为云平台项目图纸卡片的项目名称；未传时退回 3D 文件名，再退回会话标题。
+    project_name = str(payload.get("project_name", "")).strip()
+    title = project_name or part_name or session.get("title") or None
 
     from service.cloud_upload import upload_session_outputs
     return upload_session_outputs(

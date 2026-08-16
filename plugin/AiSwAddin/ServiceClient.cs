@@ -135,10 +135,15 @@ namespace AiSwAddin
         }
 
         /// <summary>把指定会话的出图产物打包上传到企业云平台。
-        /// 后端根据 session_id 从 session.context.last_outputs 自动读取待上传文件清单。</summary>
-        public Task<string> UploadToCloudAsync(string sessionId)
+        /// 后端根据 session_id 从 session.context.last_outputs 自动读取待上传文件清单。
+        /// projectName 为用户选择的所属项目名称(公狼项目/分播墙项目/智狼项目)，
+        /// 作为云平台项目图纸卡片的项目名称。</summary>
+        public Task<string> UploadToCloudAsync(string sessionId, string projectName = null)
         {
-            string body = "{\"session_id\":" + JsonString(sessionId ?? "") + "}";
+            string body = "{\"session_id\":" + JsonString(sessionId ?? "");
+            if (!string.IsNullOrEmpty(projectName))
+                body += ",\"project_name\":" + JsonString(projectName);
+            body += "}";
             return PostAsync("/api/upload_to_cloud", body);
         }
 

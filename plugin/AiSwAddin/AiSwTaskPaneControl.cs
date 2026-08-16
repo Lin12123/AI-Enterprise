@@ -382,12 +382,20 @@ namespace AiSwAddin
                 return;
             }
 
+            // 上传前让用户选择所属项目(公狼项目/分播墙项目/智狼项目)，作为云平台项目图纸卡片的项目名称。
+            string projectName = PromptSelectProject();
+            if (string.IsNullOrEmpty(projectName))
+            {
+                AppendLog(logTag + " 已取消上传：未选择所属项目。");
+                return;
+            }
+
             AppendLog(logTag + " 上传企业云平台：正在打包本次会话产物并上传，请稍候...");
             AppendChat(ChatRole.Ai, "正在把本次成果上传到企业云平台，请稍候...");
             SetBusy(true);
             try
             {
-                string resp = await _client.UploadToCloudAsync(_sessionId);
+                string resp = await _client.UploadToCloudAsync(_sessionId, projectName);
                 bool ok = !string.IsNullOrEmpty(resp) && resp.IndexOf("\"ok\": true", StringComparison.Ordinal) >= 0;
                 string msg = ExtractMessage(resp);
                 int uploaded = ExtractIntField(resp, "uploaded");
@@ -412,6 +420,68 @@ namespace AiSwAddin
             finally
             {
                 SetBusy(false);
+            }
+        }
+
+        /// <summary>
+        /// 上传前弹出下拉对话框，让用户从固定的三个项目中选择一个，
+        /// 作为云平台项目图纸卡片的项目名称。取消或未选择时返回 null。
+        /// </summary>
+        private string PromptSelectProject()
+        {
+            string[] projects = new string[] { "公狼项目", "分播墙项目", "智狼项目" };
+            using (var dlg = new Form())
+            {
+                dlg.Text = "选择所属项目";
+                dlg.FormBorderStyle = FormBorderStyle.FixedDialog;
+                dlg.StartPosition = FormStartPosition.CenterScreen;
+                dlg.MinimizeBox = false;
+                dlg.MaximizeBox = false;
+                dlg.ClientSize = new System.Drawing.Size(320, 130);
+
+                var label = new Label
+                {
+                    Text = "请选择该图纸所属的项目：",
+                    Location = new System.Drawing.Point(16, 16),
+                    AutoSize = true
+                };
+
+                var combo = new ComboBox
+                {
+                    DropDownStyle = ComboBoxStyle.DropDownList,
+                    Location = new System.Drawing.Point(16, 44),
+                    Width = 288
+                };
+                combo.Items.AddRange(projects);
+                combo.SelectedIndex = 0;
+
+                var btnOk = new Button
+                {
+                    Text = "确定",
+                    DialogResult = DialogResult.OK,
+                    Location = new System.Drawing.Point(148, 88),
+                    Width = 72
+                };
+                var btnCancel = new Button
+                {
+                    Text = "取消",
+                    DialogResult = DialogResult.Cancel,
+                    Location = new System.Drawing.Point(232, 88),
+                    Width = 72
+                };
+
+                dlg.Controls.Add(label);
+                dlg.Controls.Add(combo);
+                dlg.Controls.Add(btnOk);
+                dlg.Controls.Add(btnCancel);
+                dlg.AcceptButton = btnOk;
+                dlg.CancelButton = btnCancel;
+
+                if (dlg.ShowDialog() == DialogResult.OK && combo.SelectedItem != null)
+                {
+                    return combo.SelectedItem.ToString();
+                }
+                return null;
             }
         }
 
