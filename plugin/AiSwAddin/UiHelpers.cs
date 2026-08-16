@@ -1704,7 +1704,8 @@ namespace AiSwAddin
             SetStyle(ControlStyles.UserPaint
                      | ControlStyles.AllPaintingInWmPaint
                      | ControlStyles.OptimizedDoubleBuffer
-                     | ControlStyles.ResizeRedraw, true);
+                     | ControlStyles.ResizeRedraw
+                     | ControlStyles.SupportsTransparentBackColor, true);
             Cursor = Cursors.Hand;
             BackColor = Color.Transparent;
         }

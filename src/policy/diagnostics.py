@@ -49,10 +49,10 @@ def diagnose_plan(plan: Mapping[str, Any] | None) -> list[DiagnosticItem]:
     items.append(DiagnosticItem(
         level="warning",
         code="GEOM_HOLE_EDGE_TIGHT",
-        title="中心孔边缘与角孔边距紧凑",
+        title="角孔边距紧凑",
         feature="特征：切除-拉伸 1",
         body=(
-            "中心 Φ20 孔与角孔最小壁厚约 14.0 mm，符合铝合金切削壁厚 >3.0mm 安全要求。"
+            "角孔最小壁厚约 14.0 mm，符合铝合金切削壁厚 >3.0mm 安全要求。"
         ),
         reference="Q/HW 2026.2 最小壁厚系数 4.2.1",
         fix_hint="",
