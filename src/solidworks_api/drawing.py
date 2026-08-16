@@ -2751,16 +2751,33 @@ def _apply_dimensions_and_tolerance(app: object, draw_model: object, rules: list
     if drawn:
         dim_count += drawn
 
+    # 1.15) v040 主力落地: 用 InsertNote 在三视图边旁写长/宽/高数值注释。
+    #       真机验证 SelectByID2 选边 / AddDimension / GetPolyLines7 全走不通,
+    #       唯独 InsertNote 稳定可用(技术要求、包围盒兜底注释已落地)。故以
+    #       "视图旁文字注释"作为图上长宽高的可靠落地手段, 直接计入 dim_count。
+    notes = 0
+    try:
+        notes = _draw_bbox_notes_on_views(draw_model, part_model, app)
+    except Exception as exc:
+        _dbg(f"apply_dim: _draw_bbox_notes_on_views 抛异常 {type(exc).__name__}: {exc}", summary=True)
+        notes = 0
+    if notes:
+        dim_count += notes
+
     # 1.2) 兼容旧路径:模型自带 DisplayDimension 的场景(如手工建模+AddDimension),
     #      再走一遍"整体外形长/宽/高补打",与自绘互补不冲突(SW 会去重)。
     try:
-        overall = _insert_overall_view_dimensions(draw_model, app)
+        overall = _insert_overall_view_dimensions(draw_model,app)
     except Exception as exc:
         _dbg(f"apply_dim: _insert_overall_view_dimensions 抛异常 {type(exc).__name__}: {exc}")
         overall = 0
     if overall:
         dim_count += overall
-    _dbg(f"apply_dim: dim_count 汇总 = 模型导入{imported} + 自绘{drawn} + 兜底{overall} 合计={dim_count}", summary=True)
+    _dbg(
+        f"apply_dim: dim_count 汇总 = 模型导入{imported} + 选边自绘{drawn} + "
+        f"视图旁注释{notes} + 兜底{overall} 合计={dim_count}",
+        summary=True,
+    )
 
     # 2) 依据企业标准的公差等级设置默认对称公差
     grade = _extract_tolerance_grade(rules)
@@ -2853,6 +2870,125 @@ def _insert_bbox_fallback_note(draw_model: object, part_model: object) -> str:
         pass
     l, w, h = _get_part_bbox_dims_mm(part_model)
     return f"总长{_fmt_mm(l)}×总宽{_fmt_mm(w)}×总高{_fmt_mm(h)}mm"
+
+
+def _insert_note_at(draw_model: object, text: str, x: float, y: float) -> bool:
+    """在图纸坐标 (x, y)(米) 处用 InsertNote 写一条注释, 成功返回 True。
+
+    v040: 真机验证——SelectByID2 选边 / AddH/VDimension2 / GetPolyLines7 在
+    该客户机 late-bind COM 环境下全部走不通(多轮迭代 v035~v039.1 均失败),
+    唯独 draw_model.InsertNote 稳定可用(技术要求文本框、包围盒兜底注释已落地)。
+    故彻底放弃"选边+尺寸API", 改用 InsertNote 在视图边旁直接写长宽高数值注释,
+    以工程可接受的"文字标注"形式保证图上真正有长宽高。异常一律吞掉返回 False。
+    """
+    if not text:
+        return False
+    note = None
+    try:
+        note = draw_model.InsertNote(text)
+    except Exception as exc:
+        _dbg(f"note_at: InsertNote 抛 {type(exc).__name__}: {exc}")
+        return False
+    if note is None:
+        _dbg(f"note_at: InsertNote 返回 None @ ({x:.4f},{y:.4f})")
+        return False
+    try:
+        ann = note.GetAnnotation()
+        if ann is not None:
+            ann.SetPosition(float(x), float(y), 0.0)
+    except Exception as exc:
+        _dbg(f"note_at: SetPosition 抛 {type(exc).__name__}: {exc}(注释已插入, 位置默认)")
+    return True
+
+
+def _draw_bbox_notes_on_views(draw_model: object, part_model: object, app: object = None) -> int:
+    """在三视图边旁用 InsertNote 写长/宽/高数值注释, 返回成功写入的条数。
+
+    v040: 取代 v035~v039.1 的"选边(SelectByID2)+AddDimension"自绘链(真机全失败)。
+    做法: 识别三视图, 取各视图 GetOutline(真机 OK), 用零件包围盒 L/W/H 数值,
+    按第三角标准方位在视图边缘外侧用 InsertNote 写数值注释:
+      - 俯视图(top/front): 底边下方写"长 L", 右边右侧写"宽 W"
+      - 右视图(right):      右边右侧写"高 H"
+    仅依赖 _view_outline + InsertNote + SetPosition(均真机验证可用), 不选边、
+    不调 Dimension API。异常逐条吞掉不阻断, 返回成功条数(计入 dim_count)。
+    """
+    if draw_model is None:
+        return 0
+    l, w, h = _get_part_bbox_dims_mm(part_model)
+    if l <= 0 and w <= 0 and h <= 0:
+        _dbg("bbox_notes: 包围盒 L/W/H 全为 0, 跳过视图旁注释")
+        return 0
+    try:
+        draw_model.ForceRebuild3(False)
+    except Exception:
+        pass
+    try:
+        cls = _classify_three_views(draw_model, app)
+    except Exception as exc:
+        _dbg(f"bbox_notes: _classify_three_views 抛 {type(exc).__name__}: {exc}", summary=True)
+        return 0
+
+    margin = 0.010  # 注释离视图轮廓的偏移(米, ≈10mm)
+    placed = 0
+
+    def _note(view: object, tag: str, jobs: list) -> int:
+        if view is None:
+            return 0
+        ol = _view_outline(view)
+        if ol is None:
+            _dbg(f"bbox_notes[{tag}]: outline 取不到, 跳过")
+            return 0
+        xmin, ymin, xmax, ymax, cx, cy = ol
+        vname = _sw_invoke(view, "GetName2")
+        if vname:
+            _sw_call(draw_model, "ActivateView", str(vname))
+        n = 0
+        for label, value, px, py in jobs:
+            txt = f"{label} {_fmt_mm(value)}"
+            if _insert_note_at(draw_model, txt, px, py):
+                n += 1
+                _dbg(f"bbox_notes[{tag}]: 写入 '{txt}' @ ({px:.4f},{py:.4f})")
+            else:
+                _dbg(f"bbox_notes[{tag}]: 写入 '{txt}' 失败")
+        # 每张视图注释完回激活图纸, 避免影响后续保存
+        try:
+            draw_model.ActivateSheet(draw_model.GetCurrentSheet().GetName())
+        except Exception:
+            pass
+        return n
+
+    top = cls.get("top") or cls.get("front")
+    if top is not None:
+        ol = _view_outline(top)
+        if ol is not None:
+            xmin, ymin, xmax, ymax, cx, cy = ol
+            placed += _note(
+                top, "top",
+                [
+                    ("长", l, cx, ymin - margin),          # 底边下方: 长
+                    ("宽", w, xmax + margin, cy),           # 右边右侧: 宽
+                ],
+            )
+
+    right = cls.get("right")
+    if right is not None:
+        ol = _view_outline(right)
+        if ol is not None:
+            xmin, ymin, xmax, ymax, cx, cy = ol
+            placed += _note(
+                right, "right",
+                [
+                    ("高", h, xmax + margin, cy),           # 右边右侧: 高
+                ],
+            )
+
+    if placed:
+        try:
+            draw_model.EditRebuild3()
+        except Exception:
+            pass
+    _dbg(f"bbox_notes: 视图旁注释累计写入 {placed} 条", summary=True)
+    return placed
 
 
 def _drawing_has_tech_requirements(draw_model: object) -> bool:
