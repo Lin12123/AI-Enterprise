@@ -72,11 +72,37 @@ import {
   approvalTasks,
   coverageMetrics,
   mockProjects,
+  mockMembers,
+  mockDrawingList,
   mockPlugins,
   pluginMetrics,
   pluginManifest,
   pluginSbom,
 } from './mock'
+
+// 字节数格式化为可读文本
+const fmtSize = (n) => {
+  const b = Number(n) || 0
+  if (b <= 0) return '-'
+  if (b < 1024) return `${b} B`
+  if (b < 1024 * 1024) return `${(b / 1024).toFixed(1)} KB`
+  return `${(b / 1024 / 1024).toFixed(1)} MB`
+}
+
+// file 记录 → 图纸表格行（版本/状态/更新人后端暂无，mock 兜底）
+const fileToDrawing = (f, idx) => ({
+  id: f.id ?? `f-${idx}`,
+  code: (f.file_name || `DWG-${idx + 1}`).replace(/\.[^.]+$/, ''),
+  name: f.file_name || `图纸 ${idx + 1}`,
+  desc: f.file_type ? `${f.file_type} 产物文件` : '云端产物文件',
+  version: 'A0',
+  status: idx === 0 ? '已审批' : '未审批',
+  fileType: (f.file_type || '').toUpperCase() || 'FILE',
+  size: fmtSize(f.size_bytes),
+  updatedBy: '系统',
+  updatedAt: f.created_at || '',
+  fileId: f.id,
+})
 
 const delay = (data, ms = 200) =>
   new Promise((resolve) => setTimeout(() => resolve(data), ms))
@@ -129,6 +155,44 @@ export const projectsApi = {
   },
   // 删除项目：连带删除其产物文件(后端级联)。tid 为 task 数字主键。
   remove: (tid) => del(`/tasks/${tid}`),
+  // 项目详情：返回 { project, members, drawings }。
+  // tid 为数字主键时取真实 task+files；否则(mock 卡片)用 mock 明细兜底。
+  async detail(card) {
+    const tid = card && card.tid
+    if (tid == null) {
+      // mock 卡片：优先用 mock 明细
+      const m = mockProjects.find((p) => p.id === (card && card.id))
+      return delay({
+        project: card || {},
+        members: (m && m.memberList) || mockMembers,
+        drawings: (m && m.drawingList) || mockDrawingList,
+      })
+    }
+    try {
+      const data = await get(`/tasks/${tid}`)
+      const files = (data && data.files) || []
+      const drawings = files.length
+        ? files.map((f, i) => fileToDrawing(f, i))
+        : mockDrawingList
+      return {
+        project: {
+          id: (data && data.task_uid) || card.id,
+          name: (data && data.title) || card.name,
+          enabled: card.enabled,
+          desc: (data && data.part_name) ? `零件：${data.part_name}` : card.desc,
+          updatedAt: (data && data.created_at) || card.updatedAt,
+        },
+        members: mockMembers,
+        drawings,
+      }
+    } catch (e) {
+      return {
+        project: card || {},
+        members: mockMembers,
+        drawings: mockDrawingList,
+      }
+    }
+  },
 }
 
 // 插件管理：假数据

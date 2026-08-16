@@ -37,6 +37,53 @@ export const coverageMetrics = [
 ]
 
 // ---------- 项目图纸管理 ----------
+// 默认成员样例（项目详情弹窗兜底展示用）
+export const mockMembers = [
+  { id: 'm1', name: '李工', role: '主设计师', email: 'li.gong@corp.local' },
+  { id: 'm2', name: '王工', role: '结构工程师', email: 'wang.gong@corp.local' },
+  { id: 'm3', name: '张审', role: '审批人', email: 'zhang.shen@corp.local' },
+]
+
+// 默认图纸明细样例（项目详情弹窗兜底展示用）
+export const mockDrawingList = [
+  {
+    id: 'd1',
+    code: 'TF-WING-001-A1',
+    name: '主翼连接支架',
+    desc: '航空级铝合金连接支架，含公差与技术要求。',
+    version: 'A1',
+    status: '已审批',
+    fileType: 'SLDPRT',
+    size: '2.4 MB',
+    updatedBy: '李工',
+    updatedAt: '2026-08-14 09:20',
+  },
+  {
+    id: 'd2',
+    code: 'TF-WING-002-A0',
+    name: '相机支架底板',
+    desc: '相机固定底板，STEP 交付件。',
+    version: 'A0',
+    status: '未审批',
+    fileType: 'STEP',
+    size: '1.1 MB',
+    updatedBy: '王工',
+    updatedAt: '2026-08-13 15:40',
+  },
+  {
+    id: 'd3',
+    code: 'TF-WING-003-D',
+    name: '加强筋组件',
+    desc: '草稿版本，待补充公差标注。',
+    version: 'draft',
+    status: '草稿',
+    fileType: 'PRT',
+    size: '0.8 MB',
+    updatedBy: '李工',
+    updatedAt: '2026-08-12 10:05',
+  },
+]
+
 export const mockProjects = [
   {
     id: 'PRJ-AERO-2026',
@@ -46,6 +93,8 @@ export const mockProjects = [
     drawings: 128,
     members: 12,
     updatedAt: '2026-08-14 09:20',
+    memberList: mockMembers,
+    drawingList: mockDrawingList,
   },
   {
     id: 'PRJ-FLANGE-01',
@@ -55,6 +104,8 @@ export const mockProjects = [
     drawings: 64,
     members: 6,
     updatedAt: '2026-08-12 16:05',
+    memberList: mockMembers.slice(0, 2),
+    drawingList: mockDrawingList.slice(0, 2),
   },
   {
     id: 'PRJ-LEGACY-09',
@@ -64,6 +115,8 @@ export const mockProjects = [
     drawings: 320,
     members: 3,
     updatedAt: '2026-06-30 11:00',
+    memberList: mockMembers,
+    drawingList: mockDrawingList,
   },
 ]
 
