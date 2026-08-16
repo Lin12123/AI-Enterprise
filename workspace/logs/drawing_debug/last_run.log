@@ -1,183 +1,184 @@
-[07:50:08] create_drawing: 入口
-[07:50:11] insert_views: Create3rdAngleViews2 返回 True part_path=C:\Users\LVBO_ZY\PycharmProjects\AI-Enterprise\workspace\outputs\parts\ai_part_v037.SLDPRT
-[07:50:11] insert_views: 创建后视图计数 = 0
-[07:50:12] apply_dim: 文档层 ext.InsertModelAnnotations3 抛 AttributeError:<unknown>.InsertModelAnnotations3
-[07:50:12] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[07:50:12] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[07:50:12] iter_views: 路径2(GetSheetNames+Sheet.GetViews) 累计 3 个模型视图, sheet_count=1
-[07:50:12] apply_dim: 逐视图导入前, 拿到模型视图数=3
-[07:50:12] apply_dim: 视图[工程图视图1] InsertModelAnnotations3 抛 AttributeError:<unknown>.InsertModelAnnotations3
-[07:50:12] apply_dim: 视图[工程图视图2] InsertModelAnnotations3 抛 AttributeError:<unknown>.InsertModelAnnotations3
-[07:50:12] apply_dim: 视图[工程图视图3] InsertModelAnnotations3 抛 AttributeError:<unknown>.InsertModelAnnotations3
-[07:50:12] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[07:50:12] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[07:50:13] iter_views: 路径2(GetSheetNames+Sheet.GetViews) 累计 3 个模型视图, sheet_count=1
-[07:50:13] count_display: 视图[工程图视图1] 显示尺寸=0
-[07:50:13] count_display: 视图[工程图视图2] 显示尺寸=0
-[07:50:13] count_display: 视图[工程图视图3] 显示尺寸=0
-[07:50:13] apply_dim: InsertModelAnnotations3 后计数 DisplayDimension=0
-[07:50:13] apply_dim: 进入路径E 判定 imported=0 app_available=True
-[07:50:13] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[07:50:13] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[07:50:14] iter_views: 路径2(GetSheetNames+Sheet.GetViews) 累计 3 个模型视图, sheet_count=1
-[07:50:14] apply_dim: 路径E fallback_views 数量=3
-[07:50:14] apply_dim: 路径E RunCommand(cmd=1668) 返回=True
-[07:50:15] apply_dim: 路径E RunCommand(cmd=1668) 返回=True
-[07:50:16] apply_dim: 路径E RunCommand(cmd=1668) 返回=True
-[07:50:16] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[07:50:16] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[07:50:16] iter_views: 路径2(GetSheetNames+Sheet.GetViews) 累计 3 个模型视图, sheet_count=1
-[07:50:16] count_display: 视图[工程图视图1] 显示尺寸=0
-[07:50:16] count_display: 视图[工程图视图2] 显示尺寸=0
-[07:50:16] count_display: 视图[工程图视图3] 显示尺寸=0
-[07:50:16] apply_dim: 路径E(RunCommand InsertModelItems) 尝试=3 成功=3 命令后 DisplayDimension=0
-[07:50:16] apply_dim: 路径F 前置状态 imported=0 app_is_none=False
-[07:50:16] apply_dim: 进入路径F 判定 imported=0 app_available=True
-[07:50:16] macro_sec: 已写入注册表宏安全性降级(HKCU\...\Security)
-[07:50:16] path_F: RunMacro2 proc='main' ok=True err_ref=0 msg=
-[07:50:16] path_F: dump 文件不存在, 宏体根本没跑到 main (RunMacro2 静默无痕失败)
-[07:50:16] path_F: VBA 宏 InsertModelAnnotations3 完成 phase='' imported=0 views=0 err='no_dump_macro_not_started'
-[07:50:16] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[07:50:16] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[07:50:16] iter_views: 路径2(GetSheetNames+Sheet.GetViews) 累计 3 个模型视图, sheet_count=1
-[07:50:16] count_display: 视图[工程图视图1] 显示尺寸=0
-[07:50:16] count_display: 视图[工程图视图2] 显示尺寸=0
-[07:50:16] count_display: 视图[工程图视图3] 显示尺寸=0
-[07:50:16] apply_dim: 路径F(VBA InsertModelAnnotations3) 宏内 imported=0 views=0 命令后 DisplayDimension=0 err='no_dump_macro_not_started'
-[07:50:17] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[07:50:17] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[07:50:17] iter_views: 路径2(GetSheetNames+Sheet.GetViews) 累计 3 个模型视图, sheet_count=1
-[07:50:17] classify_views: ortho=3 front=Y top=Y right=Y
-[07:50:17] draw_self[top]: outline=(0.0285,0.1484)-(0.0972,0.1970) 跨度 dx=0.0686 dy=0.0486 m
-[07:50:17] early_bind: EnsureModule 成功 ver=27.0, 早绑定模块已生成
-[07:50:17] early_bind: 能力探测命中接口类 IModelDoc(含('AddHorizontalDimension2', 'AddVerticalDimension2'))
-[07:50:17] early_bind: 能力探测构造成功 类名=IModelDoc 含('AddHorizontalDimension2', 'AddVerticalDimension2')=True
-[07:50:17] select_edge: SelectByID2 全部候选均抛异常, 末次 com_error: (-2147352571, '类型不匹配。', None, 8)
-[07:50:17] add_h_dim: 早绑定 AddHorizontalDimension2 抛 AttributeError: NewDocument.InvokeTypes
-[07:50:17] add_h_dim: AddHorizontalDimension2 返回 None (picked=False x_mid=0.0629 y_text=0.1364)
-[07:50:17] draw_self[top]: 水平尺寸 FAIL
-[07:50:17] select_edge: SelectByID2 全部候选均抛异常, 末次 com_error: (-2147352571, '类型不匹配。', None, 8)
-[07:50:17] add_v_dim: 早绑定 AddVerticalDimension2 抛 AttributeError: NewDocument.InvokeTypes
-[07:50:17] add_v_dim: AddVerticalDimension2 返回 None (picked=False x_text=0.1092 y_mid=0.1727)
-[07:50:17] draw_self[top]: 竖直尺寸 FAIL
-[07:50:17] draw_self[front]: outline=(0.0285,0.0783)-(0.0972,0.0944) 跨度 dx=0.0686 dy=0.0161 m
-[07:50:18] select_edge: SelectByID2 全部候选均抛异常, 末次 com_error: (-2147352571, '类型不匹配。', None, 8)
-[07:50:18] add_h_dim: 早绑定 AddHorizontalDimension2 抛 AttributeError: NewDocument.InvokeTypes
-[07:50:18] add_h_dim: AddHorizontalDimension2 返回 None (picked=False x_mid=0.0629 y_text=0.0663)
-[07:50:18] draw_self[front]: 水平尺寸 FAIL
-[07:50:18] select_edge: SelectByID2 全部候选均抛异常, 末次 com_error: (-2147352571, '类型不匹配。', None, 8)
-[07:50:18] add_v_dim: 早绑定 AddVerticalDimension2 抛 AttributeError: NewDocument.InvokeTypes
-[07:50:18] add_v_dim: AddVerticalDimension2 返回 None (picked=False x_text=0.1092 y_mid=0.0864)
-[07:50:18] draw_self[front]: 竖直尺寸 FAIL
-[07:50:18] draw_self[right]: outline=(0.1363,0.0783)-(0.1850,0.0944) 跨度 dx=0.0486 dy=0.0161 m
-[07:50:18] select_edge: SelectByID2 全部候选均抛异常, 末次 com_error: (-2147352571, '类型不匹配。', None, 8)
-[07:50:18] add_h_dim: 早绑定 AddHorizontalDimension2 抛 AttributeError: NewDocument.InvokeTypes
-[07:50:18] add_h_dim: AddHorizontalDimension2 返回 None (picked=False x_mid=0.1607 y_text=0.0663)
-[07:50:18] draw_self[right]: 水平尺寸 FAIL
-[07:50:18] select_edge: SelectByID2 全部候选均抛异常, 末次 com_error: (-2147352571, '类型不匹配。', None, 8)
-[07:50:18] add_v_dim: 早绑定 AddVerticalDimension2 抛 AttributeError: NewDocument.InvokeTypes
-[07:50:18] add_v_dim: AddVerticalDimension2 返回 None (picked=False x_text=0.1970 y_mid=0.0864)
-[07:50:18] draw_self[right]: 竖直尺寸 FAIL
-[07:50:18] draw_self: 累计自绘 0 条
-[07:50:19] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[07:50:19] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[07:50:19] iter_views: 路径2(GetSheetNames+Sheet.GetViews) 累计 3 个模型视图, sheet_count=1
-[07:50:19] classify_views: ortho=3 front=Y top=Y right=Y
-[07:50:20] select_edge: SelectByID2 全部候选均抛异常, 末次 com_error: (-2147352571, '类型不匹配。', None, 8)
-[07:50:20] add_h_dim: 早绑定 AddHorizontalDimension2 抛 AttributeError: NewDocument.InvokeTypes
-[07:50:20] add_h_dim: AddHorizontalDimension2 返回 None (picked=False x_mid=0.0629 y_text=0.1364)
-[07:50:20] select_edge: SelectByID2 全部候选均抛异常, 末次 com_error: (-2147352571, '类型不匹配。', None, 8)
-[07:50:20] add_v_dim: 早绑定 AddVerticalDimension2 抛 AttributeError: NewDocument.InvokeTypes
-[07:50:20] add_v_dim: AddVerticalDimension2 返回 None (picked=False x_text=0.1092 y_mid=0.1727)
-[07:50:20] select_edge: SelectByID2 全部候选均抛异常, 末次 com_error: (-2147352571, '类型不匹配。', None, 8)
-[07:50:20] add_v_dim: 早绑定 AddVerticalDimension2 抛 AttributeError: NewDocument.InvokeTypes
-[07:50:20] add_v_dim: AddVerticalDimension2 返回 None (picked=False x_text=0.1970 y_mid=0.0864)
-[07:50:20] apply_dim: dim_count 汇总 = 模型导入0 + 自绘0 + 兜底0 合计=0
-[07:50:21] apply_dim: 文档层 ext.InsertModelAnnotations3 抛 AttributeError:<unknown>.InsertModelAnnotations3
-[07:50:21] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[07:50:21] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[07:50:21] iter_views: 路径2(GetSheetNames+Sheet.GetViews) 累计 3 个模型视图, sheet_count=1
-[07:50:21] apply_dim: 逐视图导入前, 拿到模型视图数=3
-[07:50:21] apply_dim: 视图[工程图视图1] InsertModelAnnotations3 抛 AttributeError:<unknown>.InsertModelAnnotations3
-[07:50:21] apply_dim: 视图[工程图视图2] InsertModelAnnotations3 抛 AttributeError:<unknown>.InsertModelAnnotations3
-[07:50:21] apply_dim: 视图[工程图视图3] InsertModelAnnotations3 抛 AttributeError:<unknown>.InsertModelAnnotations3
-[07:50:22] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[07:50:22] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[07:50:22] iter_views: 路径2(GetSheetNames+Sheet.GetViews) 累计 3 个模型视图, sheet_count=1
-[07:50:22] count_display: 视图[工程图视图1] 显示尺寸=0
-[07:50:22] count_display: 视图[工程图视图2] 显示尺寸=0
-[07:50:22] count_display: 视图[工程图视图3] 显示尺寸=0
-[07:50:22] apply_dim: InsertModelAnnotations3 后计数 DisplayDimension=0
-[07:50:22] apply_dim: 进入路径E 判定 imported=0 app_available=True
-[07:50:23] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[07:50:23] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[07:50:23] iter_views: 路径2(GetSheetNames+Sheet.GetViews) 累计 3 个模型视图, sheet_count=1
-[07:50:23] apply_dim: 路径E fallback_views 数量=3
-[07:50:24] apply_dim: 路径E RunCommand(cmd=1668) 返回=True
-[07:50:24] apply_dim: 路径E RunCommand(cmd=1668) 返回=True
-[07:50:25] apply_dim: 路径E RunCommand(cmd=1668) 返回=True
-[07:50:25] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[07:50:26] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[07:50:26] iter_views: 路径2(GetSheetNames+Sheet.GetViews) 累计 3 个模型视图, sheet_count=1
-[07:50:26] count_display: 视图[工程图视图1] 显示尺寸=0
-[07:50:26] count_display: 视图[工程图视图2] 显示尺寸=0
-[07:50:26] count_display: 视图[工程图视图3] 显示尺寸=0
-[07:50:26] apply_dim: 路径E(RunCommand InsertModelItems) 尝试=3 成功=3 命令后 DisplayDimension=0
-[07:50:26] apply_dim: 路径F 前置状态 imported=0 app_is_none=False
-[07:50:26] apply_dim: 进入路径F 判定 imported=0 app_available=True
-[07:50:26] path_F: RunMacro2 proc='main' ok=True err_ref=0 msg=
-[07:50:26] path_F: dump 文件不存在, 宏体根本没跑到 main (RunMacro2 静默无痕失败)
-[07:50:26] path_F: VBA 宏 InsertModelAnnotations3 完成 phase='' imported=0 views=0 err='no_dump_macro_not_started'
-[07:50:26] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[07:50:26] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[07:50:27] iter_views: 路径2(GetSheetNames+Sheet.GetViews) 累计 3 个模型视图, sheet_count=1
-[07:50:27] count_display: 视图[工程图视图1] 显示尺寸=0
-[07:50:27] count_display: 视图[工程图视图2] 显示尺寸=0
-[07:50:27] count_display: 视图[工程图视图3] 显示尺寸=0
-[07:50:27] apply_dim: 路径F(VBA InsertModelAnnotations3) 宏内 imported=0 views=0 命令后 DisplayDimension=0 err='no_dump_macro_not_started'
-[07:50:27] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[07:50:27] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[07:50:27] iter_views: 路径2(GetSheetNames+Sheet.GetViews) 累计 3 个模型视图, sheet_count=1
-[07:50:27] classify_views: ortho=3 front=Y top=Y right=Y
-[07:50:27] draw_self[top]: outline=(0.0285,0.1484)-(0.0972,0.1970) 跨度 dx=0.0686 dy=0.0486 m
-[07:50:27] select_edge: SelectByID2 全部候选均抛异常, 末次 com_error: (-2147352571, '类型不匹配。', None, 8)
-[07:50:28] add_h_dim: 早绑定 AddHorizontalDimension2 抛 AttributeError: NewDocument.InvokeTypes
-[07:50:28] add_h_dim: AddHorizontalDimension2 返回 None (picked=False x_mid=0.0629 y_text=0.1364)
-[07:50:28] draw_self[top]: 水平尺寸 FAIL
-[07:50:28] select_edge: SelectByID2 全部候选均抛异常, 末次 com_error: (-2147352571, '类型不匹配。', None, 8)
-[07:50:28] add_v_dim: 早绑定 AddVerticalDimension2 抛 AttributeError: NewDocument.InvokeTypes
-[07:50:28] add_v_dim: AddVerticalDimension2 返回 None (picked=False x_text=0.1092 y_mid=0.1727)
-[07:50:28] draw_self[top]: 竖直尺寸 FAIL
-[07:50:28] draw_self[front]: outline=(0.0285,0.0783)-(0.0972,0.0944) 跨度 dx=0.0686 dy=0.0161 m
-[07:50:28] select_edge: SelectByID2 全部候选均抛异常, 末次 com_error: (-2147352571, '类型不匹配。', None, 8)
-[07:50:28] add_h_dim: 早绑定 AddHorizontalDimension2 抛 AttributeError: NewDocument.InvokeTypes
-[07:50:28] add_h_dim: AddHorizontalDimension2 返回 None (picked=False x_mid=0.0629 y_text=0.0663)
-[07:50:28] draw_self[front]: 水平尺寸 FAIL
-[07:50:28] select_edge: SelectByID2 全部候选均抛异常, 末次 com_error: (-2147352571, '类型不匹配。', None, 8)
-[07:50:28] add_v_dim: 早绑定 AddVerticalDimension2 抛 AttributeError: NewDocument.InvokeTypes
-[07:50:28] add_v_dim: AddVerticalDimension2 返回 None (picked=False x_text=0.1092 y_mid=0.0864)
-[07:50:28] draw_self[front]: 竖直尺寸 FAIL
-[07:50:28] draw_self[right]: outline=(0.1363,0.0783)-(0.1850,0.0944) 跨度 dx=0.0486 dy=0.0161 m
-[07:50:28] select_edge: SelectByID2 全部候选均抛异常, 末次 com_error: (-2147352571, '类型不匹配。', None, 8)
-[07:50:28] add_h_dim: 早绑定 AddHorizontalDimension2 抛 AttributeError: NewDocument.InvokeTypes
-[07:50:28] add_h_dim: AddHorizontalDimension2 返回 None (picked=False x_mid=0.1607 y_text=0.0663)
-[07:50:28] draw_self[right]: 水平尺寸 FAIL
-[07:50:29] select_edge: SelectByID2 全部候选均抛异常, 末次 com_error: (-2147352571, '类型不匹配。', None, 8)
-[07:50:29] add_v_dim: 早绑定 AddVerticalDimension2 抛 AttributeError: NewDocument.InvokeTypes
-[07:50:29] add_v_dim: AddVerticalDimension2 返回 None (picked=False x_text=0.1970 y_mid=0.0864)
-[07:50:29] draw_self[right]: 竖直尺寸 FAIL
-[07:50:29] draw_self: 累计自绘 0 条
-[07:50:29] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[07:50:29] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[07:50:30] iter_views: 路径2(GetSheetNames+Sheet.GetViews) 累计 3 个模型视图, sheet_count=1
-[07:50:30] classify_views: ortho=3 front=Y top=Y right=Y
-[07:50:30] select_edge: SelectByID2 全部候选均抛异常, 末次 com_error: (-2147352571, '类型不匹配。', None, 8)
-[07:50:30] add_h_dim: 早绑定 AddHorizontalDimension2 抛 AttributeError: NewDocument.InvokeTypes
-[07:50:30] add_h_dim: AddHorizontalDimension2 返回 None (picked=False x_mid=0.0629 y_text=0.1364)
-[07:50:30] select_edge: SelectByID2 全部候选均抛异常, 末次 com_error: (-2147352571, '类型不匹配。', None, 8)
-[07:50:30] add_v_dim: 早绑定 AddVerticalDimension2 抛 AttributeError: NewDocument.InvokeTypes
-[07:50:30] add_v_dim: AddVerticalDimension2 返回 None (picked=False x_text=0.1092 y_mid=0.1727)
-[07:50:30] select_edge: SelectByID2 全部候选均抛异常, 末次 com_error: (-2147352571, '类型不匹配。', None, 8)
-[07:50:30] add_v_dim: 早绑定 AddVerticalDimension2 抛 AttributeError: NewDocument.InvokeTypes
-[07:50:30] add_v_dim: AddVerticalDimension2 返回 None (picked=False x_text=0.1970 y_mid=0.0864)
-[07:50:30] apply_dim: dim_count 汇总 = 模型导入0 + 自绘0 + 兜底0 合计=0
+[08:01:58] create_drawing: 入口
+[08:02:01] insert_views: Create3rdAngleViews2 返回 True part_path=C:\Users\LVBO_ZY\PycharmProjects\AI-Enterprise\workspace\outputs\parts\ai_part_v038.SLDPRT
+[08:02:01] insert_views: 创建后视图计数 = 0
+[08:02:01] apply_dim: 文档层 ext.InsertModelAnnotations3 抛 AttributeError:<unknown>.InsertModelAnnotations3
+[08:02:01] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[08:02:01] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[08:02:01] iter_views: 路径2(GetSheetNames+Sheet.GetViews) 累计 3 个模型视图, sheet_count=1
+[08:02:01] apply_dim: 逐视图导入前, 拿到模型视图数=3
+[08:02:01] apply_dim: 视图[工程图视图1] InsertModelAnnotations3 抛 AttributeError:<unknown>.InsertModelAnnotations3
+[08:02:01] apply_dim: 视图[工程图视图2] InsertModelAnnotations3 抛 AttributeError:<unknown>.InsertModelAnnotations3
+[08:02:01] apply_dim: 视图[工程图视图3] InsertModelAnnotations3 抛 AttributeError:<unknown>.InsertModelAnnotations3
+[08:02:02] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[08:02:02] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[08:02:02] iter_views: 路径2(GetSheetNames+Sheet.GetViews) 累计 3 个模型视图, sheet_count=1
+[08:02:02] count_display: 视图[工程图视图1] 显示尺寸=0
+[08:02:02] count_display: 视图[工程图视图2] 显示尺寸=0
+[08:02:03] count_display: 视图[工程图视图3] 显示尺寸=0
+[08:02:03] apply_dim: InsertModelAnnotations3 后计数 DisplayDimension=0
+[08:02:03] apply_dim: 进入路径E 判定 imported=0 app_available=True
+[08:02:03] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[08:02:03] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[08:02:03] iter_views: 路径2(GetSheetNames+Sheet.GetViews) 累计 3 个模型视图, sheet_count=1
+[08:02:03] apply_dim: 路径E fallback_views 数量=3
+[08:02:04] apply_dim: 路径E RunCommand(cmd=1668) 返回=True
+[08:02:05] apply_dim: 路径E RunCommand(cmd=1668) 返回=True
+[08:02:05] apply_dim: 路径E RunCommand(cmd=1668) 返回=True
+[08:02:05] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[08:02:06] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[08:02:06] iter_views: 路径2(GetSheetNames+Sheet.GetViews) 累计 3 个模型视图, sheet_count=1
+[08:02:06] count_display: 视图[工程图视图1] 显示尺寸=0
+[08:02:06] count_display: 视图[工程图视图2] 显示尺寸=0
+[08:02:06] count_display: 视图[工程图视图3] 显示尺寸=0
+[08:02:06] apply_dim: 路径E(RunCommand InsertModelItems) 尝试=3 成功=3 命令后 DisplayDimension=0
+[08:02:06] apply_dim: 路径F 前置状态 imported=0 app_is_none=False
+[08:02:06] apply_dim: 进入路径F 判定 imported=0 app_available=True
+[08:02:06] macro_sec: 已写入注册表宏安全性降级(HKCU\...\Security)
+[08:02:06] path_F: RunMacro2 proc='main' ok=True err_ref=0 msg=
+[08:02:06] path_F: dump 文件不存在, 宏体根本没跑到 main (RunMacro2 静默无痕失败)
+[08:02:06] path_F: VBA 宏 InsertModelAnnotations3 完成 phase='' imported=0 views=0 err='no_dump_macro_not_started'
+[08:02:06] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[08:02:06] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[08:02:06] iter_views: 路径2(GetSheetNames+Sheet.GetViews) 累计 3 个模型视图, sheet_count=1
+[08:02:06] count_display: 视图[工程图视图1] 显示尺寸=0
+[08:02:06] count_display: 视图[工程图视图2] 显示尺寸=0
+[08:02:06] count_display: 视图[工程图视图3] 显示尺寸=0
+[08:02:06] apply_dim: 路径F(VBA InsertModelAnnotations3) 宏内 imported=0 views=0 命令后 DisplayDimension=0 err='no_dump_macro_not_started'
+[08:02:07] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[08:02:07] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[08:02:07] iter_views: 路径2(GetSheetNames+Sheet.GetViews) 累计 3 个模型视图, sheet_count=1
+[08:02:07] classify_views: ortho=3 front=Y top=Y right=Y
+[08:02:07] draw_self[top]: outline=(0.0285,0.1484)-(0.0972,0.1970) 跨度 dx=0.0686 dy=0.0486 m
+[08:02:07] early_bind: EnsureModule 成功 ver=27.0, 早绑定模块已生成
+[08:02:07] early_bind: 能力探测命中接口类 IModelDoc(含('AddHorizontalDimension2', 'AddVerticalDimension2'))
+[08:02:07] early_bind: 能力探测 QueryInterface 到接口 IID 成功
+[08:02:07] early_bind: 能力探测 构造 类名=IModelDoc _oleobj_有InvokeTypes=True 含('AddHorizontalDimension2', 'AddVerticalDimension2')=True
+[08:02:07] select_edge: SelectByID2 全部候选均抛异常, 末次 com_error: (-2147352571, '类型不匹配。', None, 8)
+[08:02:07] add_h_dim: 早绑定 AddHorizontalDimension2 返回 None (picked=False)
+[08:02:07] add_h_dim: AddHorizontalDimension2 返回 None (picked=False x_mid=0.0629 y_text=0.1364)
+[08:02:07] draw_self[top]: 水平尺寸 FAIL
+[08:02:07] select_edge: SelectByID2 全部候选均抛异常, 末次 com_error: (-2147352571, '类型不匹配。', None, 8)
+[08:02:07] add_v_dim: 早绑定 AddVerticalDimension2 返回 None (picked=False)
+[08:02:07] add_v_dim: AddVerticalDimension2 返回 None (picked=False x_text=0.1092 y_mid=0.1727)
+[08:02:07] draw_self[top]: 竖直尺寸 FAIL
+[08:02:07] draw_self[front]: outline=(0.0285,0.0783)-(0.0972,0.0944) 跨度 dx=0.0686 dy=0.0161 m
+[08:02:07] select_edge: SelectByID2 全部候选均抛异常, 末次 com_error: (-2147352571, '类型不匹配。', None, 8)
+[08:02:07] add_h_dim: 早绑定 AddHorizontalDimension2 返回 None (picked=False)
+[08:02:07] add_h_dim: AddHorizontalDimension2 返回 None (picked=False x_mid=0.0629 y_text=0.0663)
+[08:02:07] draw_self[front]: 水平尺寸 FAIL
+[08:02:08] select_edge: SelectByID2 全部候选均抛异常, 末次 com_error: (-2147352571, '类型不匹配。', None, 8)
+[08:02:08] add_v_dim: 早绑定 AddVerticalDimension2 返回 None (picked=False)
+[08:02:08] add_v_dim: AddVerticalDimension2 返回 None (picked=False x_text=0.1092 y_mid=0.0864)
+[08:02:08] draw_self[front]: 竖直尺寸 FAIL
+[08:02:08] draw_self[right]: outline=(0.1363,0.0783)-(0.1850,0.0944) 跨度 dx=0.0486 dy=0.0161 m
+[08:02:08] select_edge: SelectByID2 全部候选均抛异常, 末次 com_error: (-2147352571, '类型不匹配。', None, 8)
+[08:02:08] add_h_dim: 早绑定 AddHorizontalDimension2 返回 None (picked=False)
+[08:02:08] add_h_dim: AddHorizontalDimension2 返回 None (picked=False x_mid=0.1607 y_text=0.0663)
+[08:02:08] draw_self[right]: 水平尺寸 FAIL
+[08:02:08] select_edge: SelectByID2 全部候选均抛异常, 末次 com_error: (-2147352571, '类型不匹配。', None, 8)
+[08:02:08] add_v_dim: 早绑定 AddVerticalDimension2 返回 None (picked=False)
+[08:02:08] add_v_dim: AddVerticalDimension2 返回 None (picked=False x_text=0.1970 y_mid=0.0864)
+[08:02:08] draw_self[right]: 竖直尺寸 FAIL
+[08:02:08] draw_self: 累计自绘 0 条
+[08:02:08] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[08:02:08] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[08:02:09] iter_views: 路径2(GetSheetNames+Sheet.GetViews) 累计 3 个模型视图, sheet_count=1
+[08:02:09] classify_views: ortho=3 front=Y top=Y right=Y
+[08:02:09] select_edge: SelectByID2 全部候选均抛异常, 末次 com_error: (-2147352571, '类型不匹配。', None, 8)
+[08:02:09] add_h_dim: 早绑定 AddHorizontalDimension2 返回 None (picked=False)
+[08:02:09] add_h_dim: AddHorizontalDimension2 返回 None (picked=False x_mid=0.0629 y_text=0.1364)
+[08:02:09] select_edge: SelectByID2 全部候选均抛异常, 末次 com_error: (-2147352571, '类型不匹配。', None, 8)
+[08:02:09] add_v_dim: 早绑定 AddVerticalDimension2 返回 None (picked=False)
+[08:02:09] add_v_dim: AddVerticalDimension2 返回 None (picked=False x_text=0.1092 y_mid=0.1727)
+[08:02:10] select_edge: SelectByID2 全部候选均抛异常, 末次 com_error: (-2147352571, '类型不匹配。', None, 8)
+[08:02:10] add_v_dim: 早绑定 AddVerticalDimension2 返回 None (picked=False)
+[08:02:10] add_v_dim: AddVerticalDimension2 返回 None (picked=False x_text=0.1970 y_mid=0.0864)
+[08:02:10] apply_dim: dim_count 汇总 = 模型导入0 + 自绘0 + 兜底0 合计=0
+[08:02:10] apply_dim: 文档层 ext.InsertModelAnnotations3 抛 AttributeError:<unknown>.InsertModelAnnotations3
+[08:02:10] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[08:02:10] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[08:02:11] iter_views: 路径2(GetSheetNames+Sheet.GetViews) 累计 3 个模型视图, sheet_count=1
+[08:02:11] apply_dim: 逐视图导入前, 拿到模型视图数=3
+[08:02:11] apply_dim: 视图[工程图视图1] InsertModelAnnotations3 抛 AttributeError:<unknown>.InsertModelAnnotations3
+[08:02:11] apply_dim: 视图[工程图视图2] InsertModelAnnotations3 抛 AttributeError:<unknown>.InsertModelAnnotations3
+[08:02:11] apply_dim: 视图[工程图视图3] InsertModelAnnotations3 抛 AttributeError:<unknown>.InsertModelAnnotations3
+[08:02:11] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[08:02:11] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[08:02:12] iter_views: 路径2(GetSheetNames+Sheet.GetViews) 累计 3 个模型视图, sheet_count=1
+[08:02:12] count_display: 视图[工程图视图1] 显示尺寸=0
+[08:02:12] count_display: 视图[工程图视图2] 显示尺寸=0
+[08:02:12] count_display: 视图[工程图视图3] 显示尺寸=0
+[08:02:12] apply_dim: InsertModelAnnotations3 后计数 DisplayDimension=0
+[08:02:12] apply_dim: 进入路径E 判定 imported=0 app_available=True
+[08:02:12] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[08:02:12] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[08:02:13] iter_views: 路径2(GetSheetNames+Sheet.GetViews) 累计 3 个模型视图, sheet_count=1
+[08:02:13] apply_dim: 路径E fallback_views 数量=3
+[08:02:14] apply_dim: 路径E RunCommand(cmd=1668) 返回=True
+[08:02:14] apply_dim: 路径E RunCommand(cmd=1668) 返回=True
+[08:02:15] apply_dim: 路径E RunCommand(cmd=1668) 返回=True
+[08:02:15] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[08:02:15] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[08:02:16] iter_views: 路径2(GetSheetNames+Sheet.GetViews) 累计 3 个模型视图, sheet_count=1
+[08:02:16] count_display: 视图[工程图视图1] 显示尺寸=0
+[08:02:16] count_display: 视图[工程图视图2] 显示尺寸=0
+[08:02:16] count_display: 视图[工程图视图3] 显示尺寸=0
+[08:02:16] apply_dim: 路径E(RunCommand InsertModelItems) 尝试=3 成功=3 命令后 DisplayDimension=0
+[08:02:16] apply_dim: 路径F 前置状态 imported=0 app_is_none=False
+[08:02:16] apply_dim: 进入路径F 判定 imported=0 app_available=True
+[08:02:16] path_F: RunMacro2 proc='main' ok=True err_ref=0 msg=
+[08:02:16] path_F: dump 文件不存在, 宏体根本没跑到 main (RunMacro2 静默无痕失败)
+[08:02:16] path_F: VBA 宏 InsertModelAnnotations3 完成 phase='' imported=0 views=0 err='no_dump_macro_not_started'
+[08:02:16] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[08:02:16] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[08:02:16] iter_views: 路径2(GetSheetNames+Sheet.GetViews) 累计 3 个模型视图, sheet_count=1
+[08:02:17] count_display: 视图[工程图视图1] 显示尺寸=0
+[08:02:17] count_display: 视图[工程图视图2] 显示尺寸=0
+[08:02:17] count_display: 视图[工程图视图3] 显示尺寸=0
+[08:02:17] apply_dim: 路径F(VBA InsertModelAnnotations3) 宏内 imported=0 views=0 命令后 DisplayDimension=0 err='no_dump_macro_not_started'
+[08:02:17] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[08:02:17] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[08:02:18] iter_views: 路径2(GetSheetNames+Sheet.GetViews) 累计 3 个模型视图, sheet_count=1
+[08:02:18] classify_views: ortho=3 front=Y top=Y right=Y
+[08:02:18] draw_self[top]: outline=(0.0285,0.1484)-(0.0972,0.1970) 跨度 dx=0.0686 dy=0.0486 m
+[08:02:18] select_edge: SelectByID2 全部候选均抛异常, 末次 com_error: (-2147352571, '类型不匹配。', None, 8)
+[08:02:18] add_h_dim: 早绑定 AddHorizontalDimension2 返回 None (picked=False)
+[08:02:18] add_h_dim: AddHorizontalDimension2 返回 None (picked=False x_mid=0.0629 y_text=0.1364)
+[08:02:18] draw_self[top]: 水平尺寸 FAIL
+[08:02:18] select_edge: SelectByID2 全部候选均抛异常, 末次 com_error: (-2147352571, '类型不匹配。', None, 8)
+[08:02:18] add_v_dim: 早绑定 AddVerticalDimension2 返回 None (picked=False)
+[08:02:18] add_v_dim: AddVerticalDimension2 返回 None (picked=False x_text=0.1092 y_mid=0.1727)
+[08:02:18] draw_self[top]: 竖直尺寸 FAIL
+[08:02:18] draw_self[front]: outline=(0.0285,0.0783)-(0.0972,0.0944) 跨度 dx=0.0686 dy=0.0161 m
+[08:02:18] select_edge: SelectByID2 全部候选均抛异常, 末次 com_error: (-2147352571, '类型不匹配。', None, 8)
+[08:02:18] add_h_dim: 早绑定 AddHorizontalDimension2 返回 None (picked=False)
+[08:02:18] add_h_dim: AddHorizontalDimension2 返回 None (picked=False x_mid=0.0629 y_text=0.0663)
+[08:02:18] draw_self[front]: 水平尺寸 FAIL
+[08:02:19] select_edge: SelectByID2 全部候选均抛异常, 末次 com_error: (-2147352571, '类型不匹配。', None, 8)
+[08:02:19] add_v_dim: 早绑定 AddVerticalDimension2 返回 None (picked=False)
+[08:02:19] add_v_dim: AddVerticalDimension2 返回 None (picked=False x_text=0.1092 y_mid=0.0864)
+[08:02:19] draw_self[front]: 竖直尺寸 FAIL
+[08:02:19] draw_self[right]: outline=(0.1363,0.0783)-(0.1850,0.0944) 跨度 dx=0.0486 dy=0.0161 m
+[08:02:19] select_edge: SelectByID2 全部候选均抛异常, 末次 com_error: (-2147352571, '类型不匹配。', None, 8)
+[08:02:19] add_h_dim: 早绑定 AddHorizontalDimension2 返回 None (picked=False)
+[08:02:19] add_h_dim: AddHorizontalDimension2 返回 None (picked=False x_mid=0.1607 y_text=0.0663)
+[08:02:19] draw_self[right]: 水平尺寸 FAIL
+[08:02:19] select_edge: SelectByID2 全部候选均抛异常, 末次 com_error: (-2147352571, '类型不匹配。', None, 8)
+[08:02:19] add_v_dim: 早绑定 AddVerticalDimension2 返回 None (picked=False)
+[08:02:19] add_v_dim: AddVerticalDimension2 返回 None (picked=False x_text=0.1970 y_mid=0.0864)
+[08:02:19] draw_self[right]: 竖直尺寸 FAIL
+[08:02:19] draw_self: 累计自绘 0 条
+[08:02:19] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[08:02:20] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[08:02:20] iter_views: 路径2(GetSheetNames+Sheet.GetViews) 累计 3 个模型视图, sheet_count=1
+[08:02:20] classify_views: ortho=3 front=Y top=Y right=Y
+[08:02:21] select_edge: SelectByID2 全部候选均抛异常, 末次 com_error: (-2147352571, '类型不匹配。', None, 8)
+[08:02:21] add_h_dim: 早绑定 AddHorizontalDimension2 返回 None (picked=False)
+[08:02:21] add_h_dim: AddHorizontalDimension2 返回 None (picked=False x_mid=0.0629 y_text=0.1364)
+[08:02:21] select_edge: SelectByID2 全部候选均抛异常, 末次 com_error: (-2147352571, '类型不匹配。', None, 8)
+[08:02:21] add_v_dim: 早绑定 AddVerticalDimension2 返回 None (picked=False)
+[08:02:21] add_v_dim: AddVerticalDimension2 返回 None (picked=False x_text=0.1092 y_mid=0.1727)
+[08:02:21] select_edge: SelectByID2 全部候选均抛异常, 末次 com_error: (-2147352571, '类型不匹配。', None, 8)
+[08:02:21] add_v_dim: 早绑定 AddVerticalDimension2 返回 None (picked=False)
+[08:02:21] add_v_dim: AddVerticalDimension2 返回 None (picked=False x_text=0.1970 y_mid=0.0864)
+[08:02:21] apply_dim: dim_count 汇总 = 模型导入0 + 自绘0 + 兜底0 合计=0

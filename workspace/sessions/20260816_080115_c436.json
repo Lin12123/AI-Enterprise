@@ -1,0 +1,72 @@
+{
+  "id": "20260816_080115_c436",
+  "title": "画一个120mm*80mm*15mm的安装板，四",
+  "status": "active",
+  "started_at": "2026-08-16T08:01:15",
+  "updated_at": "2026-08-16T08:02:22",
+  "messages": [
+    {
+      "role": "user",
+      "text": "画一个120mm*80mm*15mm的安装板，四角加直径为10的通孔四周边距10",
+      "ts": "2026-08-16T08:01:26"
+    },
+    {
+      "role": "ai",
+      "text": "已生成建模计划",
+      "ts": "2026-08-16T08:01:26",
+      "type": "plan"
+    }
+  ],
+  "context": {
+    "last_plan": {
+      "version": "2.0",
+      "unit": "mm",
+      "document_type": "part",
+      "part_name": "Installation_Plate",
+      "metadata": {
+        "explicit_parameters": [
+          "create_base_plate.001.params.length",
+          "create_base_plate.001.params.width",
+          "create_base_plate.001.params.thickness"
+        ],
+        "inferred_parameters": [
+          "cut_corner_holes.002.params.diameter",
+          "cut_corner_holes.002.params.edge_margin"
+        ],
+        "name": "Installation_Plate",
+        "description": "",
+        "source": "local"
+      },
+      "operations": [
+        {
+          "id": "create_base_plate.001",
+          "op": "create_base_plate",
+          "params": {
+            "length": 120,
+            "width": 80,
+            "thickness": 15
+          }
+        },
+        {
+          "id": "cut_corner_holes.002",
+          "op": "cut_corner_holes",
+          "params": {
+            "diameter": 10,
+            "edge_margin": 10
+          }
+        }
+      ],
+      "outputs": {}
+    },
+    "last_outputs": [
+      {
+        "file_type": "part",
+        "path": "C:\\Users\\LVBO_ZY\\PycharmProjects\\AI-Enterprise\\workspace\\outputs\\parts\\ai_part_v038.SLDPRT"
+      },
+      {
+        "file_type": "drawing",
+        "path": "C:\\Users\\LVBO_ZY\\PycharmProjects\\AI-Enterprise\\workspace\\outputs\\drawings\\ai_part_v036.SLDDRW"
+      }
+    ]
+  }
+}
