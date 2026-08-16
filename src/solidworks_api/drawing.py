@@ -1969,13 +1969,34 @@ def _view_edge_midpoints(view: object) -> dict:
     经 pywin32 变成返回值元组。这里对多种可能的返回形态做鲁棒解析。
     """
     try:
-        # late-bind: 无参 out 参数经 pywin32 通常作为返回值; 传 0=全部可见线
+        # v039.1: GetPolyLines7 有 out 参数(&pVertexData), late-bind 下 pywin32 无法
+        # 处理 out 数组, 真机报 (-2147352561,'非选择性的参数') / (-2147352571,类型不匹配 arg2)。
+        # 必须用早绑定 IView(能力探测找含 GetPolyLines7 的接口类), 早绑定从 typelib 知道
+        # 第2参是 out 数组, 会自动分配并作为返回元组第二项返回。
         raw = None
-        for args in ((0,), (0, 0)):
-            ok, res = _sw_call(view, "GetPolyLines7", *args)
-            if ok and res is not None:
-                raw = res
-                break
+        view_early = _ensure_early_bind(view, "IView", require_methods=("GetPolyLines7",))
+        if view_early is not None and view_early is not view and hasattr(
+            getattr(view_early, "_oleobj_", None), "InvokeTypes"
+        ):
+            try:
+                # 早绑定: GetPolyLines7(Options) -> (segCount, vertexData) 元组
+                raw = view_early.GetPolyLines7(0)
+                _dbg(
+                    f"view_edge_mid: 早绑定 GetPolyLines7 返回 type={type(raw).__name__} "
+                    f"len={len(raw) if isinstance(raw,(tuple,list)) else 'NA'}"
+                )
+            except Exception as exc:
+                _dbg(f"view_edge_mid: 早绑定 GetPolyLines7 抛 {type(exc).__name__}: {exc}")
+                raw = None
+        else:
+            _dbg("view_edge_mid: IView 早绑定未成功, 无法取真实线段")
+        if raw is None:
+            # late-bind 兜底(真机已证 out 参数走不通, 仅留一线可能)
+            for args in ((0,), (0, 0)):
+                ok, res = _sw_call(view, "GetPolyLines7", *args)
+                if ok and res is not None:
+                    raw = res
+                    break
         if raw is None:
             _dbg("view_edge_mid: GetPolyLines7 取不到线数据")
             return {}
@@ -1990,24 +2011,22 @@ def _view_edge_midpoints(view: object) -> dict:
             _dbg(f"view_edge_mid: 点数据为空 raw_type={type(raw).__name__}")
             return {}
         nums = [float(v) for v in pts]
-        # 解析成线段端点集合: 逐段读 [segType, ptCount, (x,y,z)*ptCount]
+        n = len(nums)
+        # v039.1: GetPolyLines7 的 vertex 数组每段格式为 [nPts, x1,y1,z1, x2,y2,z2, ...]
+        # (单个 header=点数, 无 segType)。逐段解析; 解析不出再退坐标流。
         segments = []  # [(x1,y1,x2,y2), ...]
         i = 0
-        n = len(nums)
-        while i + 1 < n:
-            # 兼容两种打包: 有 header(segType,ptCount) 或纯坐标流
-            seg_type = nums[i]
-            cnt = nums[i + 1]
-            if cnt.is_integer() and 2 <= int(cnt) <= 4096 and i + 2 + int(cnt) * 3 <= n:
+        while i < n:
+            cnt = nums[i]
+            if cnt.is_integer() and 2 <= int(cnt) <= 100000 and i + 1 + int(cnt) * 3 <= n:
                 m = int(cnt)
-                coords = nums[i + 2 : i + 2 + m * 3]
+                coords = nums[i + 1 : i + 1 + m * 3]
                 for k in range(m - 1):
                     x1, y1 = coords[k * 3], coords[k * 3 + 1]
                     x2, y2 = coords[(k + 1) * 3], coords[(k + 1) * 3 + 1]
                     segments.append((x1, y1, x2, y2))
-                i += 2 + m * 3
+                i += 1 + m * 3
             else:
-                # 无 header, 当作连续点流每 3 个一坐标
                 break
         if not segments:
             # 退化: 把 nums 当纯坐标流 [x,y,z, x,y,z, ...] 相邻两点连成段
@@ -2017,9 +2036,10 @@ def _view_edge_midpoints(view: object) -> dict:
                     x2, y2 = nums[(k + 1) * 3], nums[(k + 1) * 3 + 1]
                     segments.append((x1, y1, x2, y2))
         if not segments:
-            _dbg(f"view_edge_mid: 未解析出线段 nums_len={n}")
+            _dbg(f"view_edge_mid: 未解析出线段 nums_len={n} head={nums[:8]}")
             return {}
-        tol = 1e-6
+        # 用相对容差判水平/竖直(投影边可能有极小数值噪声)
+        tol = 1e-5
         h_segs = [s for s in segments if abs(s[3] - s[1]) <= tol and abs(s[2] - s[0]) > tol]
         v_segs = [s for s in segments if abs(s[2] - s[0]) <= tol and abs(s[3] - s[1]) > tol]
         out = {}
