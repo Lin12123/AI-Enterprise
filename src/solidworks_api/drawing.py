@@ -2892,12 +2892,35 @@ def _insert_note_at(draw_model: object, text: str, x: float, y: float) -> bool:
     if note is None:
         _dbg(f"note_at: InsertNote 返回 None @ ({x:.4f},{y:.4f})")
         return False
+    # 定位: late-bind 下 IAnnotation.SetPosition 常报 -2147352573 找不到成员,
+    # 依次尝试多条定位路径, 任一成功即停; 全失败则位置默认(注释仍已插入)。
+    fx, fy = float(x), float(y)
+    placed = False
+    ann = None
     try:
         ann = note.GetAnnotation()
-        if ann is not None:
-            ann.SetPosition(float(x), float(y), 0.0)
     except Exception as exc:
-        _dbg(f"note_at: SetPosition 抛 {type(exc).__name__}: {exc}(注释已插入, 位置默认)")
+        _dbg(f"note_at: GetAnnotation 抛 {type(exc).__name__}: {exc}")
+        ann = None
+    # 路径1: Note 层直接 SetPosition (少一层白名单风险)
+    ok, _ = _sw_call(note, "SetPosition", fx, fy, 0.0)
+    if ok:
+        placed = True
+        _dbg(f"note_at: Note.SetPosition 成功 @ ({fx:.4f},{fy:.4f})")
+    # 路径2: IAnnotation.SetPosition2
+    if not placed and ann is not None:
+        ok, _ = _sw_call(ann, "SetPosition2", fx, fy, 0.0)
+        if ok:
+            placed = True
+            _dbg(f"note_at: Annotation.SetPosition2 成功 @ ({fx:.4f},{fy:.4f})")
+    # 路径3: IAnnotation.SetPosition (安全调用, 规避属性误判)
+    if not placed and ann is not None:
+        ok, _ = _sw_call(ann, "SetPosition", fx, fy, 0.0)
+        if ok:
+            placed = True
+            _dbg(f"note_at: Annotation.SetPosition 成功 @ ({fx:.4f},{fy:.4f})")
+    if not placed:
+        _dbg(f"note_at: 所有 SetPosition 路径均失败(注释已插入, 位置默认) @ ({fx:.4f},{fy:.4f})")
     return True
 
 
