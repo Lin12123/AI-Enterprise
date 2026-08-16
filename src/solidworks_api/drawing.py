@@ -1952,6 +1952,96 @@ def _view_outline(view: object) -> tuple:
     return (xmin, ymin, xmax, ymax, (xmin + xmax) / 2.0, (ymin + ymax) / 2.0)
 
 
+def _view_edge_midpoints(view: object) -> dict:
+    """用 IView.GetPolyLines7 取视图内真实投影线段端点(图纸坐标系, 米),
+    返回最外沿四条边(上/下/左/右)的中点坐标, 供 SelectByID2 精确吸附。
+
+    v039: 此前 SelectByID2 直接用 GetOutline 外接矩形的角/边缘坐标, 但视图外框
+    比真实几何略大(留白), 坐标落不到真实投影边上, 早绑定 SelectByID2 调用成功却
+    返回 False(未命中 EDGE)。改用 GetPolyLines7 拿真实线段端点, 取水平/竖直线段
+    中点——中点必然精确压在真实边上, 吸附成功率高。
+
+    返回 {"top":(x,y), "bottom":(x,y), "left":(x,y), "right":(x,y)},
+    取不到的键缺省。全程异常吞掉返回 {}。
+
+    GetPolyLines7(options, pointData) 返回线段计数, 点数据为扁平序列, 通常按
+    [segType, ptCount, x1,y1,z1, x2,y2,z2, ...] 分组; late-bind 下 out 参数
+    经 pywin32 变成返回值元组。这里对多种可能的返回形态做鲁棒解析。
+    """
+    try:
+        # late-bind: 无参 out 参数经 pywin32 通常作为返回值; 传 0=全部可见线
+        raw = None
+        for args in ((0,), (0, 0)):
+            ok, res = _sw_call(view, "GetPolyLines7", *args)
+            if ok and res is not None:
+                raw = res
+                break
+        if raw is None:
+            _dbg("view_edge_mid: GetPolyLines7 取不到线数据")
+            return {}
+        # res 可能是 (count, pointTuple) 或直接 pointTuple
+        pts = None
+        if isinstance(raw, (tuple, list)):
+            if len(raw) == 2 and isinstance(raw[1], (tuple, list)):
+                pts = raw[1]
+            else:
+                pts = raw
+        if not pts:
+            _dbg(f"view_edge_mid: 点数据为空 raw_type={type(raw).__name__}")
+            return {}
+        nums = [float(v) for v in pts]
+        # 解析成线段端点集合: 逐段读 [segType, ptCount, (x,y,z)*ptCount]
+        segments = []  # [(x1,y1,x2,y2), ...]
+        i = 0
+        n = len(nums)
+        while i + 1 < n:
+            # 兼容两种打包: 有 header(segType,ptCount) 或纯坐标流
+            seg_type = nums[i]
+            cnt = nums[i + 1]
+            if cnt.is_integer() and 2 <= int(cnt) <= 4096 and i + 2 + int(cnt) * 3 <= n:
+                m = int(cnt)
+                coords = nums[i + 2 : i + 2 + m * 3]
+                for k in range(m - 1):
+                    x1, y1 = coords[k * 3], coords[k * 3 + 1]
+                    x2, y2 = coords[(k + 1) * 3], coords[(k + 1) * 3 + 1]
+                    segments.append((x1, y1, x2, y2))
+                i += 2 + m * 3
+            else:
+                # 无 header, 当作连续点流每 3 个一坐标
+                break
+        if not segments:
+            # 退化: 把 nums 当纯坐标流 [x,y,z, x,y,z, ...] 相邻两点连成段
+            if n >= 6 and n % 3 == 0:
+                for k in range(n // 3 - 1):
+                    x1, y1 = nums[k * 3], nums[k * 3 + 1]
+                    x2, y2 = nums[(k + 1) * 3], nums[(k + 1) * 3 + 1]
+                    segments.append((x1, y1, x2, y2))
+        if not segments:
+            _dbg(f"view_edge_mid: 未解析出线段 nums_len={n}")
+            return {}
+        tol = 1e-6
+        h_segs = [s for s in segments if abs(s[3] - s[1]) <= tol and abs(s[2] - s[0]) > tol]
+        v_segs = [s for s in segments if abs(s[2] - s[0]) <= tol and abs(s[3] - s[1]) > tol]
+        out = {}
+        if h_segs:
+            top = max(h_segs, key=lambda s: s[1])
+            bot = min(h_segs, key=lambda s: s[1])
+            out["top"] = ((top[0] + top[2]) / 2.0, top[1])
+            out["bottom"] = ((bot[0] + bot[2]) / 2.0, bot[1])
+        if v_segs:
+            right = max(v_segs, key=lambda s: s[0])
+            left = min(v_segs, key=lambda s: s[0])
+            out["right"] = (right[0], (right[1] + right[3]) / 2.0)
+            out["left"] = (left[0], (left[1] + left[3]) / 2.0)
+        _dbg(
+            f"view_edge_mid: 段数={len(segments)} h={len(h_segs)} v={len(v_segs)} keys={sorted(out.keys())}"
+        )
+        return out
+    except Exception as exc:
+        _dbg(f"view_edge_mid: 抛异常 {type(exc).__name__}: {exc}")
+        return {}
+
+
 def _classify_three_views(draw_model: object, app: object = None) -> dict:
     """按图纸坐标位置把三视图分类为 front/top/right(等轴测忽略)。
 
@@ -2108,7 +2198,17 @@ def _add_h_dim(draw_model: object, view: object, x1: float, x2: float, y_edge: f
         except Exception:
             pass
         x_mid = (x1 + x2) / 2.0
-        picked = _select_edge_at(draw_model, view, x_mid, y_edge)
+        # v039: 优先用 GetPolyLines7 拿到的真实投影边中点选边(精确压在边上),
+        # 取不到再回退 outline 的边缘坐标 (x_mid, y_edge)——外框坐标常吸附不中。
+        mids = _view_edge_midpoints(view)
+        sel_pt = mids.get("bottom") or mids.get("top")
+        picked = False
+        if sel_pt is not None:
+            picked = _select_edge_at(draw_model, view, sel_pt[0], sel_pt[1])
+            if not picked:
+                _dbg(f"add_h_dim: 真实边中点 {sel_pt} 未命中, 回退 outline 边缘")
+        if not picked:
+            picked = _select_edge_at(draw_model, view, x_mid, y_edge)
         # v035: 优先用早绑定 IModelDoc2 调 AddHorizontalDimension2(和选边同一文档对象,
         # 共享选择集), late-bind 兜底走 _sw_call。
         early_doc = _early_bound_doc(draw_model)
@@ -2146,7 +2246,16 @@ def _add_v_dim(draw_model: object, view: object, y1: float, y2: float, x_edge: f
         except Exception:
             pass
         y_mid = (y1 + y2) / 2.0
-        picked = _select_edge_at(draw_model, view, x_edge, y_mid)
+        # v039: 优先用真实竖直投影边中点选边, 取不到回退 outline (x_edge, y_mid)。
+        mids = _view_edge_midpoints(view)
+        sel_pt = mids.get("right") or mids.get("left")
+        picked = False
+        if sel_pt is not None:
+            picked = _select_edge_at(draw_model, view, sel_pt[0], sel_pt[1])
+            if not picked:
+                _dbg(f"add_v_dim: 真实边中点 {sel_pt} 未命中, 回退 outline 边缘")
+        if not picked:
+            picked = _select_edge_at(draw_model, view, x_edge, y_mid)
         early_doc = _early_bound_doc(draw_model)
         if early_doc is not draw_model:
             try:
