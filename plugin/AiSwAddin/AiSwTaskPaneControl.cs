@@ -373,25 +373,41 @@ namespace AiSwAddin
 
         /// <summary>「上传企业云平台」按钮共用实现：把当前会话最新出图产物上传到云平台。
         /// logTag: 日志标签(如 "[成果]" 或 "[出图成果]"), 便于区分来源。</summary>
-        private async System.Threading.Tasks.Task DoUploadToCloudAsync(string logTag)
+        private System.Threading.Tasks.Task DoUploadToCloudAsync(string logTag)
         {
             if (string.IsNullOrEmpty(_sessionId))
             {
                 AppendLog(logTag + " 上传企业云平台失败：当前无有效会话，请先生成计划或出图后再上传。");
                 AppendChat(ChatRole.Ai, "尚未生成任何成果，无法上传：请先生成计划并出图，然后再点击「上传企业云平台」。");
-                return;
+                return System.Threading.Tasks.Task.CompletedTask;
             }
 
-            // 上传前让用户选择所属项目(公狼项目/分播墙项目/智狼项目)，作为云平台项目图纸卡片的项目名称。
-            string projectName = PromptSelectProject();
-            if (string.IsNullOrEmpty(projectName))
+            // 上传前在对话流内嵌一张「选择所属项目」卡片(公狼项目/分播墙项目/智狼项目)，
+            // 样式与计划/诊断卡片一致；选中并确认后再执行真正的上传。
+            var projects = new string[] { "公狼项目", "分播墙项目", "智狼项目" };
+            var card = new ProjectSelectPanel(projects);
+            card.ProjectSelected += (name) =>
+            {
+                if (string.IsNullOrEmpty(name)) return;
+                var _ = RunUploadToCloudAsync(logTag, name);
+            };
+            card.Cancelled += (s, e) =>
             {
                 AppendLog(logTag + " 已取消上传：未选择所属项目。");
-                return;
-            }
+                AppendChat(ChatRole.Ai, "已取消上传企业云平台。");
+            };
+            _chatView.AppendControl(ChatRole.Ai, card);
+            return System.Threading.Tasks.Task.CompletedTask;
+        }
 
+        /// <summary>
+        /// 用户在项目选择卡片中确认后，真正打包并上传本次会话产物到企业云平台。
+        /// projectName 作为云平台项目图纸卡片的项目名称。
+        /// </summary>
+        private async System.Threading.Tasks.Task RunUploadToCloudAsync(string logTag, string projectName)
+        {
             AppendLog(logTag + " 上传企业云平台：正在打包本次会话产物并上传，请稍候...");
-            AppendChat(ChatRole.Ai, "正在把本次成果上传到企业云平台，请稍候...");
+            AppendChat(ChatRole.Ai, "正在把本次成果上传到企业云平台（项目：" + projectName + "），请稍候...");
             SetBusy(true);
             try
             {
@@ -420,68 +436,6 @@ namespace AiSwAddin
             finally
             {
                 SetBusy(false);
-            }
-        }
-
-        /// <summary>
-        /// 上传前弹出下拉对话框，让用户从固定的三个项目中选择一个，
-        /// 作为云平台项目图纸卡片的项目名称。取消或未选择时返回 null。
-        /// </summary>
-        private string PromptSelectProject()
-        {
-            string[] projects = new string[] { "公狼项目", "分播墙项目", "智狼项目" };
-            using (var dlg = new Form())
-            {
-                dlg.Text = "选择所属项目";
-                dlg.FormBorderStyle = FormBorderStyle.FixedDialog;
-                dlg.StartPosition = FormStartPosition.CenterScreen;
-                dlg.MinimizeBox = false;
-                dlg.MaximizeBox = false;
-                dlg.ClientSize = new System.Drawing.Size(320, 130);
-
-                var label = new Label
-                {
-                    Text = "请选择该图纸所属的项目：",
-                    Location = new System.Drawing.Point(16, 16),
-                    AutoSize = true
-                };
-
-                var combo = new ComboBox
-                {
-                    DropDownStyle = ComboBoxStyle.DropDownList,
-                    Location = new System.Drawing.Point(16, 44),
-                    Width = 288
-                };
-                combo.Items.AddRange(projects);
-                combo.SelectedIndex = 0;
-
-                var btnOk = new Button
-                {
-                    Text = "确定",
-                    DialogResult = DialogResult.OK,
-                    Location = new System.Drawing.Point(148, 88),
-                    Width = 72
-                };
-                var btnCancel = new Button
-                {
-                    Text = "取消",
-                    DialogResult = DialogResult.Cancel,
-                    Location = new System.Drawing.Point(232, 88),
-                    Width = 72
-                };
-
-                dlg.Controls.Add(label);
-                dlg.Controls.Add(combo);
-                dlg.Controls.Add(btnOk);
-                dlg.Controls.Add(btnCancel);
-                dlg.AcceptButton = btnOk;
-                dlg.CancelButton = btnCancel;
-
-                if (dlg.ShowDialog() == DialogResult.OK && combo.SelectedItem != null)
-                {
-                    return combo.SelectedItem.ToString();
-                }
-                return null;
             }
         }
 

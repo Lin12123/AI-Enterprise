@@ -68,11 +68,23 @@ namespace AiSwAddin
             if (!IsHandleCreated) return;
             BeginInvoke(new Action(() =>
             {
-                // 内容不足一屏时无需滚动；超出时用足够大的 Y 触发容器夹取到真正底部。
+                // 计算所有 row 的真实内容底部(手动绝对定位，不能依赖 AutoScrollMinSize)。
+                int contentBottom = Padding.Top;
+                foreach (Control c in Controls)
+                {
+                    int b = c.Bottom;
+                    if (b > contentBottom) contentBottom = b;
+                }
+                contentBottom += Padding.Bottom;
+
                 int visible = ClientSize.Height - Padding.Vertical;
-                int content = AutoScrollMinSize.Height;
-                if (content > visible)
-                    AutoScrollPosition = new Point(0, content);
+                if (contentBottom > visible)
+                {
+                    // 告诉容器可滚动区至少有这么高，再把滚动位置压到底部。
+                    AutoScrollMinSize = new Size(0, contentBottom);
+                    // AutoScrollPosition 的 setter 取绝对值，传足够大的 Y 让容器夹取到真正底部。
+                    AutoScrollPosition = new Point(0, contentBottom);
+                }
             }));
         }
 
@@ -130,16 +142,18 @@ namespace AiSwAddin
             row.Height = content.Height + row.Padding.Bottom;
 
             // 内容总高度：最后一条 row 的底部即为全部内容高度
-            int contentBottom = row.Bottom;
+            int contentBottom = row.Bottom + Padding.Bottom;
             int visible = ClientSize.Height - Padding.Vertical;
             if (contentBottom > visible)
             {
-                // 内容超过一屏：滚到底部，露出最新消息
+                // 内容超过一屏：先告知容器可滚动区高度，再滚到底部露出最新消息
+                AutoScrollMinSize = new Size(0, contentBottom);
                 AutoScrollPosition = new Point(0, contentBottom);
             }
             else
             {
                 // 内容不足一屏：保持顶部，避免消息整体下沉、顶部留白
+                AutoScrollMinSize = new Size(0, 0);
                 AutoScrollPosition = new Point(0, 0);
             }
 
@@ -224,8 +238,18 @@ namespace AiSwAddin
 
             // 内容不足一屏时，强制滚动位置回到顶部，避免容器变高后消息整体下沉、顶部留大片空白
             int visible = ClientSize.Height - Padding.Vertical;
-            if (y <= visible)
+            int contentBottom = y + Padding.Bottom;
+            if (contentBottom <= visible)
+            {
+                AutoScrollMinSize = new Size(0, 0);
                 AutoScrollPosition = new Point(0, 0);
+            }
+            else
+            {
+                // 内容超一屏：更新可滚动区高度并保持停在底部
+                AutoScrollMinSize = new Size(0, contentBottom);
+                AutoScrollPosition = new Point(0, contentBottom);
+            }
         }
     }
 

@@ -1499,4 +1499,252 @@ namespace AiSwAddin
             }
         }
     }
+
+    /// <summary>
+    /// 上传企业云平台前，在对话流内嵌的「选择所属项目」卡片。
+    /// 样式模仿现有 PlanReviewPanel：header + 选项区 + footer 按钮。
+    /// 用户选中一个项目并点击「确认上传」后触发 ProjectSelected(项目名)；
+    /// 点击「取消」触发 Cancelled。选中前确认按钮禁用。
+    /// </summary>
+    internal class ProjectSelectPanel : CardPanel
+    {
+        private readonly TableLayoutPanel _root;
+        private readonly Panel _headerBox;
+        private readonly Label _titleLine;
+        private readonly Label _descLine;
+        private readonly FlowLayoutPanel _optionsFlow;
+        private readonly Panel _footerBox;
+        private readonly RoundButton _cancelBtn;
+        private readonly RoundButton _confirmBtn;
+        private readonly System.Collections.Generic.List<ProjectOptionRow> _options
+            = new System.Collections.Generic.List<ProjectOptionRow>();
+
+        private string _selected;
+
+        public event Action<string> ProjectSelected;
+        public event EventHandler Cancelled;
+
+        public ProjectSelectPanel(string[] projects)
+        {
+            BorderColor = Theme.Primary;
+            BorderWidth = 1;
+            Radius = 10;
+            Padding = new Padding(1);
+
+            _root = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 1,
+                RowCount = 3,
+                BackColor = Color.White,
+                Padding = new Padding(0),
+                Margin = new Padding(0)
+            };
+            _root.RowStyles.Add(new RowStyle(SizeType.Absolute, 60));
+            _root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            _root.RowStyles.Add(new RowStyle(SizeType.Absolute, 52));
+
+            // === Header ===
+            _headerBox = new Panel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = Color.FromArgb(238, 243, 255),
+                Padding = new Padding(14, 8, 14, 8),
+                Margin = new Padding(0)
+            };
+            _titleLine = new Label
+            {
+                Text = "📁  选择所属项目",
+                Font = Theme.Body(10, FontStyle.Bold),
+                ForeColor = Theme.Primary,
+                Dock = DockStyle.Top,
+                Height = 22,
+                BackColor = Color.Transparent
+            };
+            _descLine = new Label
+            {
+                Text = "请选择本次成果所属的项目，作为企业云平台项目图纸的名称。",
+                Font = Theme.Body(9),
+                ForeColor = Theme.TextMain,
+                Dock = DockStyle.Fill,
+                BackColor = Color.Transparent
+            };
+            _headerBox.Controls.Add(_descLine);
+            _headerBox.Controls.Add(_titleLine);
+
+            // === 选项区 ===
+            _optionsFlow = new FlowLayoutPanel
+            {
+             Dock = DockStyle.Fill,
+                FlowDirection = FlowDirection.TopDown,
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                WrapContents = false,
+                BackColor = Color.White,
+                Padding = new Padding(12, 8, 12, 8),
+                Margin = new Padding(0)
+            };
+            if (projects != null)
+            {
+                foreach (var p in projects)
+                {
+                    var name = p;
+                    var row = new ProjectOptionRow(name)
+                    {
+                        Width = Math.Max(240, ClientSize.Width - 36),
+                        Height = 40,
+                        Margin = new Padding(0, 0, 0, 8)
+                    };
+                    row.Clicked += (s, e) => SelectOption(name);
+                    _options.Add(row);
+                    _optionsFlow.Controls.Add(row);
+                }
+            }
+
+            // === Footer ===
+            _footerBox = new Panel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = Color.White,
+                Padding = new Padding(10, 6, 10, 6),
+                Margin = new Padding(0)
+            };
+            _cancelBtn = new RoundButton
+            {
+                Text = "取消",
+                Filled = false,
+                Accent = Theme.TextSub,
+                Size = new Size(88, 34),
+                Dock = DockStyle.Left
+            };
+            _cancelBtn.Click += (s, e) => Cancelled?.Invoke(this, EventArgs.Empty);
+            _confirmBtn = new RoundButton
+            {
+                Text = "▶ 确认上传",
+                Filled = true,
+                Accent = Theme.Green,
+                Size = new Size(120, 34),
+                Dock = DockStyle.Right,
+              Enabled = false
+            };
+            _confirmBtn.Click += (s, e) =>
+            {
+                if (!string.IsNullOrEmpty(_selected))
+                {
+                    SetConfirmEnabled(false);
+                    ProjectSelected?.Invoke(_selected);
+                }
+            };
+            _footerBox.Controls.Add(_confirmBtn);
+            _footerBox.Controls.Add(_cancelBtn);
+
+            _root.Controls.Add(_headerBox, 0, 0);
+            _root.Controls.Add(_optionsFlow, 0, 1);
+            _root.Controls.Add(_footerBox, 0, 2);
+            Controls.Add(_root);
+
+            RecalcHeight(projects != null ? projects.Length : 0);
+        }
+
+        private void SelectOption(string name)
+{
+            _selected = name;
+            foreach (var row in _options)
+                row.Selected = string.Equals(row.ProjectName, name, StringComparison.Ordinal);
+            if (_confirmBtn != null) _confirmBtn.Enabled = true;
+        }
+
+        /// <summary>禁用/启用「确认上传」按钮（点击后禁用避免重复上传）。</summary>
+        public void SetConfirmEnabled(bool enabled)
+        {
+            if (_confirmBtn == null) return;
+            _confirmBtn.Enabled = enabled && !string.IsNullOrEmpty(_selected);
+            _confirmBtn.Text = enabled ? "▶ 确认上传" : "✓ 已上传";
+            _confirmBtn.Accent = enabled ? Theme.Green : Color.FromArgb(180, 188, 200);
+            _confirmBtn.Invalidate();
+        }
+
+        protected override void OnResize(EventArgs e)
+        {
+            base.OnResize(e);
+            if (_optionsFlow == null) return;
+            int rowWidth = Math.Max(240, ClientSize.Width - 36);
+            foreach (var row in _options) row.Width = rowWidth;
+        }
+
+        private void RecalcHeight(int count)
+        {
+            int h = 60 + 2;                     // header + border
+            h += _optionsFlow.Padding.Top + _optionsFlow.Padding.Bottom;
+            h += count * 48;                    // 每项 40 + 间距 8
+            h += 56;                            // footer 52 + 呼吸
+            Height = h;
+        }
+    }
+
+    /// <summary>项目选择卡片中的单个可点选项，选中态用 Accent 边框 + 浅蓝底。</summary>
+    internal class ProjectOptionRow : Control
+    {
+        public string ProjectName { get; private set; }
+        public int Radius { get; set; } = 8;
+        public Color Accent { get; set; } = Theme.Primary;
+
+        private bool _selected;
+        public bool Selected
+        {
+            get { return _selected; }
+            set { _selected = value; Invalidate(); }
+        }
+
+        public event EventHandler Clicked;
+
+        public ProjectOptionRow(string name)
+        {
+            ProjectName = name ?? "";
+            SetStyle(ControlStyles.UserPaint
+                     | ControlStyles.AllPaintingInWmPaint
+                     | ControlStyles.OptimizedDoubleBuffer
+                     | ControlStyles.ResizeRedraw, true);
+            Cursor = Cursors.Hand;
+            BackColor = Color.Transparent;
+        }
+
+        protected override void OnMouseClick(MouseEventArgs e)
+        {
+            base.OnMouseClick(e);
+            Clicked?.Invoke(this, EventArgs.Empty);
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            var g = e.Graphics;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            var r = new Rectangle(0, 0, Width - 1, Height - 1);
+            Color fill = _selected ? Color.FromArgb(238, 243, 255) : Color.White;
+            Color border = _selected ? Accent : Theme.CardBorder;
+            int bw = _selected ? 2 : 1;
+            using (var path = GfxUtil.RoundedRect(r, Radius))
+            using (var fb = new SolidBrush(fill))
+            using (var pen = new Pen(border, bw))
+            {
+        g.FillPath(fb, path);
+                g.DrawPath(pen, path);
+            }
+
+            // 左侧单选圆点
+            int cy = Height / 2;
+            var dot = new Rectangle(14, cy - 8, 16, 16);
+            using (var pen = new Pen(_selected ? Accent : Theme.TextSub, _selected ?2 : 1))
+                g.DrawEllipse(pen, dot);
+            if (_selected)
+                using (var fb = new SolidBrush(Accent))
+                    g.FillEllipse(fb, new Rectangle(dot.X + 4, dot.Y + 4, 8, 8));
+
+            // 项目名文字
+            var textRect = new Rectangle(40, 0, Width - 48, Height);
+            TextRenderer.DrawText(g, ProjectName, Theme.Body(9.5f, _selected ? FontStyle.Bold : FontStyle.Regular),
+                textRect, _selected ? Theme.Primary : Theme.TextMain,
+                TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
+        }
+    }
 }
