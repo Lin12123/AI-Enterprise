@@ -78,13 +78,18 @@ namespace AiSwAddin
         /// <summary>真实建模(Python 侧通过 pywin32 连接当前打开的 SolidWorks)。
         /// useActiveDoc=true 时优先在当前活动文档建模；prompt 为用户原始自然语言需求，
         /// 当活动文档已有零件时供服务端判断"修改当前"还是"新增零件"。</summary>
-        public Task<string> ExecuteAsync(string planJson, bool useActiveDoc, string prompt = "")
+        public Task<string> ExecuteAsync(string planJson, bool useActiveDoc, string prompt = "", string sessionId = null)
         {
             string flag = useActiveDoc ? "true" : "false";
             string promptField = "\"" + JsonEscape(prompt ?? "") + "\"";
-            return PostAsync("/api/execute",
-                "{\"plan\":" + planJson + ",\"use_active_doc\":" + flag
-                + ",\"prompt\":" + promptField + "}");
+            string body = "{\"plan\":" + planJson + ",\"use_active_doc\":" + flag
+                + ",\"prompt\":" + promptField;
+            // 带上会话标识：服务端据此把 3D 零件路径记入 last_outputs，
+            // 使用户即便不转 2D 也能直接上传该 3D 文件到云平台。
+            if (!string.IsNullOrEmpty(sessionId))
+                body += ",\"session_id\":" + JsonString(sessionId);
+            body += "}";
+            return PostAsync("/api/execute", body);
         }
 
         /// <summary>把任意字符串转义为可安全嵌入 JSON 双引号内的形式。</summary>

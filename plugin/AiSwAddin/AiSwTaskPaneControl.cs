@@ -1032,7 +1032,7 @@ namespace AiSwAddin
             if (_planPanel != null) _planPanel.MarkAllRemaining(StepStatus.Running);
             try
             {
-                string resp = await _client.ExecuteAsync(_currentPlanJson, useActiveDoc, _lastPrompt);
+                string resp = await _client.ExecuteAsync(_currentPlanJson, useActiveDoc, _lastPrompt, _sessionId);
                 bool ok = resp.Contains("\"ok\": true") || resp.Contains("\"ok\":true");
                 AppendLog(ok ? "[执行完成] SolidWorks 建模成功。" : "[执行失败] " + Truncate(resp));
                 // 依据服务端返回的 operations 明细，把执行结果逐步映射到执行卡片步骤状态；

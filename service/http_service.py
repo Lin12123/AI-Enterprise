@@ -388,6 +388,7 @@ def _handle_execute(payload: dict) -> dict:
     use_active_doc = bool(payload.get("use_active_doc", False))
     # 用户原始自然语言：当活动文档已有零件时，用于判断"修改当前"还是"新增零件"
     prompt = str(payload.get("prompt", "") or "")
+    session_id = str(payload.get("session_id", "")).strip()
 
     def _do_execute():
         from solidworks_api.executor import SolidWorksApiExecutor
@@ -404,7 +405,26 @@ def _handle_execute(payload: dict) -> dict:
     worker.start()
     # 建模可能耗时较久，给一个宽松的超时(10 分钟)
     result = worker.submit(_do_execute, timeout=600)
-    return _execution_result_to_dict(result)
+    response = _execution_result_to_dict(result)
+
+    # 生成零件成功且带会话时，把本次 3D 零件(.SLDPRT)磁盘路径记入会话 last_outputs，
+    # 供后续"上传云平台"读取——即使用户不点转 2D，也能只上传 3D 文件。
+    if response.get("ok") and session_id:
+        part_path = next(
+            (p for p in (response.get("outputs") or [])
+             if str(p).lower().endswith(".sldprt")),
+            None,
+        )
+        if part_path:
+            try:
+                from service.session_store import get_session_store
+                get_session_store().set_context(
+                    session_id, "last_outputs",
+                    [{"file_type": "part", "path": part_path}],
+                )
+            except Exception:
+                pass  # 记录会话产物失败不影响建模本身
+    return response
 
 
 def _handle_diagnose(payload: dict) -> dict:

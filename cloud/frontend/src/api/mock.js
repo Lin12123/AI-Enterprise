@@ -14,7 +14,7 @@ export const overviewStats = [
 export const approvalTasks = [
   {
     id: 'task-001',
-    title: '航空支架 v3 出图审批',
+    title: '[公狼项目]-相机支架图纸',
     project: 'PRJ-AERO-2026',
     applicant: '李工',
     deadline: '2026-08-18 18:00',
@@ -22,7 +22,7 @@ export const approvalTasks = [
   },
   {
     id: 'task-002',
-    title: '标准法兰盘批量出图',
+    title: '[分播墙项目]-三段式供包台标准',
     project: 'PRJ-FLANGE-01',
     applicant: '王工',
     deadline: '2026-08-20 12:00',
@@ -71,7 +71,7 @@ export const mockProjects = [
 export const mockPlugins = [
   {
     id: 'aisw-addin',
-    name: 'AI-SW SolidWorks 插件',
+    name: 'AI-SW SolidWorks 插件-2019',
     version: 'v3.2.1',
     channel: 'Stable',
     signed: true,
@@ -79,7 +79,7 @@ export const mockPlugins = [
   },
   {
     id: 'aisw-drawing',
-    name: '智能出图增强包',
+    name: '智能出图增强包-2022',
     version: 'v1.4.0-beta',
     channel: 'Beta',
     signed: true,
