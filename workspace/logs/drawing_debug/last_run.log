@@ -1,328 +1,233 @@
-[08:31:34] create_drawing: 入口
-[08:31:37] insert_views: Create3rdAngleViews2 返回 True part_path=C:\Users\LVBO_ZY\PycharmProjects\AI-Enterprise\workspace\outputs\parts\ai_part_v041.SLDPRT
-[08:31:37] insert_views: 创建后视图计数 = 0
-[08:31:37] apply_dim: 文档层 ext.InsertModelAnnotations3 抛 AttributeError:<unknown>.InsertModelAnnotations3
-[08:31:37] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[08:31:37] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[08:31:37] iter_views: 路径2(GetSheetNames+Sheet.GetViews) 累计 3 个模型视图, sheet_count=1
-[08:31:37] apply_dim: 逐视图导入前, 拿到模型视图数=3
-[08:31:37] apply_dim: 视图[工程图视图1] InsertModelAnnotations3 抛 AttributeError:<unknown>.InsertModelAnnotations3
-[08:31:37] apply_dim: 视图[工程图视图2] InsertModelAnnotations3 抛 AttributeError:<unknown>.InsertModelAnnotations3
-[08:31:37] apply_dim: 视图[工程图视图3] InsertModelAnnotations3 抛 AttributeError:<unknown>.InsertModelAnnotations3
-[08:31:37] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[08:31:37] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[08:31:38] iter_views: 路径2(GetSheetNames+Sheet.GetViews) 累计 3 个模型视图, sheet_count=1
-[08:31:38] count_display: 视图[工程图视图1] 显示尺寸=0
-[08:31:38] count_display: 视图[工程图视图2] 显示尺寸=0
-[08:31:38] count_display: 视图[工程图视图3] 显示尺寸=0
-[08:31:38] apply_dim: InsertModelAnnotations3 后计数 DisplayDimension=0
-[08:31:38] apply_dim: 进入路径E 判定 imported=0 app_available=True
-[08:31:38] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[08:31:38] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[08:31:39] iter_views: 路径2(GetSheetNames+Sheet.GetViews) 累计 3 个模型视图, sheet_count=1
-[08:31:39] apply_dim: 路径E fallback_views 数量=3
-[08:31:39] apply_dim: 路径E RunCommand(cmd=1668) 返回=True
-[08:31:40] apply_dim: 路径E RunCommand(cmd=1668) 返回=True
-[08:31:40] apply_dim: 路径E RunCommand(cmd=1668) 返回=True
-[08:31:40] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[08:31:41] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[08:31:41] iter_views: 路径2(GetSheetNames+Sheet.GetViews) 累计 3 个模型视图, sheet_count=1
-[08:31:41] count_display: 视图[工程图视图1] 显示尺寸=0
-[08:31:41] count_display: 视图[工程图视图2] 显示尺寸=0
-[08:31:41] count_display: 视图[工程图视图3] 显示尺寸=0
-[08:31:41] apply_dim: 路径E(RunCommand InsertModelItems) 尝试=3 成功=3 命令后 DisplayDimension=0
-[08:31:41] apply_dim: 路径F 前置状态 imported=0 app_is_none=False
-[08:31:41] apply_dim: 进入路径F 判定 imported=0 app_available=True
-[08:31:41] macro_sec: 已写入注册表宏安全性降级(HKCU\...\Security)
-[08:31:41] path_F: RunMacro2 proc='main' ok=True err_ref=0 msg=
-[08:31:41] path_F: dump 文件不存在, 宏体根本没跑到 main (RunMacro2 静默无痕失败)
-[08:31:41] path_F: VBA 宏 InsertModelAnnotations3 完成 phase='' imported=0 views=0 err='no_dump_macro_not_started'
-[08:31:41] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[08:31:41] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[08:31:42] iter_views: 路径2(GetSheetNames+Sheet.GetViews) 累计 3 个模型视图, sheet_count=1
-[08:31:42] count_display: 视图[工程图视图1] 显示尺寸=0
-[08:31:42] count_display: 视图[工程图视图2] 显示尺寸=0
-[08:31:42] count_display: 视图[工程图视图3] 显示尺寸=0
-[08:31:42] apply_dim: 路径F(VBA InsertModelAnnotations3) 宏内 imported=0 views=0 命令后 DisplayDimension=0 err='no_dump_macro_not_started'
-[08:31:42] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[08:31:42] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[08:31:43] iter_views: 路径2(GetSheetNames+Sheet.GetViews) 累计 3 个模型视图, sheet_count=1
-[08:31:43] classify_views: ortho=3 front=Y top=Y right=Y
-[08:31:43] draw_self[top]: outline=(0.0285,0.1484)-(0.0972,0.1970) 跨度 dx=0.0686 dy=0.0486 m
-[08:31:43] sw_call: GetPolyLines7(*args) 抛 com_error:(-2147352561, '非选择性的参数。', None, None)
-[08:31:43] sw_call: GetPolyLines7(*args) 抛 com_error:(-2147352571, '类型不匹配。', None, 2)
-[08:31:43] view_edge_mid: GetPolyLines7 取不到线数据
-[08:31:43] early_bind: EnsureModule 成功 ver=27.0, 早绑定模块已生成
-[08:31:43] early_bind: 能力探测命中接口类 IModelDocExtension(含('SelectByID2',))
-[08:31:43] early_bind: 能力探测 QueryInterface 到接口 IID 成功
-[08:31:43] early_bind: 能力探测 构造 类名=IModelDocExtension _oleobj_有InvokeTypes=True 含('SelectByID2',)=True
-[08:31:43] select_edge: 早绑定 Extension 类名=IModelDocExtension _oleobj_有InvokeTypes=True
-[08:31:43] select_edge: 早绑定 SelectByID2 未命中 EDGE @ (0.0629,0.1484)
-[08:31:43] select_edge: SelectByID2 全部候选均抛异常, 末次 com_error: (-2147352571, '类型不匹配。', None, 8)
-[08:31:43] early_bind: 能力探测命中接口类 IModelDoc(含('AddHorizontalDimension2', 'AddVerticalDimension2'))
-[08:31:43] early_bind: 能力探测 QueryInterface 到接口 IID 成功
-[08:31:43] early_bind: 能力探测 构造 类名=IModelDoc _oleobj_有InvokeTypes=True 含('AddHorizontalDimension2', 'AddVerticalDimension2')=True
-[08:31:43] add_h_dim: 早绑定 AddHorizontalDimension2 返回 None (picked=False)
-[08:31:43] add_h_dim: AddHorizontalDimension2 返回 None (picked=False x_mid=0.0629 y_text=0.1364)
-[08:31:43] draw_self[top]: 水平尺寸 FAIL
-[08:31:43] sw_call: GetPolyLines7(*args) 抛 com_error:(-2147352561, '非选择性的参数。', None, None)
-[08:31:43] sw_call: GetPolyLines7(*args) 抛 com_error:(-2147352571, '类型不匹配。', None, 2)
-[08:31:43] view_edge_mid: GetPolyLines7 取不到线数据
-[08:31:44] early_bind: 能力探测命中接口类 IModelDocExtension(含('SelectByID2',))
-[08:31:44] early_bind: 能力探测 QueryInterface 到接口 IID 成功
-[08:31:44] early_bind: 能力探测 构造 类名=IModelDocExtension _oleobj_有InvokeTypes=True 含('SelectByID2',)=True
-[08:31:44] select_edge: 早绑定 Extension 类名=IModelDocExtension _oleobj_有InvokeTypes=True
-[08:31:44] select_edge: 早绑定 SelectByID2 未命中 EDGE @ (0.0972,0.1727)
-[08:31:44] select_edge: SelectByID2 全部候选均抛异常, 末次 com_error: (-2147352571, '类型不匹配。', None, 8)
-[08:31:44] add_v_dim: 早绑定 AddVerticalDimension2 返回 None (picked=False)
-[08:31:44] add_v_dim: AddVerticalDimension2 返回 None (picked=False x_text=0.1092 y_mid=0.1727)
-[08:31:44] draw_self[top]: 竖直尺寸 FAIL
-[08:31:44] draw_self[front]: outline=(0.0285,0.0783)-(0.0972,0.0944) 跨度 dx=0.0686 dy=0.0161 m
-[08:31:44] sw_call: GetPolyLines7(*args) 抛 com_error:(-2147352561, '非选择性的参数。', None, None)
-[08:31:44] sw_call: GetPolyLines7(*args) 抛 com_error:(-2147352571, '类型不匹配。', None, 2)
-[08:31:44] view_edge_mid: GetPolyLines7 取不到线数据
-[08:31:44] early_bind: 能力探测命中接口类 IModelDocExtension(含('SelectByID2',))
-[08:31:44] early_bind: 能力探测 QueryInterface 到接口 IID 成功
-[08:31:44] early_bind: 能力探测 构造 类名=IModelDocExtension _oleobj_有InvokeTypes=True 含('SelectByID2',)=True
-[08:31:44] select_edge: 早绑定 Extension 类名=IModelDocExtension _oleobj_有InvokeTypes=True
-[08:31:44] select_edge: 早绑定 SelectByID2 未命中 EDGE @ (0.0629,0.0783)
-[08:31:44] select_edge: SelectByID2 全部候选均抛异常, 末次 com_error: (-2147352571, '类型不匹配。', None, 8)
-[08:31:45] add_h_dim: 早绑定 AddHorizontalDimension2 返回 None (picked=False)
-[08:31:45] add_h_dim: AddHorizontalDimension2 返回 None (picked=False x_mid=0.0629 y_text=0.0663)
-[08:31:45] draw_self[front]: 水平尺寸 FAIL
-[08:31:45] sw_call: GetPolyLines7(*args) 抛 com_error:(-2147352561, '非选择性的参数。', None, None)
-[08:31:45] sw_call: GetPolyLines7(*args) 抛 com_error:(-2147352571, '类型不匹配。', None, 2)
-[08:31:45] view_edge_mid: GetPolyLines7 取不到线数据
-[08:31:45] early_bind: 能力探测命中接口类 IModelDocExtension(含('SelectByID2',))
-[08:31:45] early_bind: 能力探测 QueryInterface 到接口 IID 成功
-[08:31:45] early_bind: 能力探测 构造 类名=IModelDocExtension _oleobj_有InvokeTypes=True 含('SelectByID2',)=True
-[08:31:45] select_edge: 早绑定 Extension 类名=IModelDocExtension _oleobj_有InvokeTypes=True
-[08:31:45] select_edge: 早绑定 SelectByID2 未命中 EDGE @ (0.0972,0.0864)
-[08:31:45] select_edge: SelectByID2 全部候选均抛异常, 末次 com_error: (-2147352571, '类型不匹配。', None, 8)
-[08:31:45] add_v_dim: 早绑定 AddVerticalDimension2 返回 None (picked=False)
-[08:31:45] add_v_dim: AddVerticalDimension2 返回 None (picked=False x_text=0.1092 y_mid=0.0864)
-[08:31:45] draw_self[front]: 竖直尺寸 FAIL
-[08:31:45] draw_self[right]: outline=(0.1363,0.0783)-(0.1850,0.0944) 跨度 dx=0.0486 dy=0.0161 m
-[08:31:45] sw_call: GetPolyLines7(*args) 抛 com_error:(-2147352561, '非选择性的参数。', None, None)
-[08:31:45] sw_call: GetPolyLines7(*args) 抛 com_error:(-2147352571, '类型不匹配。', None, 2)
-[08:31:45] view_edge_mid: GetPolyLines7 取不到线数据
-[08:31:45] early_bind: 能力探测命中接口类 IModelDocExtension(含('SelectByID2',))
-[08:31:45] early_bind: 能力探测 QueryInterface 到接口 IID 成功
-[08:31:45] early_bind: 能力探测 构造 类名=IModelDocExtension _oleobj_有InvokeTypes=True 含('SelectByID2',)=True
-[08:31:45] select_edge: 早绑定 Extension 类名=IModelDocExtension _oleobj_有InvokeTypes=True
-[08:31:45] select_edge: 早绑定 SelectByID2 未命中 EDGE @ (0.1607,0.0783)
-[08:31:46] select_edge: SelectByID2 全部候选均抛异常, 末次 com_error: (-2147352571, '类型不匹配。', None, 8)
-[08:31:46] add_h_dim: 早绑定 AddHorizontalDimension2 返回 None (picked=False)
-[08:31:46] add_h_dim: AddHorizontalDimension2 返回 None (picked=False x_mid=0.1607 y_text=0.0663)
-[08:31:46] draw_self[right]: 水平尺寸 FAIL
-[08:31:46] sw_call: GetPolyLines7(*args) 抛 com_error:(-2147352561, '非选择性的参数。', None, None)
-[08:31:46] sw_call: GetPolyLines7(*args) 抛 com_error:(-2147352571, '类型不匹配。', None, 2)
-[08:31:46] view_edge_mid: GetPolyLines7 取不到线数据
-[08:31:46] early_bind: 能力探测命中接口类 IModelDocExtension(含('SelectByID2',))
-[08:31:46] early_bind: 能力探测 QueryInterface 到接口 IID 成功
-[08:31:46] early_bind: 能力探测 构造 类名=IModelDocExtension _oleobj_有InvokeTypes=True 含('SelectByID2',)=True
-[08:31:46] select_edge: 早绑定 Extension 类名=IModelDocExtension _oleobj_有InvokeTypes=True
-[08:31:46] select_edge: 早绑定 SelectByID2 未命中 EDGE @ (0.1850,0.0864)
-[08:31:46] select_edge: SelectByID2 全部候选均抛异常, 末次 com_error: (-2147352571, '类型不匹配。', None, 8)
-[08:31:46] add_v_dim: 早绑定 AddVerticalDimension2 返回 None (picked=False)
-[08:31:46] add_v_dim: AddVerticalDimension2 返回 None (picked=False x_text=0.1970 y_mid=0.0864)
-[08:31:46] draw_self[right]: 竖直尺寸 FAIL
-[08:31:46] draw_self: 累计自绘 0 条
-[08:31:46] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[08:31:46] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[08:31:47] iter_views: 路径2(GetSheetNames+Sheet.GetViews) 累计 3 个模型视图, sheet_count=1
-[08:31:47] classify_views: ortho=3 front=Y top=Y right=Y
-[08:31:47] sw_call: GetPolyLines7(*args) 抛 com_error:(-2147352561, '非选择性的参数。', None, None)
-[08:31:47] sw_call: GetPolyLines7(*args) 抛 com_error:(-2147352571, '类型不匹配。', None, 2)
-[08:31:47] view_edge_mid: GetPolyLines7 取不到线数据
-[08:31:47] early_bind: 能力探测命中接口类 IModelDocExtension(含('SelectByID2',))
-[08:31:47] early_bind: 能力探测 QueryInterface 到接口 IID 成功
-[08:31:47] early_bind: 能力探测 构造 类名=IModelDocExtension _oleobj_有InvokeTypes=True 含('SelectByID2',)=True
-[08:31:47] select_edge: 早绑定 Extension 类名=IModelDocExtension _oleobj_有InvokeTypes=True
-[08:31:47] select_edge: 早绑定 SelectByID2 未命中 EDGE @ (0.0629,0.1484)
-[08:31:48] select_edge: SelectByID2 全部候选均抛异常, 末次 com_error: (-2147352571, '类型不匹配。', None, 8)
-[08:31:48] add_h_dim: 早绑定 AddHorizontalDimension2 返回 None (picked=False)
-[08:31:48] add_h_dim: AddHorizontalDimension2 返回 None (picked=False x_mid=0.0629 y_text=0.1364)
-[08:31:48] sw_call: GetPolyLines7(*args) 抛 com_error:(-2147352561, '非选择性的参数。', None, None)
-[08:31:48] sw_call: GetPolyLines7(*args) 抛 com_error:(-2147352571, '类型不匹配。', None, 2)
-[08:31:48] view_edge_mid: GetPolyLines7 取不到线数据
-[08:31:48] early_bind: 能力探测命中接口类 IModelDocExtension(含('SelectByID2',))
-[08:31:48] early_bind: 能力探测 QueryInterface 到接口 IID 成功
-[08:31:48] early_bind: 能力探测 构造 类名=IModelDocExtension _oleobj_有InvokeTypes=True 含('SelectByID2',)=True
-[08:31:48] select_edge: 早绑定 Extension 类名=IModelDocExtension _oleobj_有InvokeTypes=True
-[08:31:48] select_edge: 早绑定 SelectByID2 未命中 EDGE @ (0.0972,0.1727)
-[08:31:48] select_edge: SelectByID2 全部候选均抛异常, 末次 com_error: (-2147352571, '类型不匹配。', None, 8)
-[08:31:48] add_v_dim: 早绑定 AddVerticalDimension2 返回 None (picked=False)
-[08:31:48] add_v_dim: AddVerticalDimension2 返回 None (picked=False x_text=0.1092 y_mid=0.1727)
-[08:31:48] sw_call: GetPolyLines7(*args) 抛 com_error:(-2147352561, '非选择性的参数。', None, None)
-[08:31:48] sw_call: GetPolyLines7(*args) 抛 com_error:(-2147352571, '类型不匹配。', None, 2)
-[08:31:48] view_edge_mid: GetPolyLines7 取不到线数据
-[08:31:48] early_bind: 能力探测命中接口类 IModelDocExtension(含('SelectByID2',))
-[08:31:48] early_bind: 能力探测 QueryInterface 到接口 IID 成功
-[08:31:48] early_bind: 能力探测 构造 类名=IModelDocExtension _oleobj_有InvokeTypes=True 含('SelectByID2',)=True
-[08:31:48] select_edge: 早绑定 Extension 类名=IModelDocExtension _oleobj_有InvokeTypes=True
-[08:31:48] select_edge: 早绑定 SelectByID2 未命中 EDGE @ (0.1850,0.0864)
-[08:31:48] select_edge: SelectByID2 全部候选均抛异常, 末次 com_error: (-2147352571, '类型不匹配。', None, 8)
-[08:31:48] add_v_dim: 早绑定 AddVerticalDimension2 返回 None (picked=False)
-[08:31:48] add_v_dim: AddVerticalDimension2 返回 None (picked=False x_text=0.1970 y_mid=0.0864)
-[08:31:48] apply_dim: dim_count 汇总 = 模型导入0 + 自绘0 + 兜底0 合计=0
-[08:31:49] apply_dim: 文档层 ext.InsertModelAnnotations3 抛 AttributeError:<unknown>.InsertModelAnnotations3
-[08:31:49] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[08:31:49] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[08:31:50] iter_views: 路径2(GetSheetNames+Sheet.GetViews) 累计 3 个模型视图, sheet_count=1
-[08:31:50] apply_dim: 逐视图导入前, 拿到模型视图数=3
-[08:31:50] apply_dim: 视图[工程图视图1] InsertModelAnnotations3 抛 AttributeError:<unknown>.InsertModelAnnotations3
-[08:31:50] apply_dim: 视图[工程图视图2] InsertModelAnnotations3 抛 AttributeError:<unknown>.InsertModelAnnotations3
-[08:31:50] apply_dim: 视图[工程图视图3] InsertModelAnnotations3 抛 AttributeError:<unknown>.InsertModelAnnotations3
-[08:31:50] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[08:31:50] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[08:31:51] iter_views: 路径2(GetSheetNames+Sheet.GetViews) 累计 3 个模型视图, sheet_count=1
-[08:31:51] count_display: 视图[工程图视图1] 显示尺寸=0
-[08:31:51] count_display: 视图[工程图视图2] 显示尺寸=0
-[08:31:51] count_display: 视图[工程图视图3] 显示尺寸=0
-[08:31:51] apply_dim: InsertModelAnnotations3 后计数 DisplayDimension=0
-[08:31:51] apply_dim: 进入路径E 判定 imported=0 app_available=True
-[08:31:51] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[08:31:51] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[08:31:51] iter_views: 路径2(GetSheetNames+Sheet.GetViews) 累计 3 个模型视图, sheet_count=1
-[08:31:51] apply_dim: 路径E fallback_views 数量=3
-[08:31:52] apply_dim: 路径E RunCommand(cmd=1668) 返回=True
-[08:31:53] apply_dim: 路径E RunCommand(cmd=1668) 返回=True
-[08:31:53] apply_dim: 路径E RunCommand(cmd=1668) 返回=True
-[08:31:53] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[08:31:54] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[08:31:54] iter_views: 路径2(GetSheetNames+Sheet.GetViews) 累计 3 个模型视图, sheet_count=1
-[08:31:54] count_display: 视图[工程图视图1] 显示尺寸=0
-[08:31:54] count_display: 视图[工程图视图2] 显示尺寸=0
-[08:31:54] count_display: 视图[工程图视图3] 显示尺寸=0
-[08:31:54] apply_dim: 路径E(RunCommand InsertModelItems) 尝试=3 成功=3 命令后 DisplayDimension=0
-[08:31:54] apply_dim: 路径F 前置状态 imported=0 app_is_none=False
-[08:31:54] apply_dim: 进入路径F 判定 imported=0 app_available=True
-[08:31:54] path_F: RunMacro2 proc='main' ok=True err_ref=0 msg=
-[08:31:54] path_F: dump 文件不存在, 宏体根本没跑到 main (RunMacro2 静默无痕失败)
-[08:31:54] path_F: VBA 宏 InsertModelAnnotations3 完成 phase='' imported=0 views=0 err='no_dump_macro_not_started'
-[08:31:54] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[08:31:54] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[08:31:54] iter_views: 路径2(GetSheetNames+Sheet.GetViews) 累计 3 个模型视图, sheet_count=1
-[08:31:54] count_display: 视图[工程图视图1] 显示尺寸=0
-[08:31:54] count_display: 视图[工程图视图2] 显示尺寸=0
-[08:31:54] count_display: 视图[工程图视图3] 显示尺寸=0
-[08:31:54] apply_dim: 路径F(VBA InsertModelAnnotations3) 宏内 imported=0 views=0 命令后 DisplayDimension=0 err='no_dump_macro_not_started'
-[08:31:54] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[08:31:54] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[08:31:55] iter_views: 路径2(GetSheetNames+Sheet.GetViews) 累计 3 个模型视图, sheet_count=1
-[08:31:55] classify_views: ortho=3 front=Y top=Y right=Y
-[08:31:55] draw_self[top]: outline=(0.0285,0.1484)-(0.0972,0.1970) 跨度 dx=0.0686 dy=0.0486 m
-[08:31:55] sw_call: GetPolyLines7(*args) 抛 com_error:(-2147352561, '非选择性的参数。', None, None)
-[08:31:55] sw_call: GetPolyLines7(*args) 抛 com_error:(-2147352571, '类型不匹配。', None, 2)
-[08:31:55] view_edge_mid: GetPolyLines7 取不到线数据
-[08:31:55] early_bind: 能力探测命中接口类 IModelDocExtension(含('SelectByID2',))
-[08:31:55] early_bind: 能力探测 QueryInterface 到接口 IID 成功
-[08:31:55] early_bind: 能力探测 构造 类名=IModelDocExtension _oleobj_有InvokeTypes=True 含('SelectByID2',)=True
-[08:31:55] select_edge: 早绑定 Extension 类名=IModelDocExtension _oleobj_有InvokeTypes=True
-[08:31:55] select_edge: 早绑定 SelectByID2 未命中 EDGE @ (0.0629,0.1484)
-[08:31:55] select_edge: SelectByID2 全部候选均抛异常, 末次 com_error: (-2147352571, '类型不匹配。', None, 8)
-[08:31:55] add_h_dim: 早绑定 AddHorizontalDimension2 返回 None (picked=False)
-[08:31:55] add_h_dim: AddHorizontalDimension2 返回 None (picked=False x_mid=0.0629 y_text=0.1364)
-[08:31:55] draw_self[top]: 水平尺寸 FAIL
-[08:31:55] sw_call: GetPolyLines7(*args) 抛 com_error:(-2147352561, '非选择性的参数。', None, None)
-[08:31:55] sw_call: GetPolyLines7(*args) 抛 com_error:(-2147352571, '类型不匹配。', None, 2)
-[08:31:55] view_edge_mid: GetPolyLines7 取不到线数据
-[08:31:55] early_bind: 能力探测命中接口类 IModelDocExtension(含('SelectByID2',))
-[08:31:55] early_bind: 能力探测 QueryInterface 到接口 IID 成功
-[08:31:55] early_bind: 能力探测 构造 类名=IModelDocExtension _oleobj_有InvokeTypes=True 含('SelectByID2',)=True
-[08:31:55] select_edge: 早绑定 Extension 类名=IModelDocExtension _oleobj_有InvokeTypes=True
-[08:31:55] select_edge: 早绑定 SelectByID2 未命中 EDGE @ (0.0972,0.1727)
-[08:31:55] select_edge: SelectByID2 全部候选均抛异常, 末次 com_error: (-2147352571, '类型不匹配。', None, 8)
-[08:31:55] add_v_dim: 早绑定 AddVerticalDimension2 返回 None (picked=False)
-[08:31:55] add_v_dim: AddVerticalDimension2 返回 None (picked=False x_text=0.1092 y_mid=0.1727)
-[08:31:55] draw_self[top]: 竖直尺寸 FAIL
-[08:31:55] draw_self[front]: outline=(0.0285,0.0783)-(0.0972,0.0944) 跨度 dx=0.0686 dy=0.0161 m
-[08:31:55] sw_call: GetPolyLines7(*args) 抛 com_error:(-2147352561, '非选择性的参数。', None, None)
-[08:31:55] sw_call: GetPolyLines7(*args) 抛 com_error:(-2147352571, '类型不匹配。', None, 2)
-[08:31:55] view_edge_mid: GetPolyLines7 取不到线数据
-[08:31:56] early_bind: 能力探测命中接口类 IModelDocExtension(含('SelectByID2',))
-[08:31:56] early_bind: 能力探测 QueryInterface 到接口 IID 成功
-[08:31:56] early_bind: 能力探测 构造 类名=IModelDocExtension _oleobj_有InvokeTypes=True 含('SelectByID2',)=True
-[08:31:56] select_edge: 早绑定 Extension 类名=IModelDocExtension _oleobj_有InvokeTypes=True
-[08:31:56] select_edge: 早绑定 SelectByID2 未命中 EDGE @ (0.0629,0.0783)
-[08:31:56] select_edge: SelectByID2 全部候选均抛异常, 末次 com_error: (-2147352571, '类型不匹配。', None, 8)
-[08:31:56] add_h_dim: 早绑定 AddHorizontalDimension2 返回 None (picked=False)
-[08:31:56] add_h_dim: AddHorizontalDimension2 返回 None (picked=False x_mid=0.0629 y_text=0.0663)
-[08:31:56] draw_self[front]: 水平尺寸 FAIL
-[08:31:56] sw_call: GetPolyLines7(*args) 抛 com_error:(-2147352561, '非选择性的参数。', None, None)
-[08:31:56] sw_call: GetPolyLines7(*args) 抛 com_error:(-2147352571, '类型不匹配。', None, 2)
-[08:31:56] view_edge_mid: GetPolyLines7 取不到线数据
-[08:31:56] early_bind: 能力探测命中接口类 IModelDocExtension(含('SelectByID2',))
-[08:31:56] early_bind: 能力探测 QueryInterface 到接口 IID 成功
-[08:31:56] early_bind: 能力探测 构造 类名=IModelDocExtension _oleobj_有InvokeTypes=True 含('SelectByID2',)=True
-[08:31:56] select_edge: 早绑定 Extension 类名=IModelDocExtension _oleobj_有InvokeTypes=True
-[08:31:56] select_edge: 早绑定 SelectByID2 未命中 EDGE @ (0.0972,0.0864)
-[08:31:56] select_edge: SelectByID2 全部候选均抛异常, 末次 com_error: (-2147352571, '类型不匹配。', None, 8)
-[08:31:56] add_v_dim: 早绑定 AddVerticalDimension2 返回 None (picked=False)
-[08:31:56] add_v_dim: AddVerticalDimension2 返回 None (picked=False x_text=0.1092 y_mid=0.0864)
-[08:31:56] draw_self[front]: 竖直尺寸 FAIL
-[08:31:56] draw_self[right]: outline=(0.1363,0.0783)-(0.1850,0.0944) 跨度 dx=0.0486 dy=0.0161 m
-[08:31:56] sw_call: GetPolyLines7(*args) 抛 com_error:(-2147352561, '非选择性的参数。', None, None)
-[08:31:56] sw_call: GetPolyLines7(*args) 抛 com_error:(-2147352571, '类型不匹配。', None, 2)
-[08:31:56] view_edge_mid: GetPolyLines7 取不到线数据
-[08:31:56] early_bind: 能力探测命中接口类 IModelDocExtension(含('SelectByID2',))
-[08:31:56] early_bind: 能力探测 QueryInterface 到接口 IID 成功
-[08:31:56] early_bind: 能力探测 构造 类名=IModelDocExtension _oleobj_有InvokeTypes=True 含('SelectByID2',)=True
-[08:31:56] select_edge: 早绑定 Extension 类名=IModelDocExtension _oleobj_有InvokeTypes=True
-[08:31:56] select_edge: 早绑定 SelectByID2 未命中 EDGE @ (0.1607,0.0783)
-[08:31:56] select_edge: SelectByID2 全部候选均抛异常, 末次 com_error: (-2147352571, '类型不匹配。', None, 8)
-[08:31:56] add_h_dim: 早绑定 AddHorizontalDimension2 返回 None (picked=False)
-[08:31:56] add_h_dim: AddHorizontalDimension2 返回 None (picked=False x_mid=0.1607 y_text=0.0663)
-[08:31:56] draw_self[right]: 水平尺寸 FAIL
-[08:31:56] sw_call: GetPolyLines7(*args) 抛 com_error:(-2147352561, '非选择性的参数。', None, None)
-[08:31:56] sw_call: GetPolyLines7(*args) 抛 com_error:(-2147352571, '类型不匹配。', None, 2)
-[08:31:56] view_edge_mid: GetPolyLines7 取不到线数据
-[08:31:56] early_bind: 能力探测命中接口类 IModelDocExtension(含('SelectByID2',))
-[08:31:56] early_bind: 能力探测 QueryInterface 到接口 IID 成功
-[08:31:56] early_bind: 能力探测 构造 类名=IModelDocExtension _oleobj_有InvokeTypes=True 含('SelectByID2',)=True
-[08:31:56] select_edge: 早绑定 Extension 类名=IModelDocExtension _oleobj_有InvokeTypes=True
-[08:31:56] select_edge: 早绑定 SelectByID2 未命中 EDGE @ (0.1850,0.0864)
-[08:31:56] select_edge: SelectByID2 全部候选均抛异常, 末次 com_error: (-2147352571, '类型不匹配。', None, 8)
-[08:31:56] add_v_dim: 早绑定 AddVerticalDimension2 返回 None (picked=False)
-[08:31:56] add_v_dim: AddVerticalDimension2 返回 None (picked=False x_text=0.1970 y_mid=0.0864)
-[08:31:56] draw_self[right]: 竖直尺寸 FAIL
-[08:31:56] draw_self: 累计自绘 0 条
-[08:31:57] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[08:31:57] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
-[08:31:57] iter_views: 路径2(GetSheetNames+Sheet.GetViews) 累计 3 个模型视图, sheet_count=1
-[08:31:57] classify_views: ortho=3 front=Y top=Y right=Y
-[08:31:57] sw_call: GetPolyLines7(*args) 抛 com_error:(-2147352561, '非选择性的参数。', None, None)
-[08:31:57] sw_call: GetPolyLines7(*args) 抛 com_error:(-2147352571, '类型不匹配。', None, 2)
-[08:31:57] view_edge_mid: GetPolyLines7 取不到线数据
-[08:31:57] early_bind: 能力探测命中接口类 IModelDocExtension(含('SelectByID2',))
-[08:31:57] early_bind: 能力探测 QueryInterface 到接口 IID 成功
-[08:31:57] early_bind: 能力探测 构造 类名=IModelDocExtension _oleobj_有InvokeTypes=True 含('SelectByID2',)=True
-[08:31:57] select_edge: 早绑定 Extension 类名=IModelDocExtension _oleobj_有InvokeTypes=True
-[08:31:57] select_edge: 早绑定 SelectByID2 未命中 EDGE @ (0.0629,0.1484)
-[08:31:58] select_edge: SelectByID2 全部候选均抛异常, 末次 com_error: (-2147352571, '类型不匹配。', None, 8)
-[08:31:58] add_h_dim: 早绑定 AddHorizontalDimension2 返回 None (picked=False)
-[08:31:58] add_h_dim: AddHorizontalDimension2 返回 None (picked=False x_mid=0.0629 y_text=0.1364)
-[08:31:58] sw_call: GetPolyLines7(*args) 抛 com_error:(-2147352561, '非选择性的参数。', None, None)
-[08:31:58] sw_call: GetPolyLines7(*args) 抛 com_error:(-2147352571, '类型不匹配。', None, 2)
-[08:31:58] view_edge_mid: GetPolyLines7 取不到线数据
-[08:31:58] early_bind: 能力探测命中接口类 IModelDocExtension(含('SelectByID2',))
-[08:31:58] early_bind: 能力探测 QueryInterface 到接口 IID 成功
-[08:31:58] early_bind: 能力探测 构造 类名=IModelDocExtension _oleobj_有InvokeTypes=True 含('SelectByID2',)=True
-[08:31:58] select_edge: 早绑定 Extension 类名=IModelDocExtension _oleobj_有InvokeTypes=True
-[08:31:58] select_edge: 早绑定 SelectByID2 未命中 EDGE @ (0.0972,0.1727)
-[08:31:58] select_edge: SelectByID2 全部候选均抛异常, 末次 com_error: (-2147352571, '类型不匹配。', None, 8)
-[08:31:58] add_v_dim: 早绑定 AddVerticalDimension2 返回 None (picked=False)
-[08:31:58] add_v_dim: AddVerticalDimension2 返回 None (picked=False x_text=0.1092 y_mid=0.1727)
-[08:31:58] sw_call: GetPolyLines7(*args) 抛 com_error:(-2147352561, '非选择性的参数。', None, None)
-[08:31:58] sw_call: GetPolyLines7(*args) 抛 com_error:(-2147352571, '类型不匹配。', None, 2)
-[08:31:58] view_edge_mid: GetPolyLines7 取不到线数据
-[08:31:58] early_bind: 能力探测命中接口类 IModelDocExtension(含('SelectByID2',))
-[08:31:58] early_bind: 能力探测 QueryInterface 到接口 IID 成功
-[08:31:58] early_bind: 能力探测 构造 类名=IModelDocExtension _oleobj_有InvokeTypes=True 含('SelectByID2',)=True
-[08:31:58] select_edge: 早绑定 Extension 类名=IModelDocExtension _oleobj_有InvokeTypes=True
-[08:31:58] select_edge: 早绑定 SelectByID2 未命中 EDGE @ (0.1850,0.0864)
-[08:31:58] select_edge: SelectByID2 全部候选均抛异常, 末次 com_error: (-2147352571, '类型不匹配。', None, 8)
-[08:31:58] add_v_dim: 早绑定 AddVerticalDimension2 返回 None (picked=False)
-[08:31:58] add_v_dim: AddVerticalDimension2 返回 None (picked=False x_text=0.1970 y_mid=0.0864)
-[08:31:58] apply_dim: dim_count 汇总 = 模型导入0 + 自绘0 + 兜底0 合计=0
+[08:50:14] create_drawing: 入口
+[08:50:16] insert_views: Create3rdAngleViews2 返回 True part_path=C:\Users\LVBO_ZY\PycharmProjects\AI-Enterprise\workspace\outputs\parts\ai_part_v043.SLDPRT
+[08:50:17] insert_views: 创建后视图计数 = 0
+[08:50:17] apply_dim: 文档层 ext.InsertModelAnnotations3 抛 AttributeError:<unknown>.InsertModelAnnotations3
+[08:50:17] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[08:50:17] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[08:50:17] iter_views: 路径2(GetSheetNames+Sheet.GetViews) 累计 3 个模型视图, sheet_count=1
+[08:50:17] apply_dim: 逐视图导入前, 拿到模型视图数=3
+[08:50:17] apply_dim: 视图[工程图视图1] InsertModelAnnotations3 抛 AttributeError:<unknown>.InsertModelAnnotations3
+[08:50:17] apply_dim: 视图[工程图视图2] InsertModelAnnotations3 抛 AttributeError:<unknown>.InsertModelAnnotations3
+[08:50:17] apply_dim: 视图[工程图视图3] InsertModelAnnotations3 抛 AttributeError:<unknown>.InsertModelAnnotations3
+[08:50:17] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[08:50:17] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[08:50:18] iter_views: 路径2(GetSheetNames+Sheet.GetViews) 累计 3 个模型视图, sheet_count=1
+[08:50:18] count_display: 视图[工程图视图1] 显示尺寸=0
+[08:50:18] count_display: 视图[工程图视图2] 显示尺寸=0
+[08:50:18] count_display: 视图[工程图视图3] 显示尺寸=0
+[08:50:18] apply_dim: InsertModelAnnotations3 后计数 DisplayDimension=0
+[08:50:18] apply_dim: 进入路径E 判定 imported=0 app_available=True
+[08:50:18] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[08:50:18] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[08:50:19] iter_views: 路径2(GetSheetNames+Sheet.GetViews) 累计 3 个模型视图, sheet_count=1
+[08:50:19] apply_dim: 路径E fallback_views 数量=3
+[08:50:19] apply_dim: 路径E RunCommand(cmd=1668) 返回=True
+[08:50:20] apply_dim: 路径E RunCommand(cmd=1668) 返回=True
+[08:50:21] apply_dim: 路径E RunCommand(cmd=1668) 返回=True
+[08:50:21] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[08:50:21] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[08:50:21] iter_views: 路径2(GetSheetNames+Sheet.GetViews) 累计 3 个模型视图, sheet_count=1
+[08:50:22] count_display: 视图[工程图视图1] 显示尺寸=0
+[08:50:22] count_display: 视图[工程图视图2] 显示尺寸=0
+[08:50:22] count_display: 视图[工程图视图3] 显示尺寸=0
+[08:50:22] apply_dim: 路径E(RunCommand InsertModelItems) 尝试=3 成功=3 命令后 DisplayDimension=0
+[08:50:22] apply_dim: 路径F 前置状态 imported=0 app_is_none=False
+[08:50:22] apply_dim: 进入路径F 判定 imported=0 app_available=True
+[08:50:22] macro_sec: 已写入注册表宏安全性降级(HKCU\...\Security)
+[08:50:22] path_F: RunMacro2 proc='main' ok=True err_ref=0 msg=
+[08:50:22] path_F: dump 文件不存在, 宏体根本没跑到 main (RunMacro2 静默无痕失败)
+[08:50:22] path_F: VBA 宏 InsertModelAnnotations3 完成 phase='' imported=0 views=0 err='no_dump_macro_not_started'
+[08:50:22] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[08:50:22] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[08:50:23] iter_views: 路径2(GetSheetNames+Sheet.GetViews) 累计 3 个模型视图, sheet_count=1
+[08:50:23] count_display: 视图[工程图视图1] 显示尺寸=0
+[08:50:23] count_display: 视图[工程图视图2] 显示尺寸=0
+[08:50:23] count_display: 视图[工程图视图3] 显示尺寸=0
+[08:50:23] apply_dim: 路径F(VBA InsertModelAnnotations3) 宏内 imported=0 views=0 命令后 DisplayDimension=0 err='no_dump_macro_not_started'
+[08:50:23] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[08:50:23] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[08:50:23] iter_views: 路径2(GetSheetNames+Sheet.GetViews) 累计 3 个模型视图, sheet_count=1
+[08:50:23] classify_views: ortho=3 front=Y top=Y right=Y
+[08:50:23] draw_self[top]: outline=(0.0285,0.1484)-(0.0972,0.1970) 跨度 dx=0.0686 dy=0.0486 m
+[08:50:24] early_bind: EnsureModule 成功 ver=27.0, 早绑定模块已生成
+[08:50:24] early_bind: IView QueryInterface 到接口 IID 成功
+[08:50:24] early_bind: IView 构造 类名=IView _oleobj_有InvokeTypes=True 含('GetPolyLines7',)=False
+[08:50:24] early_bind: View QueryInterface 失败(com_error:(-2147467262, '不支持此接口', None, None)), 用裸_oleobj_
+[08:50:24] early_bind: View 构造 类名=View _oleobj_有InvokeTypes=True 含('GetPolyLines7',)=False
+[08:50:24] early_bind: CastTo IView 失败(TypeError:This COM object can not automate the makepy process - please run makepy manually for this object), 回退 late-bind
+[08:50:24] view_edge_mid: IView 早绑定未成功, 无法取真实线段
+[08:50:24] sw_call: GetPolyLines7(*args) 抛 com_error:(-2147352561, '非选择性的参数。', None, None)
+[08:50:24] sw_call: GetPolyLines7(*args) 抛 com_error:(-2147352571, '类型不匹配。', None, 2)
+[08:50:24] view_edge_mid: GetPolyLines7 取不到线数据
+[08:50:24] early_bind: 能力探测命中接口类 IModelDocExtension(含('SelectByID2',))
+[08:50:24] early_bind: 能力探测 QueryInterface 到接口 IID 成功
+[08:50:24] early_bind: 能力探测 构造 类名=IModelDocExtension _oleobj_有InvokeTypes=True 含('SelectByID2',)=True
+[08:50:24] select_edge: 早绑定 Extension 类名=IModelDocExtension _oleobj_有InvokeTypes=True
+[08:50:24] select_edge: 早绑定 SelectByID2 未命中 EDGE @ (0.0629,0.1484)
+[08:50:24] select_edge: SelectByID2 全部候选均抛异常, 末次 com_error: (-2147352571, '类型不匹配。', None, 8)
+[08:50:24] early_bind: 能力探测命中接口类 IModelDoc(含('AddHorizontalDimension2', 'AddVerticalDimension2'))
+[08:50:24] early_bind: 能力探测 QueryInterface 到接口 IID 成功
+[08:50:24] early_bind: 能力探测 构造 类名=IModelDoc _oleobj_有InvokeTypes=True 含('AddHorizontalDimension2', 'AddVerticalDimension2')=True
+[08:50:24] add_h_dim: 早绑定 AddHorizontalDimension2 返回 None (picked=False)
+[08:50:24] add_h_dim: AddHorizontalDimension2 返回 None (picked=False x_mid=0.0629 y_text=0.1364)
+[08:50:24] draw_self[top]: 水平尺寸 FAIL
+[08:50:24] early_bind: IView QueryInterface 到接口 IID 成功
+[08:50:24] early_bind: IView 构造 类名=IView _oleobj_有InvokeTypes=True 含('GetPolyLines7',)=False
+[08:50:24] early_bind: View QueryInterface 失败(com_error:(-2147467262, '不支持此接口', None, None)), 用裸_oleobj_
+[08:50:24] early_bind: View 构造 类名=View _oleobj_有InvokeTypes=True 含('GetPolyLines7',)=False
+[08:50:24] early_bind: CastTo IView 失败(TypeError:This COM object can not automate the makepy process - please run makepy manually for this object), 回退 late-bind
+[08:50:24] view_edge_mid: IView 早绑定未成功, 无法取真实线段
+[08:50:24] sw_call: GetPolyLines7(*args) 抛 com_error:(-2147352561, '非选择性的参数。', None, None)
+[08:50:24] sw_call: GetPolyLines7(*args) 抛 com_error:(-2147352571, '类型不匹配。', None, 2)
+[08:50:24] view_edge_mid: GetPolyLines7 取不到线数据
+[08:50:24] early_bind: 能力探测命中接口类 IModelDocExtension(含('SelectByID2',))
+[08:50:24] early_bind: 能力探测 QueryInterface 到接口 IID 成功
+[08:50:24] early_bind: 能力探测 构造 类名=IModelDocExtension _oleobj_有InvokeTypes=True 含('SelectByID2',)=True
+[08:50:24] select_edge: 早绑定 Extension 类名=IModelDocExtension _oleobj_有InvokeTypes=True
+[08:50:24] select_edge: 早绑定 SelectByID2 未命中 EDGE @ (0.0972,0.1727)
+[08:50:24] select_edge: SelectByID2 全部候选均抛异常, 末次 com_error: (-2147352571, '类型不匹配。', None, 8)
+[08:50:24] add_v_dim: 早绑定 AddVerticalDimension2 返回 None (picked=False)
+[08:50:24] add_v_dim: AddVerticalDimension2 返回 None (picked=False x_text=0.1092 y_mid=0.1727)
+[08:50:24] draw_self[top]: 竖直尺寸 FAIL
+[08:50:24] draw_self[front]: outline=(0.0285,0.0783)-(0.0972,0.0944) 跨度 dx=0.0686 dy=0.0161 m
+[08:50:25] early_bind: IView QueryInterface 到接口 IID 成功
+[08:50:25] early_bind: IView 构造 类名=IView _oleobj_有InvokeTypes=True 含('GetPolyLines7',)=False
+[08:50:25] early_bind: View QueryInterface 失败(com_error:(-2147467262, '不支持此接口', None, None)), 用裸_oleobj_
+[08:50:25] early_bind: View 构造 类名=View _oleobj_有InvokeTypes=True 含('GetPolyLines7',)=False
+[08:50:25] early_bind: CastTo IView 失败(TypeError:This COM object can not automate the makepy process - please run makepy manually for this object), 回退 late-bind
+[08:50:25] view_edge_mid: IView 早绑定未成功, 无法取真实线段
+[08:50:25] sw_call: GetPolyLines7(*args) 抛 com_error:(-2147352561, '非选择性的参数。', None, None)
+[08:50:25] sw_call: GetPolyLines7(*args) 抛 com_error:(-2147352571, '类型不匹配。', None, 2)
+[08:50:25] view_edge_mid: GetPolyLines7 取不到线数据
+[08:50:25] early_bind: 能力探测命中接口类 IModelDocExtension(含('SelectByID2',))
+[08:50:25] early_bind: 能力探测 QueryInterface 到接口 IID 成功
+[08:50:25] early_bind: 能力探测 构造 类名=IModelDocExtension _oleobj_有InvokeTypes=True 含('SelectByID2',)=True
+[08:50:25] select_edge: 早绑定 Extension 类名=IModelDocExtension _oleobj_有InvokeTypes=True
+[08:50:25] select_edge: 早绑定 SelectByID2 未命中 EDGE @ (0.0629,0.0783)
+[08:50:25] select_edge: SelectByID2 全部候选均抛异常, 末次 com_error: (-2147352571, '类型不匹配。', None, 8)
+[08:50:25] add_h_dim: 早绑定 AddHorizontalDimension2 返回 None (picked=False)
+[08:50:25] add_h_dim: AddHorizontalDimension2 返回 None (picked=False x_mid=0.0629 y_text=0.0663)
+[08:50:25] draw_self[front]: 水平尺寸 FAIL
+[08:50:25] early_bind: IView QueryInterface 到接口 IID 成功
+[08:50:25] early_bind: IView 构造 类名=IView _oleobj_有InvokeTypes=True 含('GetPolyLines7',)=False
+[08:50:25] early_bind: View QueryInterface 失败(com_error:(-2147467262, '不支持此接口', None, None)), 用裸_oleobj_
+[08:50:25] early_bind: View 构造 类名=View _oleobj_有InvokeTypes=True 含('GetPolyLines7',)=False
+[08:50:25] early_bind: CastTo IView 失败(TypeError:This COM object can not automate the makepy process - please run makepy manually for this object), 回退 late-bind
+[08:50:25] view_edge_mid: IView 早绑定未成功, 无法取真实线段
+[08:50:25] sw_call: GetPolyLines7(*args) 抛 com_error:(-2147352561, '非选择性的参数。', None, None)
+[08:50:25] sw_call: GetPolyLines7(*args) 抛 com_error:(-2147352571, '类型不匹配。', None, 2)
+[08:50:25] view_edge_mid: GetPolyLines7 取不到线数据
+[08:50:25] early_bind: 能力探测命中接口类 IModelDocExtension(含('SelectByID2',))
+[08:50:25] early_bind: 能力探测 QueryInterface 到接口 IID 成功
+[08:50:25] early_bind: 能力探测 构造 类名=IModelDocExtension _oleobj_有InvokeTypes=True 含('SelectByID2',)=True
+[08:50:25] select_edge: 早绑定 Extension 类名=IModelDocExtension _oleobj_有InvokeTypes=True
+[08:50:25] select_edge: 早绑定 SelectByID2 未命中 EDGE @ (0.0972,0.0864)
+[08:50:25] select_edge: SelectByID2 全部候选均抛异常, 末次 com_error: (-2147352571, '类型不匹配。', None, 8)
+[08:50:25] add_v_dim: 早绑定 AddVerticalDimension2 返回 None (picked=False)
+[08:50:25] add_v_dim: AddVerticalDimension2 返回 None (picked=False x_text=0.1092 y_mid=0.0864)
+[08:50:25] draw_self[front]: 竖直尺寸 FAIL
+[08:50:25] draw_self[right]: outline=(0.1363,0.0783)-(0.1850,0.0944) 跨度 dx=0.0486 dy=0.0161 m
+[08:50:25] early_bind: IView QueryInterface 到接口 IID 成功
+[08:50:25] early_bind: IView 构造 类名=IView _oleobj_有InvokeTypes=True 含('GetPolyLines7',)=False
+[08:50:25] early_bind: View QueryInterface 失败(com_error:(-2147467262, '不支持此接口', None, None)), 用裸_oleobj_
+[08:50:25] early_bind: View 构造 类名=View _oleobj_有InvokeTypes=True 含('GetPolyLines7',)=False
+[08:50:25] early_bind: CastTo IView 失败(TypeError:This COM object can not automate the makepy process - please run makepy manually for this object), 回退 late-bind
+[08:50:25] view_edge_mid: IView 早绑定未成功, 无法取真实线段
+[08:50:25] sw_call: GetPolyLines7(*args) 抛 com_error:(-2147352561, '非选择性的参数。', None, None)
+[08:50:25] sw_call: GetPolyLines7(*args) 抛 com_error:(-2147352571, '类型不匹配。', None, 2)
+[08:50:25] view_edge_mid: GetPolyLines7 取不到线数据
+[08:50:25] early_bind: 能力探测命中接口类 IModelDocExtension(含('SelectByID2',))
+[08:50:25] early_bind: 能力探测 QueryInterface 到接口 IID 成功
+[08:50:25] early_bind: 能力探测 构造 类名=IModelDocExtension _oleobj_有InvokeTypes=True 含('SelectByID2',)=True
+[08:50:25] select_edge: 早绑定 Extension 类名=IModelDocExtension _oleobj_有InvokeTypes=True
+[08:50:26] select_edge: 早绑定 SelectByID2 未命中 EDGE @ (0.1607,0.0783)
+[08:50:26] select_edge: SelectByID2 全部候选均抛异常, 末次 com_error: (-2147352571, '类型不匹配。', None, 8)
+[08:50:26] add_h_dim: 早绑定 AddHorizontalDimension2 返回 None (picked=False)
+[08:50:26] add_h_dim: AddHorizontalDimension2 返回 None (picked=False x_mid=0.1607 y_text=0.0663)
+[08:50:26] draw_self[right]: 水平尺寸 FAIL
+[08:50:26] early_bind: IView QueryInterface 到接口 IID 成功
+[08:50:26] early_bind: IView 构造 类名=IView _oleobj_有InvokeTypes=True 含('GetPolyLines7',)=False
+[08:50:26] early_bind: View QueryInterface 失败(com_error:(-2147467262, '不支持此接口', None, None)), 用裸_oleobj_
+[08:50:26] early_bind: View 构造 类名=View _oleobj_有InvokeTypes=True 含('GetPolyLines7',)=False
+[08:50:26] early_bind: CastTo IView 失败(TypeError:This COM object can not automate the makepy process - please run makepy manually for this object), 回退 late-bind
+[08:50:26] view_edge_mid: IView 早绑定未成功, 无法取真实线段
+[08:50:26] sw_call: GetPolyLines7(*args) 抛 com_error:(-2147352561, '非选择性的参数。', None, None)
+[08:50:26] sw_call: GetPolyLines7(*args) 抛 com_error:(-2147352571, '类型不匹配。', None, 2)
+[08:50:26] view_edge_mid: GetPolyLines7 取不到线数据
+[08:50:26] early_bind: 能力探测命中接口类 IModelDocExtension(含('SelectByID2',))
+[08:50:26] early_bind: 能力探测 QueryInterface 到接口 IID 成功
+[08:50:26] early_bind: 能力探测 构造 类名=IModelDocExtension _oleobj_有InvokeTypes=True 含('SelectByID2',)=True
+[08:50:26] select_edge: 早绑定 Extension 类名=IModelDocExtension _oleobj_有InvokeTypes=True
+[08:50:26] select_edge: 早绑定 SelectByID2 未命中 EDGE @ (0.1850,0.0864)
+[08:50:26] select_edge: SelectByID2 全部候选均抛异常, 末次 com_error: (-2147352571, '类型不匹配。', None, 8)
+[08:50:26] add_v_dim: 早绑定 AddVerticalDimension2 返回 None (picked=False)
+[08:50:26] add_v_dim: AddVerticalDimension2 返回 None (picked=False x_text=0.1970 y_mid=0.0864)
+[08:50:26] draw_self[right]: 竖直尺寸 FAIL
+[08:50:26] draw_self: 累计自绘 0 条
+[08:50:26] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[08:50:26] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[08:50:26] iter_views: 路径2(GetSheetNames+Sheet.GetViews) 累计 3 个模型视图, sheet_count=1
+[08:50:26] classify_views: ortho=3 front=Y top=Y right=Y
+[08:50:26] note_at: SetPosition 抛 com_error: (-2147352573, '找不到成员。', None, None)(注释已插入, 位置默认)
+[08:50:26] bbox_notes[top]: 写入 '长 120' @ (0.0629,0.1384)
+[08:50:26] note_at: SetPosition 抛 com_error: (-2147352573, '找不到成员。', None, None)(注释已插入, 位置默认)
+[08:50:26] bbox_notes[top]: 写入 '宽 80' @ (0.1072,0.1727)
+[08:50:27] note_at: SetPosition 抛 com_error: (-2147352573, '找不到成员。', None, None)(注释已插入, 位置默认)
+[08:50:27] bbox_notes[right]: 写入 '高 15' @ (0.1950,0.0864)
+[08:50:27] bbox_notes: 视图旁注释累计写入 3 条
+[08:50:27] iter_views: 路径0 FirstFeature 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[08:50:27] iter_views: 路径1 GetCurrentSheet 抛异常 com_error:(-2147352573, '找不到成员。', None, None)
+[08:50:28] iter_views: 路径2(GetSheetNames+Sheet.GetViews) 累计 3 个模型视图, sheet_count=1
+[08:50:28] classify_views: ortho=3 front=Y top=Y right=Y
+[08:50:28] early_bind: IView QueryInterface 到接口 IID 成功
+[08:50:28] early_bind: IView 构造 类名=IView _oleobj_有InvokeTypes=True 含('GetPolyLines7',)=False
+[08:50:28] early_bind: View QueryInterface 失败(com_error:(-2147467262, '不支持此接口', None, None)), 用裸_oleobj_
+[08:50:28] early_bind: View 构造 类名=View _oleobj_有InvokeTypes=True 含('GetPolyLines7',)=False
+[08:50:28] early_bind: CastTo IView 失败(TypeError:This COM object can not automate the makepy process - please run makepy manually for this object), 回退 late-bind
+[08:50:28] view_edge_mid: IView 早绑定未成功, 无法取真实线段
+[08:50:28] sw_call: GetPolyLines7(*args) 抛 com_error:(-2147352561, '非选择性的参数。', None, None)
+[08:50:28] sw_call: GetPolyLines7(*args) 抛 com_error:(-2147352571, '类型不匹配。', None, 2)
+[08:50:28] view_edge_mid: GetPolyLines7 取不到线数据
+[08:50:28] early_bind: 能力探测命中接口类 IModelDocExtension(含('SelectByID2',))
+[08:50:28] early_bind: 能力探测 QueryInterface 到接口 IID 成功
+[08:50:28] early_bind: 能力探测 构造 类名=IModelDocExtension _oleobj_有InvokeTypes=True 含('SelectByID2',)=True
+[08:50:28] select_edge: 早绑定 Extension 类名=IModelDocExtension _oleobj_有InvokeTypes=True
+[08:50:28] select_edge: 早绑定 SelectByID2 未命中 EDGE @ (0.0629,0.1484)
+[08:50:28] select_edge: SelectByID2 全部候选均抛异常, 末次 com_error: (-2147352571, '类型不匹配。', None, 8)
+[08:50:28] add_h_dim: 早绑定 AddHorizontalDimension2 返回 None (picked=False)
+[08:50:28] add_h_dim: AddHorizontalDimension2 返回 None (picked=False x_mid=0.0629 y_text=0.1364)
+[08:50:28] early_bind: IView QueryInterface 到接口 IID 成功
+[08:50:28] early_bind: IView 构造 类名=IView _oleobj_有InvokeTypes=True 含('GetPolyLines7',)=False
+[08:50:28] early_bind: View QueryInterface 失败(com_error:(-2147467262, '不支持此接口', None, None)), 用裸_oleobj_
+[08:50:28] early_bind: View 构造 类名=View _oleobj_有InvokeTypes=True 含('GetPolyLines7',)=False
+[08:50:28] early_bind: CastTo IView 失败(TypeError:This COM object can not automate the makepy process - please run makepy manually for this object), 回退 late-bind
+[08:50:28] view_edge_mid: IView 早绑定未成功, 无法取真实线段
+[08:50:29] sw_call: GetPolyLines7(*args) 抛 com_error:(-2147352561, '非选择性的参数。', None, None)
+[08:50:29] sw_call: GetPolyLines7(*args) 抛 com_error:(-2147352571, '类型不匹配。', None, 2)
+[08:50:29] view_edge_mid: GetPolyLines7 取不到线数据
+[08:50:29] early_bind: 能力探测命中接口类 IModelDocExtension(含('SelectByID2',))
+[08:50:29] early_bind: 能力探测 QueryInterface 到接口 IID 成功
+[08:50:29] early_bind: 能力探测 构造 类名=IModelDocExtension _oleobj_有InvokeTypes=True 含('SelectByID2',)=True
+[08:50:29] select_edge: 早绑定 Extension 类名=IModelDocExtension _oleobj_有InvokeTypes=True
+[08:50:29] select_edge: 早绑定 SelectByID2 未命中 EDGE @ (0.0972,0.1727)
+[08:50:29] select_edge: SelectByID2 全部候选均抛异常, 末次 com_error: (-2147352571, '类型不匹配。', None, 8)
+[08:50:29] add_v_dim: 早绑定 AddVerticalDimension2 返回 None (picked=False)
+[08:50:29] add_v_dim: AddVerticalDimension2 返回 None (picked=False x_text=0.1092 y_mid=0.1727)
+[08:50:29] early_bind: IView QueryInterface 到接口 IID 成功
+[08:50:29] early_bind: IView 构造 类名=IView _oleobj_有InvokeTypes=True 含('GetPolyLines7',)=False
+[08:50:29] early_bind: View QueryInterface 失败(com_error:(-2147467262, '不支持此接口', None, None)), 用裸_oleobj_
+[08:50:29] early_bind: View 构造 类名=View _oleobj_有InvokeTypes=True 含('GetPolyLines7',)=False
+[08:50:29] early_bind: CastTo IView 失败(TypeError:This COM object can not automate the makepy process - please run makepy manually for this object), 回退 late-bind
+[08:50:29] view_edge_mid: IView 早绑定未成功, 无法取真实线段
+[08:50:29] sw_call: GetPolyLines7(*args) 抛 com_error:(-2147352561, '非选择性的参数。', None, None)
+[08:50:29] sw_call: GetPolyLines7(*args) 抛 com_error:(-2147352571, '类型不匹配。', None, 2)
+[08:50:29] view_edge_mid: GetPolyLines7 取不到线数据
+[08:50:29] early_bind: 能力探测命中接口类 IModelDocExtension(含('SelectByID2',))
+[08:50:29] early_bind: 能力探测 QueryInterface 到接口 IID 成功
+[08:50:29] early_bind: 能力探测 构造 类名=IModelDocExtension _oleobj_有InvokeTypes=True 含('SelectByID2',)=True
+[08:50:29] select_edge: 早绑定 Extension 类名=IModelDocExtension _oleobj_有InvokeTypes=True
+[08:50:29] select_edge: 早绑定 SelectByID2 未命中 EDGE @ (0.1850,0.0864)
+[08:50:29] select_edge: SelectByID2 全部候选均抛异常, 末次 com_error: (-2147352571, '类型不匹配。', None, 8)
+[08:50:29] add_v_dim: 早绑定 AddVerticalDimension2 返回 None (picked=False)
+[08:50:29] add_v_dim: AddVerticalDimension2 返回 None (picked=False x_text=0.1970 y_mid=0.0864)
+[08:50:29] apply_dim: dim_count 汇总 = 模型导入0 + 选边自绘0 + 视图旁注释3 + 兜底0 合计=3
