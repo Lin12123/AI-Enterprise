@@ -155,45 +155,14 @@ def create_drawing_from_active_part(app: object, rules: list | None = None) -> d
     except RuntimeError as exc:
         return _fail(f"插入三视图失败: {exc}")
 
-    # 3.1) 依据企业标准/规范生成尺寸标注与公差(标注失败不阻断出图，只降级为无标注)
-    annotation_note = ""
+    # 3.1) v042: 按用户要求, 工程图只保留企业模板 + 标准三视图, 不做任何尺寸标注。
+    #      _apply_dimensions_and_tolerance 已内部短路返回空标注; 这里同步去掉
+    #      "dim_count<=0 时 MarkAll 重试 + 包围盒兜底注释"逻辑, 保证图上无任何尺寸/注释。
+    annotation_note = "，按需求只出模板+标准三视图，未标注尺寸"
     try:
-        ann = _apply_dimensions_and_tolerance(app, draw_model, rules or [], model)
-        dim_count = ann.get("dim_count", 0)
-        grade = ann.get("grade", "")
-        tol_applied = ann.get("tol_applied", 0)
-        if dim_count <= 0:
-            # 首次未能画进任何模型尺寸: 先做一次"MarkAll → 再补打整体尺寸"重试,
-            # 主因是部分企业模板首次 InsertModelAnnotations3 时机太早, 视图尚未
-            # 完全 rebuild。重试仍为 0 才降级为包围盒文字兜底。
-            try:
-                _mark_all_display_dimensions(model)
-            except Exception:
-                pass
-            try:
-                ann_retry = _apply_dimensions_and_tolerance(app, draw_model, rules or [], model)
-                dim_count = ann_retry.get("dim_count", 0)
-                grade = ann_retry.get("grade", grade)
-                tol_applied = ann_retry.get("tol_applied", tol_applied)
-            except Exception:
-                pass
-        if dim_count <= 0:
-            # 一条模型尺寸都没画进图: 用包围盒总体尺寸兜底，保证图上有长宽高基本尺寸
-            bbox_note = _insert_bbox_fallback_note(draw_model, model)
-            if bbox_note:
-                annotation_note = f"，模型尺寸未标记，已按包围盒兜底标注 {bbox_note}"
-            else:
-                annotation_note = "(未能导入模型尺寸且无法取得包围盒: 图纸暂无尺寸标注)"
-        elif grade and tol_applied > 0:
-            annotation_note = (
-                f"，已标注 {dim_count} 处尺寸并按企业标准对 {tol_applied} 处应用公差等级 {grade}"
-            )
-        elif grade:
-            annotation_note = f"，已标注 {dim_count} 处尺寸(公差等级 {grade})"
-        else:
-            annotation_note = f"，已导入 {dim_count} 处模型尺寸标注"
+        _apply_dimensions_and_tolerance(app, draw_model, rules or [], model)
     except Exception as exc:
-        annotation_note = f"(尺寸/公差标注降级: {exc})"
+        _dbg(f"apply_dim: v042 短路调用异常(忽略) {type(exc).__name__}: {exc}", summary=True)
 
     # 3.2) 技术要求完全沿用模板/图框自带的那份，程序不再写入任何技术要求文本框，
     #      避免与模板重复。企业模板已固化技术要求，出图无需额外补充。
@@ -2526,6 +2495,15 @@ def _apply_dimensions_and_tolerance(app: object, draw_model: object, rules: list
       - tol_applied: 实际设置了对称公差的尺寸条数
     该函数所有 COM 调用均在内部尽量兜底，异常上抛由主流程降级处理。
     """
+    # v042: 按用户要求, 工程图只保留企业模板 + 标准三视图, 不再做任何尺寸标注。
+    #       多轮真机验证(v035~v041.1)证明该客户机 late-bind COM 下:
+    #         - InsertModelAnnotations3 / SelectByID2 选边 / AddDimension / GetPolyLines7 全走不通;
+    #         - 唯一可落地的 InsertNote 又因 SetPosition 报 -2147352573 找不到成员而无法定位,
+    #           三条长宽高注释始终堆叠重叠成乱码。
+    #       故彻底停用全部尺寸/注释标注(模型导入 / 选边自绘 / 视图旁注释 / 兜底),
+    #       直接返回空标注结果。模板与三视图由本函数之外的流程生成, 不受影响。
+    _dbg("apply_dim: v042 只出模板+标准三视图, 跳过全部尺寸标注", summary=True)
+    return {"dim_count": 0, "grade": "", "tol_applied": 0}
     # 1) 导入模型尺寸到所有视图
     #    InsertModelAnnotations3(type, option, allViews, duplicateDimensions, sameEdges, ...)
     #    type=0(swDimension) 导入模型尺寸; option=3 = 标记+未标记全部导入(见常量说明)
