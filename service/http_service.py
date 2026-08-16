@@ -599,7 +599,23 @@ def _handle_upload_to_cloud(payload: dict) -> dict:
         files = ctx.get("last_outputs") or []
     if not files:
         return {"ok": False, "message": "本次会话没有可上传的产物，请先成功生成 2D 图纸"}
-    title = session.get("title") or None
+
+    # 项目名称按需求取本次 3D 文件(.SLDPRT)的文件名(去扩展名)。
+    # 优先用 3D 零件文件名作为云平台项目名，其次退回会话标题。
+    part_file = next(
+        (f for f in files if f.get("file_type") == "part" and f.get("path")),
+        None,
+    )
+    if part_file is None:
+        # 没有显式 part 类型时，退而取第一个 .SLDPRT 文件
+        part_file = next(
+            (f for f in files
+             if str(f.get("path", "")).lower().endswith(".sldprt")),
+            None,
+        )
+    if part_file and part_file.get("path"):
+        part_name = os.path.splitext(os.path.basename(part_file["path"]))[0]
+    title = part_name or session.get("title") or None
 
     from service.cloud_upload import upload_session_outputs
     return upload_session_outputs(

@@ -14,4 +14,4 @@
 
 - [3D转2D企业标准出图链路](project_drawing_enterprise_standard.md) — AI-Enterprise 点击3D转2D的全链路:尺寸+公差+图幅+技术要求+长宽高兜底关键约定
 
-- [出图长宽高落地转向 InsertNote v041.1](project_drawing_early_bind_v029.md) — AI-Enterprise 3D转2D出图;真机唯一可用落地=InsertNote;SetPosition不通改ActivateView分散;选边/Dimension全放弃
+- [出图 v042 只出模板+标准三视图(停用全部尺寸标注)](project_drawing_early_bind_v029.md) — AI-Enterprise 3D转2D出图;真机 late-bind 尺寸/注释全不通,v042 起只出企业模板+标准三视图,不做任何尺寸标注
