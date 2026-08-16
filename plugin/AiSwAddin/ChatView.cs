@@ -59,6 +59,24 @@ namespace AiSwAddin
         }
 
         /// <summary>
+        /// 将滚动条强制定位到最底部，露出最新消息。
+        ///用 BeginInvoke 延迟到当前消息循环之后执行，确保容器已完成重排、
+        /// AutoScrollMinSize 已按最新内容更新，从而无论会话多长都能可靠置底。
+        /// </summary>
+        public void ScrollToBottom()
+        {
+            if (!IsHandleCreated) return;
+            BeginInvoke(new Action(() =>
+            {
+                // 内容不足一屏时无需滚动；超出时用足够大的 Y 触发容器夹取到真正底部。
+                int visible = ClientSize.Height - Padding.Vertical;
+                int content = AutoScrollMinSize.Height;
+                if (content > visible)
+                    AutoScrollPosition = new Point(0, content);
+            }));
+        }
+
+        /// <summary>
         /// 追加一个自定义 Control 作为一条 AI 侧消息(如"执行面板卡片"、"诊断清单卡片")。
         /// 该控件应已设置合适的 Width/Height；本方法会用 wrapper row 把它挂到会话流里。
         /// </summary>
@@ -124,6 +142,10 @@ namespace AiSwAddin
                 // 内容不足一屏：保持顶部，避免消息整体下沉、顶部留白
                 AutoScrollPosition = new Point(0, 0);
             }
+
+            // 再延迟置底一次：此时容器已完成重排、AutoScrollMinSize 已更新，
+            // 保证无论会话多长滚动条始终停在最底部。
+            ScrollToBottom();
 
             return row;
         }

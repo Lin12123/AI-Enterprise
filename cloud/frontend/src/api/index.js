@@ -111,12 +111,11 @@ export const projectsApi = {
         const st = (t.status || '').toLowerCase()
         const enabled = !(st === 'archived' || st === 'disabled')
         const partName = t.part_name || t.title || `任务 #${t.id}`
-        const material = t.material || '未指定材料'
         return {
           id: t.task_uid || `TASK-${t.id}`,
           name: t.title || partName,
           enabled,
-          desc: `${partName}｜${material}｜状态：${t.status || 'unknown'}`,
+          desc: '',
           drawings: fileCount.get(t.id) || 0,
           members: 1,
           updatedAt: t.created_at || '',
