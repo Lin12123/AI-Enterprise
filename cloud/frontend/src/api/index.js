@@ -113,6 +113,7 @@ export const projectsApi = {
         const partName = t.part_name || t.title || `任务 #${t.id}`
         return {
           id: t.task_uid || `TASK-${t.id}`,
+          tid: t.id,
           name: t.title || partName,
           enabled,
           desc: '',
@@ -126,6 +127,8 @@ export const projectsApi = {
       return delay(mockProjects)
     }
   },
+  // 删除项目：连带删除其产物文件(后端级联)。tid 为 task 数字主键。
+  remove: (tid) => del(`/tasks/${tid}`),
 }
 
 // 插件管理：假数据

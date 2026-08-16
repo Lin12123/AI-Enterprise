@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { projectsApi } from '@/api'
 
 const loading = ref(false)
@@ -38,6 +38,34 @@ function toggle(p) {
 
 function addProject() {
   ElMessage.info('新增项目功能待接入后端')
+}
+
+async function removeProject(p) {
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除项目「${p.name}」吗？该操作会一并删除其名下的所有产物图纸文件，且不可恢复。`,
+      '删除项目',
+      {
+        type: 'warning',
+        confirmButtonText: '删除',
+        cancelButtonText: '取消',
+        confirmButtonClass: 'el-button--danger',
+      },
+    )
+  } catch {
+    return // 用户取消
+  }
+  if (!p.tid) {
+    ElMessage.warning('该项目暂无可删除的后端记录')
+    return
+  }
+  try {
+    await projectsApi.remove(p.tid)
+    ElMessage.success(`已删除项目 ${p.id}`)
+    await load()
+  } catch (e) {
+    ElMessage.error(e.message || '删除失败')
+  }
 }
 
 onMounted(load)
@@ -81,6 +109,7 @@ onMounted(load)
           <el-button size="small" @click="toggle(p)">
             {{ p.enabled ? '禁用' : '启用' }}
           </el-button>
+          <el-button size="small" type="danger" plain @click="removeProject(p)">删除</el-button>
           <el-button size="small" type="primary" plain>查看详情</el-button>
         </div>
       </div>

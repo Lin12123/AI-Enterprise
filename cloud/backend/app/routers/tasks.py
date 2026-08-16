@@ -3,6 +3,7 @@
 插件出图成功后 POST 上报任务，payload_json 存生成上下文(零件/材料/标准等)。
 """
 import json
+import os
 
 from fastapi import APIRouter
 
@@ -114,5 +115,49 @@ def upsert_task(body: TaskIn):
         return ok({"id": cur.lastrowid, "created": True}, "已创建")
     except Exception as exc:
         return fail(f"upsert 失败: {exc}")
+    finally:
+        conn.close()
+
+
+@router.delete("/{tid}")
+def delete_task(tid: int):
+    """删除任务(项目卡片)：连带删除其产物文件记录与物理文件。
+
+    项目图纸管理里一张卡片 = 一条 task，删除该项目即删除该任务及其归属的
+    全部产物文件。file.task_id 外键为 ON DELETE SET NULL，不会自动删记录，
+    这里显式清理 file 表与磁盘文件。
+    """
+    conn = db.get_conn()
+    try:
+        row = conn.execute("SELECT id FROM task WHERE id = ?", (tid,)).fetchone()
+        if not row:
+            return fail("任务不存在")
+
+        # 先取该任务的产物文件物理路径，删库后再清盘
+        files = conn.execute(
+            "SELECT stored_path FROM file WHERE task_id = ?", (tid,)
+        ).fetchall()
+        file_cnt = len(files)
+
+        # 删产物文件登记 + 任务主表
+        conn.execute("DELETE FROM file WHERE task_id = ?", (tid,))
+        conn.execute("DELETE FROM task WHERE id = ?", (tid,))
+        conn.commit()
+
+        # 清理物理文件(尽力而为，失败不阻断)
+        for f in files:
+            sp = f["stored_path"]
+            if not sp:
+                continue
+            abs_path = os.path.join(db.STORAGE_DIR, sp)
+            try:
+                if os.path.exists(abs_path):
+                    os.remove(abs_path)
+            except OSError:
+                pass
+
+        return ok({"id": tid, "deleted_files": file_cnt}, f"已删除项目及其 {file_cnt} 个产物文件")
+    except Exception as exc:
+        return fail(f"删除失败: {exc}")
     finally:
         conn.close()

@@ -587,6 +587,26 @@ def _handle_session_status(payload: dict) -> dict:
     return {"ok": True}
 
 
+def _save_active_part_for_upload() -> str:
+    """在 SW STA worker 内保存当前活动零件并返回 .SLDPRT 路径。
+
+    用于"只建了 3D 零件、未转 2D"的上传兜底场景：会话未记录产物时，
+    实时把当前活动零件落盘，得到可上传的零件文件路径。
+    """
+    def _do_save():
+        from solidworks_api.drawing import _get_active_part, _ensure_part_saved
+        session = _shared_session()
+        session.connect()
+        app = session.require_connected()
+        model = _get_active_part(app)
+        return _ensure_part_saved(app, model)
+
+    from service.sw_worker import SolidWorksWorker
+    worker = SolidWorksWorker()
+    worker.start()
+    return worker.submit(_do_save, timeout=120)
+
+
 def _handle_upload_to_cloud(payload: dict) -> dict:
     """把本次会话生成的 3D/2D 产物上传到云平台的项目图纸管理模块。
 
@@ -618,7 +638,24 @@ def _handle_upload_to_cloud(payload: dict) -> dict:
     if not files:
         files = ctx.get("last_outputs") or []
     if not files:
-        return {"ok": False, "message": "本次会话没有可上传的产物，请先成功生成 2D 图纸"}
+        # 兜底：会话未记录产物(例如只建了 3D 模型、既没落盘也没转 2D)时，
+        # 直接从当前活动的 SolidWorks 零件文档实时保存 .SLDPRT 作为上传文件，
+        # 满足"不转 2D、只上传 3D 零件"的诉求。COM 调用必须在 STA 工作线程内完成。
+        try:
+            part_path = _save_active_part_for_upload()
+        except Exception as exc:
+            return {
+                "ok": False,
+                "message": "本次会话没有可上传的产物，且无法从当前活动零件保存: " + str(exc),
+            }
+        if part_path:
+            files = [{"file_type": "part", "path": part_path}]
+            try:
+                get_session_store().set_context(session_id, "last_outputs", files)
+            except Exception:
+                pass
+    if not files:
+        return {"ok": False, "message": "本次会话没有可上传的产物：请先生成 3D 零件或 2D 图纸"}
 
     # 项目名称按需求取本次 3D 文件(.SLDPRT)的文件名(去扩展名)。
     # 优先用 3D 零件文件名作为云平台项目名，其次退回会话标题。
