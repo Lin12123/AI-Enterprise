@@ -2955,24 +2955,30 @@ def _draw_bbox_notes_on_views(draw_model: object, part_model: object, app: objec
     placed = 0
 
     def _note(view: object, tag: str, jobs: list) -> int:
+        """v041.1: 真机 SetPosition 三条路径全报 -2147352573 找不到成员,
+        坐标定位彻底不通, 三条注释全落图纸中心叠成乱码。改策略:
+          1) 插入前 ActivateView 目标视图 —— SW 把新注释落到该视图中心附近,
+             不同视图天然分散(ActivateView 真机可用);
+          2) 同一视图的多个量合并成一条多行注释(换行分隔), 一次 InsertNote
+             只落一处, 避免同视图内两条再叠。
+        这样即使 SetPosition 全失败, 三个量也分成两处(俯视图中心 / 右视图中心)
+        且带方位标识清晰可读。
+        """
         if view is None:
             return 0
-        ol = _view_outline(view)
-        if ol is None:
-            _dbg(f"bbox_notes[{tag}]: outline 取不到, 跳过")
-            return 0
-        xmin, ymin, xmax, ymax, cx, cy = ol
         vname = _sw_invoke(view, "GetName2")
         if vname:
-            _sw_call(draw_model, "ActivateView", str(vname))
-        n = 0
-        for label, value, px, py in jobs:
-            txt = f"{label} {_fmt_mm(value)}"
-            if _insert_note_at(draw_model, txt, px, py):
-                n += 1
-                _dbg(f"bbox_notes[{tag}]: 写入 '{txt}' @ ({px:.4f},{py:.4f})")
-            else:
-                _dbg(f"bbox_notes[{tag}]: 写入 '{txt}' 失败")
+            ok, _ = _sw_call(draw_model, "ActivateView", str(vname))
+            _dbg(f"bbox_notes[{tag}]: ActivateView('{vname}') ok={ok}")
+        # 合并同视图的多个量为一条多行注释, 每行前带方位/量标识
+        lines = [f"{label}={_fmt_mm(value)}" for label, value, _px, _py in jobs]
+        txt = "\n".join(lines)
+        if not txt:
+            return 0
+        # 位置参数(px,py)在本机 SetPosition 失效, 传视图中心仅作日志; 真正落点靠 ActivateView
+        px, py = jobs[0][2], jobs[0][3]
+        n = 1 if _insert_note_at(draw_model, txt, px, py) else 0
+        _dbg(f"bbox_notes[{tag}]: 合并写入 '{txt.replace(chr(10), '/')}' (激活视图落点) -> {'成功' if n else '失败'}")
         # 每张视图注释完回激活图纸, 避免影响后续保存
         try:
             draw_model.ActivateSheet(draw_model.GetCurrentSheet().GetName())
@@ -2988,8 +2994,8 @@ def _draw_bbox_notes_on_views(draw_model: object, part_model: object, app: objec
             placed += _note(
                 top, "top",
                 [
-                    ("长", l, cx, ymin - margin),          # 底边下方: 长
-                    ("宽", w, xmax + margin, cy),           # 右边右侧: 宽
+                    ("长", l, cx, cy), # 俯视图: 长
+                    ("宽", w, cx, cy),   # 俯视图: 宽
                 ],
             )
 
@@ -3001,7 +3007,7 @@ def _draw_bbox_notes_on_views(draw_model: object, part_model: object, app: objec
             placed += _note(
                 right, "right",
                 [
-                    ("高", h, xmax + margin, cy),           # 右边右侧: 高
+                    ("高", h, cx, cy),   # 右视图: 高
                 ],
             )
 
