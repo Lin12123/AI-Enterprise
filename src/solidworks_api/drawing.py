@@ -2033,28 +2033,26 @@ def _select_edge_at(draw_model: object, view: object, x: float, y: float) -> boo
     选中成功返回 True。任何异常一律吞掉返回 False。
     """
     try:
-        # v035: 优先用早绑定 IModelDoc2.Extension 调 SelectByID2, 从根上解决
-        # late-bind arg8(callout) 类型不匹配。早绑定包装类允许省略尾部可选参数。
-        early_doc = _early_bound_doc(draw_model)
-        ext_early = getattr(early_doc, "Extension", None)
-        if ext_early is not None and early_doc is not draw_model:
-            # v036: early_doc.Extension 可能仍是 late-bind 对象, 再对它做一次
-            # 针对 SelectByID2 的能力探测早绑定, 确保按 dispid 编组可选 callout 参数。
-            if not hasattr(ext_early, "InvokeTypes"):
-                ext_probe = _ensure_early_bind(
-                    ext_early, "IModelDocExtension", require_methods=("SelectByID2",)
-                )
-                if ext_probe is not None and ext_probe is not ext_early:
-                    ext_early = ext_probe
-            try:
-                real = ext_early.__class__.__name__
-                _dbg(f"select_edge: 早绑定 Extension 类名={real}")
-                ok = bool(ext_early.SelectByID2("", "EDGE", x, y, 0.0, True, 0, None, 0))
-                if ok:
-                    return True
-                _dbg(f"select_edge: 早绑定 SelectByID2 未命中 EDGE @ ({x:.4f},{y:.4f})")
-            except Exception as exc:
-                _dbg(f"select_edge: 早绑定 SelectByID2 抛 {type(exc).__name__}: {exc}, 回退 late-bind")
+        # v037: 从原始 draw_model 拿 Extension(late-bind IModelDocExtension), 直接对它
+        # 做能力探测早绑定, 不再依赖 early_doc.Extension——真机 IModelDoc 早绑定包装类
+        # 可能不暴露 .Extension 属性(Extension 是 IModelDoc2 的入口), 导致上一版整块被跳过。
+        raw_ext = getattr(draw_model, "Extension", None)
+        if raw_ext is not None:
+            ext_early = _ensure_early_bind(
+                raw_ext, "IModelDocExtension", require_methods=("SelectByID2",)
+            )
+            if ext_early is not None and ext_early is not raw_ext and hasattr(ext_early, "InvokeTypes"):
+                try:
+                    real = ext_early.__class__.__name__
+                    _dbg(f"select_edge: 早绑定 Extension 类名={real} 有InvokeTypes=True")
+                    ok = bool(ext_early.SelectByID2("", "EDGE", x, y, 0.0, True, 0, None, 0))
+                    if ok:
+                        return True
+                    _dbg(f"select_edge: 早绑定 SelectByID2 未命中 EDGE @ ({x:.4f},{y:.4f})")
+                except Exception as exc:
+                    _dbg(f"select_edge: 早绑定 SelectByID2 抛 {type(exc).__name__}: {exc}, 回退 late-bind")
+            else:
+                _dbg("select_edge: Extension 早绑定未成功(无InvokeTypes), 回退 late-bind")
 
         ext = getattr(draw_model, "Extension", None)
         if ext is None:
