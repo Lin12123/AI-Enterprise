@@ -2041,10 +2041,19 @@ def _select_edge_at(draw_model: object, view: object, x: float, y: float) -> boo
             ext_early = _ensure_early_bind(
                 raw_ext, "IModelDocExtension", require_methods=("SelectByID2",)
             )
-            if ext_early is not None and ext_early is not raw_ext and hasattr(ext_early, "InvokeTypes"):
+            # v038 修正: _construct_iface 已保证返回对象 _oleobj_ 有 InvokeTypes 且
+            # hasattr SelectByID2。此处不能用 hasattr(ext_early,"InvokeTypes") 判断——
+            # 那是包装对象本身(DispatchBaseClass 实例)不含 InvokeTypes, InvokeTypes
+            # 在 ext_early._oleobj_ 上。上一版误判导致早绑定构造成功却回退 late-bind。
+            ok_bind = (
+                ext_early is not None
+                and ext_early is not raw_ext
+                and hasattr(getattr(ext_early, "_oleobj_", None), "InvokeTypes")
+            )
+            if ok_bind:
                 try:
                     real = ext_early.__class__.__name__
-                    _dbg(f"select_edge: 早绑定 Extension 类名={real} 有InvokeTypes=True")
+                    _dbg(f"select_edge: 早绑定 Extension 类名={real} _oleobj_有InvokeTypes=True")
                     ok = bool(ext_early.SelectByID2("", "EDGE", x, y, 0.0, True, 0, None, 0))
                     if ok:
                         return True
@@ -2052,7 +2061,7 @@ def _select_edge_at(draw_model: object, view: object, x: float, y: float) -> boo
                 except Exception as exc:
                     _dbg(f"select_edge: 早绑定 SelectByID2 抛 {type(exc).__name__}: {exc}, 回退 late-bind")
             else:
-                _dbg("select_edge: Extension 早绑定未成功(无InvokeTypes), 回退 late-bind")
+                _dbg("select_edge: Extension 早绑定未成功, 回退 late-bind")
 
         ext = getattr(draw_model, "Extension", None)
         if ext is None:
